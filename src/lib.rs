@@ -8,6 +8,9 @@
 extern crate generic_array;
 
 #[macro_use]
+extern crate lazy_static;
+
+#[macro_use]
 extern crate error_chain;
 extern crate region;
 extern crate libc;
@@ -23,6 +26,7 @@ mod inline;
 mod util;
 mod vmt;
 
+// TODO: Should this be used if it requires an import?
 /// Interface for a detour trait object.
 pub trait Detour: Drop {
     /// Enable the detour.

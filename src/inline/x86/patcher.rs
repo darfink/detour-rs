@@ -17,6 +17,10 @@ impl Patcher {
     // TODO: add relay function for x64
     // TODO: allocate memory close to target
     pub unsafe fn new(target: *const (), detour: *const (), prolog_size: usize) -> Result<Patcher> {
+        // Ensure that the detour can be reached with a relative jump
+        #[cfg(target_arch = "x86_64")]
+        assert!((target as isize - detour as isize).abs() < i32::max_value() as isize);
+
         let jump_rel32_size = mem::size_of::<thunk::x86::JumpRel>();
         let jump_rel08_size = mem::size_of::<thunk::x86::JumpShort>();
 

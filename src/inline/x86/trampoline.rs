@@ -1,5 +1,7 @@
 use std::{slice, mem};
+
 use libc;
+
 use error::*;
 use inline::pic;
 use super::{udis, thunk};
@@ -9,6 +11,8 @@ pub struct Trampoline {
     prolog_size: usize,
 }
 
+// TODO: add support for hot patch below function if ret was found (CGunTarget::ObjectCaps)
+// TODO: use memory pool
 impl Trampoline {
     /// Constructs a new trampoline for the specified function.
     pub unsafe fn new(target: *const(), margin: usize) -> Result<Trampoline> {
@@ -47,6 +51,7 @@ struct TrampolineGen {
     margin: usize,
 }
 
+// TODO: should larger margins be accounted for?
 impl TrampolineGen {
     /// Processes a function until `margin` bytes have been disassembled.
     pub unsafe fn process(disassembler: udis::ud, target: *const(), margin: usize) -> Result<(pic::Generator, usize)> {
@@ -82,7 +87,7 @@ impl TrampolineGen {
             if self.total_bytes_disassembled >= self.margin && !self.finished {
                 // The entire prolog is available - determine the next instruction
                 let next_instruction_address = state.instruction
-                    .as_ptr().offset(state.instruction.len() as isize) as usize;
+                    .as_ptr().offset(state.instruction.len() as isize);
 
                 // Add a jump to the first instruction after the prolog
                 generator.add_thunk(thunk::jmp(mem::transmute(next_instruction_address)));
@@ -116,38 +121,70 @@ impl TrampolineGen {
 
     /// Analyses and modifies an instruction if required.
     unsafe fn process_instruction(&mut self, state: &State) -> Result<Box<pic::Thunkable>> {
-        if Self::is_rip_relative(&self.disassembler) && cfg!(target_arch = "x86_64") {
-            self.handle_rip_relative_instruction(state)
-        } else if Self::is_return(state.mnemonic) {
-            self.handle_return(state)
-        } else if let Some(relop) = Self::find_relative_operand(&self.disassembler.operand) {
+        if let Some(relop) = Self::find_rip_relative_operand(&self.disassembler.operand) {
+            self.handle_rip_relative_instruction(state, relop)
+        } else if let Some(relop) = Self::find_branch_relative_operand(&self.disassembler.operand) {
             self.handle_relative_branch(state, relop)
         } else {
+            if Self::is_return(state.mnemonic) {
+                // TODO: move this repetetive check to a helper
+                // In case the operand is not placed in a branch, the function
+                // returns unconditionally, which means that it terminates here.
+                self.finished = self.jump_address.map_or(true, |offset| state.instruction.as_ptr() as usize >= offset);
+            }
+
             // The instruction does not use any position-dependant operands,
             // therefore the bytes can be copied directly from source.
             Ok(Box::new(state.instruction.to_vec()))
         }
     }
 
-    /// Adjusts the offsets for RIP relative operands.
-    unsafe fn handle_rip_relative_instruction(&mut self, state: &State) -> Result<Box<pic::Thunkable>> {
-        // TODO: Implement dis shit
-        Ok(Box::new(state.instruction.to_vec()))
-    }
+    /// Adjusts the offsets for RIP relative operands. They are only available
+    /// in x64 processes. The operands offsets needs to be adjusted for their
+    /// new position. An example would be:
+    ///
+    /// ```asm
+    /// mov eax, [rip+0x10]   ; the displacement before relocation
+    /// mov eax, [rip+0x4892] ; a theoretical adjustment after relocation
+    /// ```
+    unsafe fn handle_rip_relative_instruction(&mut self,
+                                              state: &State,
+                                              relative_operand: udis::ud_operand)
+                                              -> Result<Box<pic::Thunkable>> {
+        // If the instruction is an absolute indirect jump, processing stops here
+        self.finished = Self::is_jmp(state.mnemonic);
 
-    /// Determines whether the function ends at a `ret` or not.
-    unsafe fn handle_return(&mut self, state: &State) -> Result<Box<pic::Thunkable>> {
-        // TODO: move this repetetive check to a helper
-        // In case the operand is not placed in a branch, the function
-        // returns unconditionally, which means that it terminates here.
-        self.finished = self.jump_address.map_or(true, |offset| state.instruction.as_ptr() as usize >= offset);
-        Ok(Box::new(state.instruction.to_vec()))
+        // These need to be captured by the closure
+        let instruction_address = state.instruction.as_ptr() as usize;
+        let instruction_bytes = state.instruction.to_vec();
+        let instruction_size = state.instruction.len();
+
+        Ok(Box::new(pic::Dynamic::new(move |offset| {
+            let mut bytes = instruction_bytes.clone();
+
+            // The operands displacement (e.g `mov eax, [rip+0x10]` == 0x10)
+            let displacement = relative_operand.lval.udword as usize;
+
+            // Calculate the new relative displacement for the operand
+            let adjusted_displacement = instruction_address
+                .wrapping_add(displacement)
+                .wrapping_sub(offset) as u32;
+            let as_bytes: [u8; 4] = mem::transmute(adjusted_displacement);
+
+            // The displacement value is placed at (instruction - immediate value length - 4)
+            let index = instruction_size - relative_operand.size as usize - mem::size_of::<u32>();
+
+            // Write the adjusted displacement offset to the operand
+            bytes[index..instruction_size].copy_from_slice(&as_bytes);
+            bytes
+        }, instruction_size)))
     }
 
     /// Processes relative branches (e.g `call`, `loop`, `jne`).
     unsafe fn handle_relative_branch(&mut self,
                                      state: &State,
-                                     relative_operand: udis::ud_operand) -> Result<Box<pic::Thunkable>> {
+                                     relative_operand: udis::ud_operand)
+                                     -> Result<Box<pic::Thunkable>> {
         // Acquire the immediate value from the operand
         let relative_offset = match relative_operand.size {
             8 => relative_operand.lval.ubyte as usize,
@@ -191,14 +228,16 @@ impl TrampolineGen {
         }
     }
 
-    /// Returns the instructions relative operand if found
-    fn find_relative_operand(operands: &[udis::ud_operand]) -> Option<udis::ud_operand> {
+    /// Returns the instructions relative branch operand if found.
+    fn find_branch_relative_operand(operands: &[udis::ud_operand]) -> Option<udis::ud_operand> {
         operands.iter().find(|op| op.otype == udis::ud_type::UD_OP_JIMM).map(|op| *op)
     }
 
-    /// Returns true if the instruction uses RIP relative addressing.
-    fn is_rip_relative(disassembler: &udis::ud) -> bool {
-        disassembler.have_modrm != 0 && disassembler.modrm & 0b11000111 == 0x5
+    /// Returns the instructions RIP relative operand if found.
+    fn find_rip_relative_operand(operands: &[udis::ud_operand]) -> Option<udis::ud_operand> {
+        operands.iter().find(|op| {
+            op.otype == udis::ud_type::UD_OP_MEM && op.base == udis::ud_type::UD_R_RIP
+        }).map(|op| *op)
     }
 
     /// Returns true if the opcode is `jmp`.

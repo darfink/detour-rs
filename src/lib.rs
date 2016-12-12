@@ -1,20 +1,18 @@
 #![recursion_limit = "1024"]
-#![feature(naked_functions)]
 #![feature(range_contains)]
-#![feature(core_intrinsics)]
-#![feature(asm)]
+#![cfg_attr(test, feature(naked_functions))]
+#![cfg_attr(test, feature(core_intrinsics))]
+#![cfg_attr(test, feature(asm))]
 
-#[macro_use]
-extern crate generic_array;
-
-#[macro_use]
-extern crate lazy_static;
-
-#[macro_use]
-extern crate error_chain;
+#[macro_use] extern crate cfg_if;
+#[macro_use] extern crate generic_array;
+#[macro_use] extern crate lazy_static;
+#[macro_use] extern crate error_chain;
 extern crate region;
 extern crate libc;
-extern crate memmap;
+extern crate mmap;
+extern crate slice_pool;
+extern crate boolinator;
 
 // Re-exports
 pub use vmt::Virtual;
@@ -67,7 +65,7 @@ mod tests {
         let vo = VirtualObject { vtable: &table, value: 5 };
 
         unsafe {
-            let replacement = mem::transmute(&vmt_basic);
+            let replacement = mem::transmute(&sub);
             let mut hook = Virtual::new(&vo, 0, replacement).unwrap();
 
             assert_eq!(hook.is_hooked(), false);

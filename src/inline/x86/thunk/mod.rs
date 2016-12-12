@@ -1,6 +1,4 @@
 #![allow(dead_code)]
-use generic_array::{GenericArray, ArrayLength};
-use inline::pic;
 
 /// Implements x86 operations
 pub mod x86;
@@ -25,24 +23,3 @@ mod arch {
 
 // Export the default architecture
 pub use self::arch::*;
-
-/// A closure that generates a thunk.
-pub struct Thunk<N: ArrayLength<u8>>(Box<Fn(usize) -> GenericArray<u8, N>>);
-
-impl<N: ArrayLength<u8>> Thunk<N> {
-    /// Constructs a new thunk with a specific closure.
-    fn new<T: Fn(usize) -> GenericArray<u8, N> + 'static>(callback: T) -> Self {
-        Thunk(Box::new(callback))
-    }
-}
-
-/// Thunks implement the thunkable interface.
-impl<N: ArrayLength<u8>> pic::Thunkable for Thunk<N> {
-    fn generate(&self, address: usize) -> Vec<u8> {
-        self.0(address).to_vec()
-    }
-
-    fn len(&self) -> usize {
-        N::to_usize()
-    }
-}

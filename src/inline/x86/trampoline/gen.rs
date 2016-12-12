@@ -1,38 +1,7 @@
 use std::{slice, mem};
-
-use libc;
-
-use error::*;
+use inline::x86::{udis, thunk};
 use inline::pic;
-use super::{udis, thunk};
-
-pub struct Trampoline {
-    generator: pic::Generator,
-    prolog_size: usize,
-}
-
-// TODO: add support for hot patch below function if ret was found (CGunTarget::ObjectCaps)
-// TODO: use memory pool
-impl Trampoline {
-    /// Constructs a new trampoline for the specified function.
-    pub unsafe fn new(target: *const(), margin: usize) -> Result<Trampoline> {
-        let (generator, prolog_size) = TrampolineGen::process(udis_create(target), target, margin)?;
-        Ok(Trampoline {
-            prolog_size: prolog_size,
-            generator: generator,
-        })
-    }
-
-    /// Returns a reference to the trampoline's generator.
-    pub fn generator(&self) -> &pic::Generator {
-        &self.generator
-    }
-
-    /// Returns the size of the prolog (i.e the amount of disassembled bytes).
-    pub fn prolog_size(&self) -> usize {
-        self.prolog_size
-    }
-}
+use error::*;
 
 /// State describing the current instruction being processed.
 #[derive(Debug)]
@@ -42,7 +11,7 @@ struct State {
 }
 
 /// A trampoline generator (x86/x64).
-struct TrampolineGen {
+pub struct Generator {
     disassembler: udis::ud,
     total_bytes_disassembled: usize,
     jump_address: Option<usize>,
@@ -51,11 +20,11 @@ struct TrampolineGen {
     margin: usize,
 }
 
-// TODO: should larger margins be accounted for?
-impl TrampolineGen {
+// TODO: should margins larger than 5 bytes be accounted for?
+impl Generator {
     /// Processes a function until `margin` bytes have been disassembled.
-    pub unsafe fn process(disassembler: udis::ud, target: *const(), margin: usize) -> Result<(pic::Generator, usize)> {
-        TrampolineGen {
+    pub unsafe fn process(disassembler: udis::ud, target: *const(), margin: usize) -> Result<(pic::CodeBuilder, usize)> {
+        Generator {
             disassembler: disassembler,
             total_bytes_disassembled: 0,
             jump_address: None,
@@ -66,8 +35,8 @@ impl TrampolineGen {
     }
 
     /// Internal implementation for the `process` function.
-    pub unsafe fn process_impl(mut self) -> Result<(pic::Generator, usize)> {
-        let mut generator = pic::Generator::new();
+    pub unsafe fn process_impl(mut self) -> Result<(pic::CodeBuilder, usize)> {
+        let mut builder = pic::CodeBuilder::new();
 
         while !self.finished {
             let state = self.next_instruction()?;
@@ -80,7 +49,7 @@ impl TrampolineGen {
                 state.instruction.len() != thunk.len() {
                 bail!(ErrorKind::UnsupportedRelativeBranch);
             } else {
-                generator.add_thunk(thunk);
+                builder.add_thunk(thunk);
             }
 
             // Determine whether enough bytes for the margin has been disassembled
@@ -90,15 +59,15 @@ impl TrampolineGen {
                     .as_ptr().offset(state.instruction.len() as isize);
 
                 // Add a jump to the first instruction after the prolog
-                generator.add_thunk(thunk::jmp(mem::transmute(next_instruction_address)));
+                builder.add_thunk(thunk::jmp(mem::transmute(next_instruction_address)));
                 self.finished = true;
             }
         }
 
-        Ok((generator, self.total_bytes_disassembled))
+        Ok((builder, self.total_bytes_disassembled))
     }
 
-    /// Disassembles the next instruction and returns the current state.
+    /// Disassembles the next instruction and returns the new state.
     unsafe fn next_instruction(&mut self) -> Result<State> {
         let instruction_bytes = udis::ud_disassemble(&mut self.disassembler) as usize;
         if instruction_bytes == 0 {
@@ -145,7 +114,7 @@ impl TrampolineGen {
     ///
     /// ```asm
     /// mov eax, [rip+0x10]   ; the displacement before relocation
-    /// mov eax, [rip+0x4892] ; a theoretical adjustment after relocation
+    /// mov eax, [rip+0x4892] ; theoretical adjustment after relocation
     /// ```
     unsafe fn handle_rip_relative_instruction(&mut self,
                                               state: &State,
@@ -155,31 +124,38 @@ impl TrampolineGen {
         self.finished = Self::is_jmp(state.mnemonic);
 
         // These need to be captured by the closure
-        let instruction_address = state.instruction.as_ptr() as usize;
+        let instruction_address = state.instruction.as_ptr() as isize;
         let instruction_bytes = state.instruction.to_vec();
         let instruction_size = state.instruction.len();
 
-        Ok(Box::new(pic::Dynamic::new(move |offset| {
+        // TODO: Nothing should be done if `displacement` is negative and within the prolog.
+        Ok(Box::new(pic::UnsafeThunk::new(move |offset| {
             let mut bytes = instruction_bytes.clone();
 
-            // The operands displacement (e.g `mov eax, [rip+0x10]` == 0x10)
-            let displacement = relative_operand.lval.udword as usize;
+            // The operands displacement (e.g `mov eax, [rip+0x10]` → 0x10)
+            let displacement = relative_operand.lval.sdword as isize;
 
-            // Calculate the new relative displacement for the operand
+            // Calculate the new relative displacement for the operand. The
+            // instruction is relative so the offset (i.e where the trampoline is
+            // allocated), must be within a range of +/- 2GB.
             let adjusted_displacement = instruction_address
-                .wrapping_add(displacement)
-                .wrapping_sub(offset) as u32;
-            let as_bytes: [u8; 4] = mem::transmute(adjusted_displacement);
+                .wrapping_sub(offset as isize)
+                .wrapping_add(displacement);
 
-            // The displacement value is placed at (instruction - immediate value length - 4)
-            let index = instruction_size - relative_operand.size as usize - mem::size_of::<u32>();
+            let operand_range = (i32::min_value() as isize)..(i32::max_value() as isize);
+            assert!(operand_range.contains(adjusted_displacement));
+
+            // The displacement value is placed at (instruction - disp32)
+            let index = instruction_size - mem::size_of::<u32>();
 
             // Write the adjusted displacement offset to the operand
+            let as_bytes: [u8; 4] = mem::transmute(adjusted_displacement as u32);
             bytes[index..instruction_size].copy_from_slice(&as_bytes);
             bytes
         }, instruction_size)))
     }
 
+    // TODO: Add test for external loop and unsupported branches
     /// Processes relative branches (e.g `call`, `loop`, `jne`).
     unsafe fn handle_relative_branch(&mut self,
                                      state: &State,
@@ -187,8 +163,9 @@ impl TrampolineGen {
                                      -> Result<Box<pic::Thunkable>> {
         // Acquire the immediate value from the operand
         let relative_offset = match relative_operand.size {
-            8 => relative_operand.lval.ubyte as usize,
-            _ => relative_operand.lval.udword as usize,
+            8  => relative_operand.lval.ubyte as usize,
+            32 => relative_operand.lval.udword as usize,
+            _  => unreachable!(),
         };
 
         // Calculate the absolute address of the target destination
@@ -196,7 +173,7 @@ impl TrampolineGen {
                                     + relative_offset;
 
         if state.mnemonic == udis::ud_mnemonic_code::UD_Icall {
-            // Calls are a non-issue since they return to the original address
+            // Calls are not an issue since they return to the original address
             return Ok(thunk::call(mem::transmute(destination_address_abs)));
         }
 
@@ -250,22 +227,3 @@ impl TrampolineGen {
         mnemonic == udis::ud_mnemonic_code::UD_Iret
     }
 }
-
-/// Creates a default x86 disassembler
-unsafe fn udis_create(target: *const ()) -> udis::ud {
-    let mut ud = mem::zeroed();
-    udis::ud_init(&mut ud);
-    udis::ud_set_user_opaque_data(&mut ud, target as *mut _);
-    udis::ud_set_input_hook(&mut ud, Some(udis_read_address));
-    udis::ud_set_mode(&mut ud, (mem::size_of::<usize>() * 8) as u8);
-    ud
-}
-
-/// Reads one byte from a pointer an advances it one byte.
-unsafe extern "C" fn udis_read_address(ud: *mut udis::ud) -> libc::c_int {
-    let pointer = udis::ud_get_user_opaque_data(ud) as *mut u8;
-    let result = *pointer;
-    udis::ud_set_user_opaque_data(ud, pointer.offset(1) as *mut _);
-    result as _
-}
-

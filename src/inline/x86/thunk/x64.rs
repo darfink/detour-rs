@@ -1,7 +1,6 @@
 use std::mem;
 use generic_array::{GenericArray, typenum};
-use inline::pic::Thunkable;
-use super::*;
+use inline::pic::{Thunkable, StaticThunk};
 
 #[repr(packed)]
 pub struct CallAbs {
@@ -16,22 +15,6 @@ pub struct CallAbs {
     address: u64,
 }
 
-pub unsafe fn call_abs(address: u64) -> Box<Thunkable> {
-    Box::new(Thunk::<typenum::U16>::new(move |_| {
-        let code = CallAbs {
-            opcode0: 0xFF,
-            opcode1: 0x15,
-            dummy0: 0x000000002,
-            dummy1: 0xEB,
-            dummy2: 0x08,
-            address: address,
-        };
-
-        let slice: [u8; 16] = mem::transmute(code);
-        GenericArray::from_slice(&slice)
-    }))
-}
-
 #[repr(packed)]
 pub struct JumpAbs {
     // jmp +6
@@ -40,20 +23,6 @@ pub struct JumpAbs {
     dummy0: u32,
     // destination
     address: u64,
-}
-
-pub unsafe fn jmp_abs(address: u64) -> Box<Thunkable> {
-    Box::new(Thunk::<typenum::U14>::new(move |_| {
-        let code = JumpAbs {
-            opcode0: 0xFF,
-            opcode1: 0x25,
-            dummy0: 0x000000000,
-            address: address,
-        };
-
-        let slice: [u8; 14] = mem::transmute(code);
-        GenericArray::from_slice(&slice)
-    }))
 }
 
 #[repr(packed)]
@@ -68,8 +37,38 @@ pub struct JccAbs {
     address: u64,
 }
 
-pub unsafe fn jcc_abs(address: u64, condition: u8) -> Box<Thunkable> {
-    Box::new(Thunk::<typenum::U16>::new(move |_| {
+pub fn call_abs(address: u64) -> Box<Thunkable> {
+    Box::new(StaticThunk::<typenum::U16>::new(move |_| {
+        let code = CallAbs {
+            opcode0: 0xFF,
+            opcode1: 0x15,
+            dummy0: 0x000000002,
+            dummy1: 0xEB,
+            dummy2: 0x08,
+            address: address,
+        };
+
+        let slice: [u8; 16] = unsafe { mem::transmute(code) };
+        GenericArray::from_slice(&slice)
+    }))
+}
+
+pub fn jmp_abs(address: u64) -> Box<Thunkable> {
+    Box::new(StaticThunk::<typenum::U14>::new(move |_| {
+        let code = JumpAbs {
+            opcode0: 0xFF,
+            opcode1: 0x25,
+            dummy0: 0x000000000,
+            address: address,
+        };
+
+        let slice: [u8; 14] = unsafe { mem::transmute(code) };
+        GenericArray::from_slice(&slice)
+    }))
+}
+
+pub fn jcc_abs(address: u64, condition: u8) -> Box<Thunkable> {
+    Box::new(StaticThunk::<typenum::U16>::new(move |_| {
         let code = JccAbs {
             // Invert the condition in x64 mode to simplify the conditional jump logic
             opcode: 0x71 ^ condition,
@@ -80,7 +79,7 @@ pub unsafe fn jcc_abs(address: u64, condition: u8) -> Box<Thunkable> {
             address: address,
         };
 
-        let slice: [u8; 16] = mem::transmute(code);
+        let slice: [u8; 16] = unsafe { mem::transmute(code) };
         GenericArray::from_slice(&slice)
     }))
 }

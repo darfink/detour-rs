@@ -1,6 +1,6 @@
 use std::mem;
 use generic_array::{GenericArray, typenum};
-use inline::pic::{Thunkable, StaticThunk};
+use pic::{Thunkable, StaticThunk};
 
 #[repr(packed)]
 pub struct CallAbs {

@@ -5,9 +5,10 @@
 #![cfg_attr(test, feature(asm))]
 
 #[macro_use] extern crate cfg_if;
+#[macro_use] extern crate error_chain;
 #[macro_use] extern crate generic_array;
 #[macro_use] extern crate lazy_static;
-#[macro_use] extern crate error_chain;
+#[macro_use] extern crate matches;
 extern crate region;
 extern crate libc;
 extern crate mmap;
@@ -15,29 +16,25 @@ extern crate slice_pool;
 extern crate boolinator;
 
 // Re-exports
-pub use vmt::Virtual;
-pub use inline::Inline;
+pub use self::detour::InlineDetour;
 
 // Modules
 pub mod error;
-mod inline;
+mod alloc;
+mod detour;
+mod pic;
 mod util;
-mod vmt;
 
-// TODO: Should this be used if it requires an import?
-/// Interface for a detour trait object.
-pub trait Detour: Drop {
-    /// Enable the detour.
-    unsafe fn enable(&mut self) -> error::Result<()>;
+//#[macro_use]
+//mod macros;
 
-    /// Disable the detour.
-    unsafe fn disable(&mut self) -> error::Result<()>;
-
-    /// Returns a callable address to the original function.
-    fn callable_address(&self) -> *const ();
-
-    /// Returns whether the target is hooked or not.
-    fn is_hooked(&self) -> bool;
+cfg_if! {
+    if #[cfg(any(target_arch = "x86", target_arch = "x86_64"))] {
+        mod x86;
+        use self::x86 as arch;
+    } else {
+        // Implement ARM support!
+    }
 }
 
 #[cfg(test)]
@@ -53,40 +50,10 @@ mod tests {
         x - y
     }
 
-    // Represents a C++ object with a virtual method table
-    struct VirtualObject {
-        pub vtable: *const [*const (); 1],
-        pub value: i32,
-    }
-
-    #[test]
-    fn vmt_basic() {
-        let table = [add as *const ()];
-        let vo = VirtualObject { vtable: &table, value: 5 };
-
-        unsafe {
-            let replacement = mem::transmute(&sub);
-            let mut hook = Virtual::new(&vo, 0, replacement).unwrap();
-
-            assert_eq!(hook.is_hooked(), false);
-            assert!((*vo.vtable)[0] == add as *const ());
-
-            hook.enable().unwrap();
-            {
-                assert!((*vo.vtable)[0] == replacement);
-                assert!(hook.is_hooked());
-            }
-            hook.disable().unwrap();
-
-            assert_eq!(hook.is_hooked(), false);
-            assert!((*vo.vtable)[0] == add as *const ());
-        }
-    }
-
     #[test]
     fn inline_basic() {
         unsafe {
-            let mut hook = Inline::new(add as *const (), sub as *const ()).unwrap();
+            let mut hook = InlineDetour::new(add as *const (), sub as *const ()).unwrap();
 
             assert_eq!(add(10, 5), 15);
             hook.enable().unwrap();
@@ -100,16 +67,12 @@ mod tests {
         }
     }
 
-    //static_hook! {
+    //static_hooks! {
     //    DetourAdd: extern "C" fn(i32, i32) -> i32;
     //}
 
     //#[test]
-    //fn it_works() {
-    //    let mut detour = DetourAdd::new(&add, |x, y| x - y);
-
-    //    assert_eq!(add(5, 5), 10);
-    //    detour.toggle(|| assert_eq!(add(5, 5), 0));
-    //    assert_eq!(add(5, 5), 10);
+    //fn static_basic() {
+    //    let mut detour = unsafe { DetourAdd::new(add, |x, y| x - y) }.unwrap();
     //}
 }

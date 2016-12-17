@@ -1,10 +1,9 @@
 use std::{mem, slice};
 use region;
 
-use super::thunk;
-use inline::pic;
+use {util, pic};
 use error::*;
-use util;
+use super::thunk;
 
 pub struct Patcher {
     patched: bool,
@@ -14,6 +13,7 @@ pub struct Patcher {
 }
 
 impl Patcher {
+    /// Creates a new detour patcher for a specific function.
     pub unsafe fn new(target: *const (), detour: *const (), prolog_size: usize) -> Result<Patcher> {
         // Ensure that the detour can be reached with a relative jump (+/- 2GB)
         #[cfg(target_arch = "x86_64")]
@@ -21,7 +21,7 @@ impl Patcher {
 
         // Calculate the patch area (i.e if a short or long jump should be used)
         let patch_area = Self::get_patch_area(target, prolog_size)?;
-        let hook = Self::create_hook_template(detour, patch_area);
+        let hook = Self::hook_builder(detour, patch_area);
 
         let patch_address = patch_area.as_ptr() as *const ();
         let patch_code = patch_area.to_vec();
@@ -102,8 +102,8 @@ impl Patcher {
         }
     }
 
-    /// Creates detour code for the targetted patch area.
-    fn create_hook_template(detour: *const (), patch_area: &[u8]) -> pic::CodeBuilder {
+    /// Creates template code for the targetted patch area.
+    fn hook_builder(detour: *const (), patch_area: &[u8]) -> pic::CodeBuilder {
         let mut builder = pic::CodeBuilder::new();
 
         // Both hot patch and normal detours use a relative long jump

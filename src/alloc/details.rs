@@ -11,7 +11,7 @@ lazy_static! {
 }
 
 /// Defines the allocation type.
-pub type AllocType = PoolVal<u8>;
+pub type Allocation = PoolVal<u8>;
 
 /// Shared instance containing all pools
 pub struct Allocator {
@@ -19,14 +19,9 @@ pub struct Allocator {
     pub pools: Vec<SlicePool<u8>>,
 }
 
-// TODO: Search backwards for regions as well
 impl Allocator {
-    /// Releases the associated memory pool, if it contains no more references.
-    pub fn release(&mut self, value: &AllocType) {
-    }
-
     /// Allocates a slice in an eligible memory map.
-    pub fn allocate(&mut self, origin: *const (), size: usize) -> Result<AllocType> {
+    pub fn allocate(&mut self, origin: *const (), size: usize) -> Result<Allocation> {
         let memory_range = ((origin as usize).saturating_sub(self.max_distance))
                          ..((origin as usize).saturating_add(self.max_distance));
 
@@ -42,8 +37,25 @@ impl Allocator {
         })
     }
 
+    /// Releases the memory pool associated with an allocation.
+    pub fn release(&mut self, value: &Allocation) {
+        // Find the associated memory pool
+        let index = self.pools.iter().position(|pool| {
+            let lower = pool.as_ptr() as usize;
+            let upper = lower + pool.len();
+
+            // Determine if this is the associated memory pool
+            (lower..upper).contains(value.as_ptr() as usize)
+        }).unwrap();
+
+        // Release the pool if the associated allocation is unique
+        if self.pools[index].allocations() == 1 {
+            self.pools.remove(index);
+        }
+    }
+
     /// Allocates a chunk using any of the existing pools.
-    fn allocate_existing(&mut self, range: &Range<usize>, size: usize) -> Option<AllocType> {
+    fn allocate_existing(&mut self, range: &Range<usize>, size: usize) -> Option<Allocation> {
         // Returns true if the pool's memory is within the range
         let is_pool_in_range = |pool: &SlicePool<u8>| {
             let lower = pool.as_ptr();
@@ -62,31 +74,17 @@ impl Allocator {
                      range: &Range<usize>,
                      origin: *const (),
                      size: usize) -> Result<SlicePool<u8>> {
-        while let Some(address) = Self::find_free_region(origin as *const (), range)? {
-            if let Some(pool) = Self::allocate_region_pool(address, size) {
-                return Ok(pool);
+        let after = RegionFreeIter::new(origin, Some(range.clone()), RegionSearch::After);
+        let before = RegionFreeIter::new(origin, Some(range.clone()), RegionSearch::Before);
+
+        // Try to allocate after the specified address first (mostly because
+        // macOS cannot allocate memory before the process's address).
+        after.chain(before).filter_map(|result| {
+            match result {
+                Ok(address) => Self::allocate_region_pool(address, size).map(Ok),
+                Err(error) => Some(Err(error)),
             }
-        }
-
-        bail!(ErrorKind::OutOfMemory);
-    }
-
-    /// Returns the closest free region for the specified address.
-    fn find_free_region(origin: *const (), range: &Range<usize>) -> Result<Option<*const ()>> {
-        let mut target = origin as *const u8;
-
-        while range.contains(target as usize) {
-            match region::query(target) {
-                // This chunk is occupied, so advance to the next region
-                Ok(region) => target = region.upper() as *const u8,
-                Err(error) => return match error.kind() {
-                    &region::error::ErrorKind::Freed => Ok(Some(target as *const _)),
-                    _ => Err(error.into()),
-                }
-            }
-        }
-
-        Ok(None)
+        }).next().unwrap_or(Err(ErrorKind::OutOfMemory.into()))
     }
 
     /// Tries to allocate fixed memory at the specified address.
@@ -106,6 +104,7 @@ impl Allocator {
     }
 }
 
+// TODO: Use memmap-rs instead
 /// A wrapper for making a memory map compatible with `SlicePool`.
 struct SliceableMemoryMap(mmap::MemoryMap);
 
@@ -125,4 +124,58 @@ impl AsRef<[u8]> for SliceableMemoryMap {
 
 impl AsMut<[u8]> for SliceableMemoryMap {
     fn as_mut(&mut self) -> &mut [u8] { self.as_mut_slice() }
+}
+
+/// Direction for the region search.
+pub enum RegionSearch {
+    Before,
+    After,
+}
+
+/// An iterator searching for free regions.
+pub struct RegionFreeIter {
+    range: Range<usize>,
+    search: RegionSearch,
+    current: usize,
+}
+
+impl RegionFreeIter {
+    /// Creates a new iterator for free regions.
+    pub fn new(origin: *const (), range: Option<Range<usize>>, search: RegionSearch) -> Self {
+        RegionFreeIter {
+            range: range.unwrap_or(0..usize::max_value()),
+            current: origin as usize,
+            search: search,
+        }
+    }
+}
+
+impl Iterator for RegionFreeIter {
+    type Item = Result<*const ()>;
+
+    /// Returns the next free region for the current address.
+    fn next(&mut self) -> Option<Self::Item> {
+        let page_size = region::page_size();
+
+        while self.current > 0 && self.range.contains(self.current) {
+            match region::query(self.current as *const _) {
+                Ok(region) => self.current = match self.search {
+                    RegionSearch::Before => region.lower().saturating_sub(page_size),
+                    RegionSearch::After => region.upper(),
+                },
+                Err(error) => {
+                    match self.search {
+                        RegionSearch::Before => self.current -= page_size,
+                        RegionSearch::After => self.current += page_size,
+                    }
+
+                    // Check whether the region is free, otherwise return the error
+                    return Some(matches!(error.kind(), &region::error::ErrorKind::Freed)
+                        .as_result(self.current as *const _, error.into()));
+                },
+            }
+        }
+
+        None
+    }
 }

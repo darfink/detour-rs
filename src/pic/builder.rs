@@ -7,7 +7,7 @@ pub struct CodeBuilder {
 
 /// Used for combining PIC segments.
 impl CodeBuilder {
-    /// Constructs a new code holder.
+    /// Constructs a new code builder.
     pub fn new() -> Self {
         CodeBuilder { thunks: Vec::new() }
     }

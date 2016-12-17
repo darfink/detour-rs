@@ -1,4 +1,7 @@
 extern crate libudis86_sys as udis;
+use std::mem;
+use error::*;
+use pic;
 
 // Re-exports
 pub use self::patcher::Patcher;
@@ -9,15 +12,26 @@ mod patcher;
 mod trampoline;
 mod thunk;
 
+/// Creates a relay. Required for destinations further away than 2GB.
+pub unsafe fn relay_builder(destination: *const ()) -> Result<Option<pic::CodeBuilder>> {
+    if cfg!(target_arch = "x86_64") {
+        let mut builder = pic::CodeBuilder::new();
+        builder.add_thunk(thunk::jmp(mem::transmute(destination)));
+        Ok(Some(builder))
+    } else {
+        Ok(None)
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use Detour;
-    use inline::Inline;
     use std::mem;
+    use InlineDetour;
+    use error::*;
 
     /// Detours a C function returning an integer, and asserts all results.
     unsafe fn detour_test(target: funcs::CRet, result: i32) {
-        let mut hook = Inline::new(target as *const (), funcs::ret10 as *const ()).unwrap();
+        let mut hook = InlineDetour::new(target as *const (), funcs::ret10 as *const ()).unwrap();
 
         assert_eq!(target(), result);
         hook.enable().unwrap();
@@ -47,12 +61,27 @@ mod tests {
     }
 
     #[test]
+    fn detour_external_loop() {
+        unsafe {
+            let error = InlineDetour::new(funcs::external_loop as *const (),
+                                          funcs::ret10 as *const ()).unwrap_err();
+            assert!(matches!(error.kind(), &ErrorKind::ExternalLoop));
+        }
+    }
+
+    #[test]
     #[cfg(target_arch = "x86_64")]
     fn detour_rip_relative() {
         unsafe { detour_test(funcs::rip_relative_ret195, 195); }
     }
 
-    /// Exports assembly specific functions.
+    #[test]
+    #[cfg(target_arch = "x86_64")]
+    fn detour_rip_relative_neg() {
+        unsafe { detour_test(funcs::rip_relative_neg_ret49, 49); }
+    }
+
+    /// Case specific functions.
     mod funcs {
         pub type CRet = unsafe extern "C" fn() -> i32;
 
@@ -95,6 +124,17 @@ mod tests {
         }
 
         #[naked]
+        pub unsafe extern "C" fn external_loop() -> i32 {
+            asm!("loop dest
+                  nop
+                  nop
+                  nop
+                dest:"
+                 :::: "intel");
+            ::std::intrinsics::unreachable();
+        }
+
+        #[naked]
         #[cfg(target_arch = "x86_64")]
         pub unsafe extern "C" fn rip_relative_ret195() -> i32 {
             asm!("xor eax, eax
@@ -107,7 +147,20 @@ mod tests {
             ::std::intrinsics::unreachable();
         }
 
-        /// The default detour target.
+        #[naked]
+        #[cfg(target_arch = "x86_64")]
+        pub unsafe extern "C" fn rip_relative_neg_ret49() -> i32 {
+            asm!("xor eax, eax
+                  mov al, [rip-0x8]
+                  nop
+                  nop
+                  nop
+                  ret"
+                 :::: "intel");
+            ::std::intrinsics::unreachable();
+        }
+
+        /// Default detour target.
         pub unsafe extern "C" fn ret10() -> i32 {
             10
         }

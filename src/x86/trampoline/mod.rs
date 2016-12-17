@@ -1,11 +1,12 @@
 use libc;
-use inline::x86::udis;
-use inline::pic;
 use error::*;
+
+use x86::udis;
+use pic;
 
 mod gen;
 
-// TODO: Document this sh111t
+/// An interface for creating a trampoline to a function.
 pub struct Trampoline {
     builder: pic::CodeBuilder,
     prolog_size: usize,

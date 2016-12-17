@@ -1,5 +1,5 @@
 use generic_array::{GenericArray, ArrayLength};
-use inline::pic;
+use pic;
 use super::Thunkable;
 
 /// A closure that generates a thunk.

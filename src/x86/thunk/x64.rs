@@ -37,7 +37,7 @@ pub struct JccAbs {
     address: u64,
 }
 
-pub fn call_abs(address: u64) -> Box<Thunkable> {
+pub fn call_abs(destination: u64) -> Box<Thunkable> {
     Box::new(StaticThunk::<typenum::U16>::new(move |_| {
         let code = CallAbs {
             opcode0: 0xFF,
@@ -45,7 +45,7 @@ pub fn call_abs(address: u64) -> Box<Thunkable> {
             dummy0: 0x000000002,
             dummy1: 0xEB,
             dummy2: 0x08,
-            address: address,
+            address: destination,
         };
 
         let slice: [u8; 16] = unsafe { mem::transmute(code) };
@@ -53,13 +53,13 @@ pub fn call_abs(address: u64) -> Box<Thunkable> {
     }))
 }
 
-pub fn jmp_abs(address: u64) -> Box<Thunkable> {
+pub fn jmp_abs(destination: u64) -> Box<Thunkable> {
     Box::new(StaticThunk::<typenum::U14>::new(move |_| {
         let code = JumpAbs {
             opcode0: 0xFF,
             opcode1: 0x25,
             dummy0: 0x000000000,
-            address: address,
+            address: destination,
         };
 
         let slice: [u8; 14] = unsafe { mem::transmute(code) };
@@ -67,7 +67,7 @@ pub fn jmp_abs(address: u64) -> Box<Thunkable> {
     }))
 }
 
-pub fn jcc_abs(address: u64, condition: u8) -> Box<Thunkable> {
+pub fn jcc_abs(destination: u64, condition: u8) -> Box<Thunkable> {
     Box::new(StaticThunk::<typenum::U16>::new(move |_| {
         let code = JccAbs {
             // Invert the condition in x64 mode to simplify the conditional jump logic
@@ -76,7 +76,7 @@ pub fn jcc_abs(address: u64, condition: u8) -> Box<Thunkable> {
             dummy1: 0xFF,
             dummy2: 0x25,
             dummy3: 0x00000000,
-            address: address,
+            address: destination,
         };
 
         let slice: [u8; 16] = unsafe { mem::transmute(code) };

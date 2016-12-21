@@ -12,15 +12,15 @@ mod patcher;
 mod trampoline;
 mod thunk;
 
-/// Creates a relay. Required for destinations further away than 2GB.
+/// Creates a relay; required for destinations further away than 2GB (on x64).
 pub unsafe fn relay_builder(destination: *const ()) -> Result<Option<pic::CodeBuilder>> {
     if cfg!(target_arch = "x86_64") {
         let mut builder = pic::CodeBuilder::new();
         builder.add_thunk(thunk::jmp(mem::transmute(destination)));
-        Ok(Some(builder))
-    } else {
-        Ok(None)
+        return Ok(Some(builder));
     }
+
+    Ok(None)
 }
 
 #[cfg(test)]
@@ -78,7 +78,7 @@ mod tests {
     #[test]
     #[cfg(target_arch = "x86_64")]
     fn detour_rip_relative_neg() {
-        unsafe { detour_test(funcs::rip_relative_neg_ret49, 49); }
+        unsafe { detour_test(funcs::rip_relative_prolog_ret49, 49); }
     }
 
     /// Case specific functions.
@@ -107,7 +107,8 @@ mod tests {
                   nop
                   nop
                   xor eax, eax
-                  ret"
+                  ret
+                  mov eax, 5"
                  :::: "intel");
             ::std::intrinsics::unreachable();
         }
@@ -149,12 +150,9 @@ mod tests {
 
         #[naked]
         #[cfg(target_arch = "x86_64")]
-        pub unsafe extern "C" fn rip_relative_neg_ret49() -> i32 {
+        pub unsafe extern "C" fn rip_relative_prolog_ret49() -> i32 {
             asm!("xor eax, eax
                   mov al, [rip-0x8]
-                  nop
-                  nop
-                  nop
                   ret"
                  :::: "intel");
             ::std::intrinsics::unreachable();

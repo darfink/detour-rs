@@ -1,6 +1,6 @@
 use super::Thunkable;
 
-/// Functionality for generating PIC.
+/// An interface for generating PIC.
 pub struct CodeBuilder {
     thunks: Vec<Box<Thunkable>>,
 }

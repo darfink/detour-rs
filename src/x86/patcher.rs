@@ -15,10 +15,6 @@ pub struct Patcher {
 impl Patcher {
     /// Creates a new detour patcher for a specific function.
     pub unsafe fn new(target: *const (), detour: *const (), prolog_size: usize) -> Result<Patcher> {
-        // Ensure that the detour can be reached with a relative jump (+/- 2GB)
-        #[cfg(target_arch = "x86_64")]
-        assert!((target as isize).wrapping_sub(detour as isize).abs() < i32::max_value() as isize);
-
         // Calculate the patch area (i.e if a short or long jump should be used)
         let patch_area = Self::get_patch_area(target, prolog_size)?;
         let hook = Self::hook_builder(detour, patch_area);
@@ -68,8 +64,8 @@ impl Patcher {
 
     /// Returns the patch area for a function, consisting of a long jump and possibly a short jump.
     unsafe fn get_patch_area(target: *const (), prolog_size: usize) -> Result<&'static mut [u8]> {
-        let jump_rel32_size = mem::size_of::<thunk::x86::JumpRel>();
         let jump_rel08_size = mem::size_of::<thunk::x86::JumpShort>();
+        let jump_rel32_size = mem::size_of::<thunk::x86::JumpRel>();
 
         // Check if there isn't enough space for a relative long jump
         if !Self::is_patchable(target, prolog_size, jump_rel32_size) {
@@ -107,7 +103,7 @@ impl Patcher {
         let mut builder = pic::CodeBuilder::new();
 
         // Both hot patch and normal detours use a relative long jump
-        builder.add_thunk(thunk::x86::jmp_rel32(detour as u32));
+        builder.add_thunk(thunk::x86::jmp_rel32(detour as usize));
 
         // The hot patch relies on a small jump to get to the long jump
         let jump_rel32_size = mem::size_of::<thunk::x86::JumpRel>();
@@ -125,14 +121,14 @@ impl Patcher {
     unsafe fn is_patchable(target: *const (), prolog_size: usize, patch_size: usize) -> bool {
         if prolog_size >= patch_size {
             // If the whole patch fits it's good to go!
-            true
-        } else {
-            // Otherwise the inline patch relies on padding after the prolog
-            let slice = slice::from_raw_parts(
-                (target as usize + prolog_size) as *const u8,
-                patch_size - prolog_size);
-            Self::is_code_padding(slice)
+            return true;
         }
+
+        // Otherwise the inline patch relies on padding after the prolog
+        let slice = slice::from_raw_parts(
+            (target as usize + prolog_size) as *const u8,
+            patch_size - prolog_size);
+        Self::is_code_padding(slice)
     }
 
     /// Returns true if the slice only contains code padding.

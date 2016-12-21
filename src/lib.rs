@@ -25,8 +25,8 @@ mod detour;
 mod pic;
 mod util;
 
-//#[macro_use]
-//mod macros;
+#[macro_use]
+mod macros;
 
 cfg_if! {
     if #[cfg(any(target_arch = "x86", target_arch = "x86_64"))] {
@@ -37,6 +37,7 @@ cfg_if! {
     }
 }
 
+/// Platform agnostic tests (see `arch` for extensive tests).
 #[cfg(test)]
 mod tests {
     use std::mem;
@@ -66,13 +67,4 @@ mod tests {
             assert_eq!(add(10, 5), 15);
         }
     }
-
-    //static_hooks! {
-    //    DetourAdd: extern "C" fn(i32, i32) -> i32;
-    //}
-
-    //#[test]
-    //fn static_basic() {
-    //    let mut detour = unsafe { DetourAdd::new(add, |x, y| x - y) }.unwrap();
-    //}
 }

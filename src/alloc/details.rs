@@ -26,7 +26,7 @@ impl Allocator {
                          ..((origin as usize).saturating_add(self.max_distance));
 
         // Check if an existing pool can handle the allocation request
-        self.allocate_existing(&memory_range, size).map(Ok).unwrap_or_else(|| {
+        self.allocate_existing(&memory_range, size).or_else(|_| {
             // ... otherwise allocate a pool within the memory range
             self.allocate_pool(&memory_range, origin, size).map(|mut pool| {
                 // Use the newly allocated pool for the request
@@ -55,7 +55,7 @@ impl Allocator {
     }
 
     /// Allocates a chunk using any of the existing pools.
-    fn allocate_existing(&mut self, range: &Range<usize>, size: usize) -> Option<Allocation> {
+    fn allocate_existing(&mut self, range: &Range<usize>, size: usize) -> Result<Allocation> {
         // Returns true if the pool's memory is within the range
         let is_pool_in_range = |pool: &SlicePool<u8>| {
             let lower = pool.as_ptr();
@@ -67,6 +67,7 @@ impl Allocator {
         self.pools.iter_mut()
             .filter_map(|pool| is_pool_in_range(pool).and_option_from(|| pool.allocate(size)))
             .next()
+            .ok_or(ErrorKind::OutOfMemory.into())
     }
 
     /// Allocates a new pool close to the `origin`.

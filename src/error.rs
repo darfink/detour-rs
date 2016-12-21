@@ -9,7 +9,6 @@ error_chain! {
 
     errors {
         NotExecutable { display("address is not executable") }
-        IsExecutable { display("address is executable") }
         InvalidAddress { display("cannot read from address") }
         NoPatchArea { display("cannot find an inline patch area") }
         OutOfMemory { display("cannot allocate memory") }

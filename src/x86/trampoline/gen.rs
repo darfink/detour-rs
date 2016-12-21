@@ -2,7 +2,7 @@ use std::{slice, mem};
 use error::*;
 
 use x86::{udis, thunk};
-use pic;
+use {util, pic};
 
 /// A trampoline generator (x86/x64).
 pub struct Generator {
@@ -133,9 +133,7 @@ impl Generator {
             let adjusted_displacement = instruction_address
                 .wrapping_sub(offset as isize)
                 .wrapping_add(displacement);
-
-            let operand_range = (i32::min_value() as isize)..(i32::max_value() as isize);
-            assert!(operand_range.contains(adjusted_displacement));
+            assert!(util::is_within_2gb(adjusted_displacement));
 
             // The displacement value is placed at (instruction - disp32)
             let index = instruction_bytes.len() - mem::size_of::<u32>();

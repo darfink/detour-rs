@@ -57,11 +57,6 @@ impl Patcher {
         self.patched
     }
 
-    /// Returns the default size of a patch.
-    pub fn default_patch_size(_target: *const ()) -> usize {
-        mem::size_of::<thunk::x86::JumpRel>()
-    }
-
     /// Returns the patch area for a function, consisting of a long jump and possibly a short jump.
     unsafe fn get_patch_area(target: *const (), prolog_size: usize) -> Result<&'static mut [u8]> {
         let jump_rel08_size = mem::size_of::<thunk::x86::JumpShort>();

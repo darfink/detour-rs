@@ -12,32 +12,10 @@ pub struct CallAbs {
     dummy1: u8,
     dummy2: u8,
     // destination
-    address: u64,
+    address: usize,
 }
 
-#[repr(packed)]
-pub struct JumpAbs {
-    // jmp +6
-    opcode0: u8,
-    opcode1: u8,
-    dummy0: u32,
-    // destination
-    address: u64,
-}
-
-#[repr(packed)]
-pub struct JccAbs {
-    // jxx + 16
-    opcode: u8,
-    dummy0: u8,
-    dummy1: u8,
-    dummy2: u8,
-    dummy3: u32,
-    // destination
-    address: u64,
-}
-
-pub fn call_abs(destination: u64) -> Box<Thunkable> {
+pub fn call_abs(destination: usize) -> Box<Thunkable> {
     Box::new(StaticThunk::<typenum::U16>::new(move |_| {
         let code = CallAbs {
             opcode0: 0xFF,
@@ -53,7 +31,17 @@ pub fn call_abs(destination: u64) -> Box<Thunkable> {
     }))
 }
 
-pub fn jmp_abs(destination: u64) -> Box<Thunkable> {
+#[repr(packed)]
+pub struct JumpAbs {
+    // jmp +6
+    opcode0: u8,
+    opcode1: u8,
+    dummy0: u32,
+    // destination
+    address: usize,
+}
+
+pub fn jmp_abs(destination: usize) -> Box<Thunkable> {
     Box::new(StaticThunk::<typenum::U14>::new(move |_| {
         let code = JumpAbs {
             opcode0: 0xFF,
@@ -67,7 +55,19 @@ pub fn jmp_abs(destination: u64) -> Box<Thunkable> {
     }))
 }
 
-pub fn jcc_abs(destination: u64, condition: u8) -> Box<Thunkable> {
+#[repr(packed)]
+pub struct JccAbs {
+    // jxx + 16
+    opcode: u8,
+    dummy0: u8,
+    dummy1: u8,
+    dummy2: u8,
+    dummy3: u32,
+    // destination
+    address: usize,
+}
+
+pub fn jcc_abs(destination: usize, condition: u8) -> Box<Thunkable> {
     Box::new(StaticThunk::<typenum::U16>::new(move |_| {
         let code = JccAbs {
             // Invert the condition in x64 mode to simplify the conditional jump logic

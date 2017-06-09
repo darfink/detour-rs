@@ -17,9 +17,9 @@ impl ProximityAllocator {
     }
 
     /// Allocates a new slice close to `origin`.
-    pub fn allocate(&mut self, origin: *const (), size: usize) -> Result<ProximitySlice> {
+    pub fn allocate(&mut self, origin: *const (), size: usize) -> Result<Slice> {
         let mut allocator = self.0.lock().unwrap();
-        allocator.allocate(origin, size).map(|value| ProximitySlice {
+        allocator.allocate(origin, size).map(|value| Slice {
             allocator: self.0.clone(),
             value: value,
         })
@@ -28,19 +28,19 @@ impl ProximityAllocator {
 
 // TODO: Come up with a better name
 /// A handle for allocated proximity memory.
-pub struct ProximitySlice {
+pub struct Slice {
     allocator: Arc<Mutex<details::Allocator>>,
     value: details::Allocation,
 }
 
-impl Drop for ProximitySlice {
+impl Drop for Slice {
     fn drop(&mut self) {
         // Release the associated memory map (if unique)
         self.allocator.lock().unwrap().release(&self.value);
     }
 }
 
-impl Deref for ProximitySlice {
+impl Deref for Slice {
     type Target = [u8];
 
     fn deref(&self) -> &Self::Target {
@@ -48,7 +48,7 @@ impl Deref for ProximitySlice {
     }
 }
 
-impl DerefMut for ProximitySlice {
+impl DerefMut for Slice {
     fn deref_mut(&mut self) -> &mut [u8] {
         self.value.deref_mut()
     }

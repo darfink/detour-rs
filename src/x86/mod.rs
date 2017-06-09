@@ -1,4 +1,3 @@
-extern crate libudis86_sys as udis;
 use std::mem;
 use error::*;
 use pic;
@@ -10,13 +9,25 @@ pub use self::trampoline::Trampoline;
 // Modules
 mod patcher;
 mod trampoline;
+mod generator;
 mod thunk;
 
+/// Returns true if the displacement is within 2GB.
+fn is_within_2gb(displacement: isize) -> bool {
+    let range = (i32::min_value() as isize)..(i32::max_value() as isize);
+    range.contains(displacement)
+}
+
+/// Returns the default size of a patch.
+pub fn patch_size(_target: *const ()) -> usize {
+    mem::size_of::<thunk::x86::JumpRel>()
+}
+
 /// Creates a relay; required for destinations further away than 2GB (on x64).
-pub unsafe fn relay_builder(destination: *const ()) -> Result<Option<pic::CodeBuilder>> {
+pub fn relay_builder(destination: *const ()) -> Result<Option<pic::CodeBuilder>> {
     if cfg!(target_arch = "x86_64") {
         let mut builder = pic::CodeBuilder::new();
-        builder.add_thunk(thunk::jmp(mem::transmute(destination)));
+        builder.add_thunk(thunk::jmp(destination as usize));
         return Ok(Some(builder));
     }
 
@@ -26,8 +37,8 @@ pub unsafe fn relay_builder(destination: *const ()) -> Result<Option<pic::CodeBu
 #[cfg(test)]
 mod tests {
     use std::mem;
-    use InlineDetour;
     use error::*;
+    use InlineDetour;
 
     /// Detours a C function returning an integer, and asserts all results.
     unsafe fn detour_test(target: funcs::CRet, result: i32) {
@@ -51,7 +62,7 @@ mod tests {
     }
 
     #[test]
-    fn detour_hot_patch() {
+    fn detour_hotpatch() {
         unsafe { detour_test(mem::transmute(funcs::hotpatch_ret0 as usize + 5), 0); }
     }
 
@@ -71,7 +82,7 @@ mod tests {
 
     #[test]
     #[cfg(target_arch = "x86_64")]
-    fn detour_rip_relative() {
+    fn detour_rip_relative_pos() {
         unsafe { detour_test(funcs::rip_relative_ret195, 195); }
     }
 

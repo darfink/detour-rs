@@ -83,7 +83,7 @@ fn calculate_displacement(source: usize,
     // Ensure that the detour can be reached with a relative jump (+/- 2GB).
     // This only needs to be asserted on x64, since it wraps around on x86.
     #[cfg(target_arch = "x86_64")]
-    assert!(::util::is_within_2gb(displacement.abs()));
+    assert!(::x86::is_within_2gb(displacement.abs()));
 
     displacement as u32
 }

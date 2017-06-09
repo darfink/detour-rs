@@ -15,9 +15,9 @@ lazy_static! {
 /// Implementation of an inline detour.
 pub struct InlineDetour {
     patcher: arch::Patcher,
-    trampoline: alloc::ProximitySlice,
+    trampoline: alloc::Slice,
     #[allow(dead_code)]
-    relay: Option<alloc::ProximitySlice>,
+    relay: Option<alloc::Slice>,
 }
 
 // TODO: stop all threads in target during patch?
@@ -30,7 +30,7 @@ impl InlineDetour {
         }
 
         // Create a trampoline generator for the target function
-        let patch_size = arch::Patcher::default_patch_size(target);
+        let patch_size = arch::patch_size(target);
         let trampoline = arch::Trampoline::new(target, patch_size)?;
 
         // A relay is used in case a normal branch cannot reach the destination
@@ -53,7 +53,7 @@ impl InlineDetour {
     /// Allocates PIC code at the specified address.
     pub fn allocate_code(pool: &mut alloc::ProximityAllocator,
                          builder: &pic::CodeBuilder,
-                         origin: *const ()) -> Result<alloc::ProximitySlice> {
+                         origin: *const ()) -> Result<alloc::Slice> {
         // Allocate memory close to the origin
         let mut memory = pool.allocate(origin, builder.len())?;
 

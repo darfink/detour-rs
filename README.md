@@ -2,16 +2,13 @@
 
 This is a cross-platform detour library developed in Rust. Beyond the basic
 functionality, this library handles branch redirects, RIP-relative
-instructions, and allows the original function to be called using a trampoline
-whilst hooked.
+instructions, hot-patching, NOP-padded functions, and allows the original
+function to be called using a trampoline whilst hooked.
 
 This is one of few **cross-platform** detour libraries that exists, and to
 maintain this feature, not all desired functionality can be supported due to
-lack of cross-platform APIs. Therefore EIP relocation is not supported.
-
-*EIP relocation should be performed whenever a function's prolog instructions
-are being executed, simultaneously as the function is being detoured. This is
-barely ever an issue, but YMMV.*
+lack of cross-platform APIs. Therefore [EIP relocation](#Appendix) is not
+supported.
 
 ## Platforms
 
@@ -40,8 +37,6 @@ extern crate detour;
 
 ## Example
 
-### Hello World
-
 ```rust
 extern crate detour;
 use std::mem;
@@ -60,7 +55,7 @@ extern "C" fn sub_detour(x: i32, y: i32) -> i32 {
 fn basics() {
     unsafe {
         let mut hook = detour::InlineDetour::new(add as *const (), sub_detour as *const ())
-          .expect("target or source is not usable for detouring");
+            .expect("target or source is not usable for detouring");
 
         assert_eq!(add(10, 5), 15);
         hook.enable().unwrap();
@@ -85,3 +80,25 @@ fn basics() {
 ## TODO
 
 - [ ] Implement macro boilerplate for detouring and calling the original function.
+
+## Appendix
+
+*EIP relocation: should be performed whenever a function's prolog instructions
+are being executed, simultaneously as the function itself is being detoured.
+This is done by halting all affected threads, copying the related
+instructions and append a `JMP` to return to the function. This is barely
+ever an issue, but YMMV.*
+
+*NOP-padding:*
+```c
+int function() { return 0; }
+// xor eax, eax
+// ret
+// nop
+// nop
+// ...
+```
+*Functions such as this one (lacking a hot-patching area), and too small to be
+hooked with a 5-byte `jmp`, are supported thanks to the detection of code
+padding (`NOP/INT3` instructions). Therefore the required amount of `NOP`
+instructions will be replaced to make room for the detour.*

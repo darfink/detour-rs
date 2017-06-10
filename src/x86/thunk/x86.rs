@@ -20,7 +20,7 @@ fn relative32(destination: usize, is_jump: bool) -> Box<Thunkable> {
         };
 
         let slice: [u8; 5] = unsafe { mem::transmute(code) };
-        GenericArray::from_slice(&slice)
+        GenericArray::clone_from_slice(&slice)
     }))
 }
 
@@ -51,7 +51,7 @@ pub fn jcc_rel32(destination: usize, condition: u8) -> Box<Thunkable> {
         };
 
         let slice: [u8; 6] = unsafe { mem::transmute(code) };
-        GenericArray::from_slice(&slice)
+        GenericArray::clone_from_slice(&slice)
     }))
 }
 
@@ -70,7 +70,7 @@ pub fn jmp_rel8(displacement: i8) -> Box<Thunkable> {
         };
 
         let slice: [u8; 2] = unsafe { mem::transmute(code) };
-        GenericArray::from_slice(&slice)
+        GenericArray::clone_from_slice(&slice)
     }))
 }
 

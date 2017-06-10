@@ -27,7 +27,7 @@ pub fn call_abs(destination: usize) -> Box<Thunkable> {
         };
 
         let slice: [u8; 16] = unsafe { mem::transmute(code) };
-        GenericArray::from_slice(&slice)
+        GenericArray::clone_from_slice(&slice)
     }))
 }
 
@@ -51,7 +51,7 @@ pub fn jmp_abs(destination: usize) -> Box<Thunkable> {
         };
 
         let slice: [u8; 14] = unsafe { mem::transmute(code) };
-        GenericArray::from_slice(&slice)
+        GenericArray::clone_from_slice(&slice)
     }))
 }
 
@@ -80,6 +80,6 @@ pub fn jcc_abs(destination: usize, condition: u8) -> Box<Thunkable> {
         };
 
         let slice: [u8; 16] = unsafe { mem::transmute(code) };
-        GenericArray::from_slice(&slice)
+        GenericArray::clone_from_slice(&slice)
     }))
 }

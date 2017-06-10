@@ -171,7 +171,7 @@ impl Iterator for RegionFreeIter {
                     }
 
                     // Check whether the region is free, otherwise return the error
-                    return Some(matches!(error.kind(), &region::error::ErrorKind::Freed)
+                    return Some(matches!(error.kind(), &region::error::ErrorKind::Free)
                         .as_result(self.current as *const _, error.into()));
                 },
             }

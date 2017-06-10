@@ -83,22 +83,24 @@ fn basics() {
 
 ## Appendix
 
-*EIP relocation: should be performed whenever a function's prolog instructions
-are being executed, simultaneously as the function itself is being detoured.
-This is done by halting all affected threads, copying the related
-instructions and append a `JMP` to return to the function. This is barely
-ever an issue, but YMMV.*
+- *EIP relocation*
 
-*NOP-padding:*
-```c
-int function() { return 0; }
-// xor eax, eax
-// ret
-// nop
-// nop
-// ...
-```
-*Functions such as this one (lacking a hot-patching area), and too small to be
-hooked with a 5-byte `jmp`, are supported thanks to the detection of code
-padding (`NOP/INT3` instructions). Therefore the required amount of `NOP`
-instructions will be replaced to make room for the detour.*
+  *Should be performed whenever a function's prolog instructions
+  are being executed, simultaneously as the function itself is being
+  detoured. This is done by halting all affected threads, copying the related
+  instructions and appending a `JMP` to return to the function. This is
+  barely ever an issue, and never in single-threaded environments, but YMMV.*
+
+- *NOP-padding*
+  ```c
+  int function() { return 0; }
+  // xor eax, eax
+  // ret
+  // nop
+  // nop
+  // ...
+  ```
+  *Functions such as this one (lacking a hot-patching area), and too small to
+  be hooked with a 5-byte `jmp`, are supported thanks to the detection of
+  code padding (`NOP/INT3` instructions). Therefore the required amount of
+  `NOP` instructions will be replaced, to make room for the detour.*

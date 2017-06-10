@@ -7,7 +7,7 @@ function to be called using a trampoline whilst hooked.
 
 This is one of few **cross-platform** detour libraries that exists, and to
 maintain this feature, not all desired functionality can be supported due to
-lack of cross-platform APIs. Therefore [EIP relocation](#Appendix) is not
+lack of cross-platform APIs. Therefore [EIP relocation](#appendix) is not
 supported.
 
 ## Platforms

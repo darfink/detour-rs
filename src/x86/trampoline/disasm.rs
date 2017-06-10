@@ -8,13 +8,15 @@ pub struct Disassembler(udis::ud);
 
 impl Disassembler {
     /// Creates a default x86 disassembler.
-    pub unsafe fn new(target: *const ()) -> Disassembler {
-        let mut ud = ::std::mem::zeroed();
-        udis::ud_init(&mut ud);
-        udis::ud_set_user_opaque_data(&mut ud, target as *mut _);
-        udis::ud_set_input_hook(&mut ud, Some(Self::udis_read_address));
-        udis::ud_set_mode(&mut ud, (::std::mem::size_of::<usize>() * 8) as u8);
-        Disassembler(ud)
+    pub fn new(target: *const ()) -> Disassembler {
+        unsafe {
+            let mut ud = ::std::mem::zeroed();
+            udis::ud_init(&mut ud);
+            udis::ud_set_user_opaque_data(&mut ud, target as *mut _);
+            udis::ud_set_input_hook(&mut ud, Some(Self::udis_read_address));
+            udis::ud_set_mode(&mut ud, (::std::mem::size_of::<usize>() * 8) as u8);
+            Disassembler(ud)
+        }
     }
 
     /// Reads one byte from a pointer an advances it.
@@ -58,24 +60,28 @@ impl Instruction {
         self.address() + self.len()
     }
 
-    /// Returns the instructions relative branch displacement if applicable.
-    pub unsafe fn branch_operand_displacement(&self) -> Option<isize> {
-        self.operands.iter()
-            .find(|op| op.otype == udis::ud_type::UD_OP_JIMM)
-            .map(|op| match op.size {
-                8  => op.lval.sbyte as isize,
-                32 => op.lval.sdword as isize,
-                _  => unreachable!(),
-            })
+    /// Returns the instructions relative branch offset, if applicable.
+    pub fn relative_branch_offset(&self) -> Option<isize> {
+        unsafe {
+            self.operands.iter()
+                .find(|op| op.otype == udis::ud_type::UD_OP_JIMM)
+                .map(|op| match op.size {
+                    8  => op.lval.sbyte as isize,
+                    32 => op.lval.sdword as isize,
+                    _  => unreachable!(),
+                })
+        }
     }
 
     /// Returns the instructions RIP operand displacement if applicable.
-    pub unsafe fn rip_operand_displacement(&self) -> Option<isize> {
-        // The operands displacement (e.g `mov eax, [rip+0x10]` ⟶ 0x10)
-        self.operands.iter()
-            .find(|op| op.otype == udis::ud_type::UD_OP_MEM
-                    && op.base == udis::ud_type::UD_R_RIP)
-            .map(|op| op.lval.sdword as isize)
+    pub fn rip_operand_displacement(&self) -> Option<isize> {
+        unsafe {
+            // The operands displacement (e.g `mov eax, [rip+0x10]` ⟶ 0x10)
+            self.operands.iter()
+                .find(|op| op.otype == udis::ud_type::UD_OP_MEM
+                        && op.base == udis::ud_type::UD_R_RIP)
+                .map(|op| op.lval.sdword as isize)
+        }
     }
 
     /// Returns true if this instruction any type of a loop.

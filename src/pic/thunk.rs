@@ -30,7 +30,7 @@ pub struct UnsafeThunk {
 }
 
 /// An unsafe thunk, because it cannot assert at compile time that the generated
-/// data is the same size as `len()` (will panic otherwise during runtime).
+/// data is the same size as `len()` (will panic otherwise during construction).
 impl UnsafeThunk {
     /// Constructs a new dynamic thunk with a specific closure.
     pub unsafe fn new<T: Fn(usize) -> Vec<u8> + 'static>(callback: T, size: usize) -> Self {

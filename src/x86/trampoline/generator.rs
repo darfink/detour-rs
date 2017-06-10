@@ -3,12 +3,22 @@ use error::*;
 
 use x86::thunk;
 use pic;
-use self::disasm::*;
+use super::disasm::*;
 
-mod disasm;
+/// Processes a function until `margin` bytes have been disassembled.
+pub unsafe fn generate(target: *const (), margin: usize) -> Result<(pic::CodeBuilder, usize)> {
+    Generator {
+        disassembler: Disassembler::new(target),
+        total_bytes_disassembled: 0,
+        branch_address: None,
+        finished: false,
+        target: target,
+        margin: margin,
+    }.process()
+}
 
 /// A trampoline generator (x86/x64).
-pub struct Generator {
+struct Generator {
     disassembler: Disassembler,
     total_bytes_disassembled: usize,
     branch_address: Option<usize>,
@@ -19,21 +29,8 @@ pub struct Generator {
 
 // TODO: should margins larger than 5 bytes be accounted for?
 impl Generator {
-    /// Processes a function until `margin` bytes have been disassembled.
-    pub unsafe fn process(target: *const (),
-                          margin: usize) -> Result<(pic::CodeBuilder, usize)> {
-        Generator {
-            disassembler: Disassembler::new(target),
-            total_bytes_disassembled: 0,
-            branch_address: None,
-            finished: false,
-            target: target,
-            margin: margin,
-        }.process_impl()
-    }
-
     /// Internal implementation for the `process` function.
-    pub unsafe fn process_impl(mut self) -> Result<(pic::CodeBuilder, usize)> {
+    unsafe fn process(mut self) -> Result<(pic::CodeBuilder, usize)> {
         let mut builder = pic::CodeBuilder::new();
 
         while !self.finished {
@@ -79,8 +76,8 @@ impl Generator {
     unsafe fn process_instruction(&mut self, instruction: &Instruction) -> Result<Box<pic::Thunkable>> {
         if let Some(displacement) = instruction.rip_operand_displacement() {
             self.handle_rip_relative_instruction(instruction, displacement)
-        } else if let Some(displacement) = instruction.branch_operand_displacement() {
-            self.handle_relative_branch(instruction, displacement)
+        } else if let Some(offset) = instruction.relative_branch_offset() {
+            self.handle_relative_branch(instruction, offset)
         } else {
             if instruction.is_return() {
                 // In case the operand is not placed in a branch, the function
@@ -139,14 +136,13 @@ impl Generator {
         }, instruction.len())))
     }
 
-    // TODO: Add test for unsupported branches
     /// Processes relative branches (e.g `call`, `loop`, `jne`).
     unsafe fn handle_relative_branch(&mut self,
                                      instruction: &Instruction,
-                                     displacement: isize)
+                                     offset: isize)
                                      -> Result<Box<pic::Thunkable>> {
         // Calculate the absolute address of the target destination
-        let destination_address_abs = instruction.next_instruction_address() + displacement as usize;
+        let destination_address_abs = instruction.next_instruction_address() + offset as usize;
 
         if instruction.is_call() {
             // Calls are not an issue since they return to the original address

@@ -9,7 +9,6 @@ pub use self::trampoline::Trampoline;
 // Modules
 mod patcher;
 mod trampoline;
-mod generator;
 mod thunk;
 
 /// Returns true if the displacement is within 2GB.

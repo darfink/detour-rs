@@ -28,7 +28,7 @@ impl Allocator {
         // Check if an existing pool can handle the allocation request
         self.allocate_existing(&memory_range, size).or_else(|_| {
             // ... otherwise allocate a pool within the memory range
-            self.allocate_pool(&memory_range, origin, size).map(|mut pool| {
+            self.allocate_pool(&memory_range, origin, size).map(|pool| {
                 // Use the newly allocated pool for the request
                 let allocation = pool.allocate(size).unwrap();
                 self.pools.push(pool);
@@ -126,6 +126,8 @@ impl AsRef<[u8]> for SliceableMemoryMap {
 impl AsMut<[u8]> for SliceableMemoryMap {
     fn as_mut(&mut self) -> &mut [u8] { self.as_mut_slice() }
 }
+
+unsafe impl Send for SliceableMemoryMap { }
 
 /// Direction for the region search.
 pub enum RegionSearch {

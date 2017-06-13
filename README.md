@@ -100,7 +100,7 @@ fn basics() {
   // nop
   // ...
   ```
-  *Functions such as this one (lacking a hot-patching area), and too small to
+  *Functions such as this one, lacking a hot-patching area, and too small to
   be hooked with a 5-byte `jmp`, are supported thanks to the detection of
   code padding (`NOP/INT3` instructions). Therefore the required amount of
-  `NOP` instructions will be replaced, to make room for the detour.*
+  trailing `NOP` instructions will be replaced, to make room for the detour.*

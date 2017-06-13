@@ -1,14 +1,18 @@
 extern crate detour;
+extern crate volatile_cell;
 use std::mem;
+use volatile_cell::VolatileCell;
 
 type FnAdd = extern "C" fn(i32, i32) -> i32;
 
+#[inline(never)]
 extern "C" fn add(x: i32, y: i32) -> i32 {
-    x + y
+    VolatileCell::new(x).get() + y
 }
 
+#[inline(never)]
 extern "C" fn sub_detour(x: i32, y: i32) -> i32 {
-    x - y
+    VolatileCell::new(x).get() - y
 }
 
 #[test]

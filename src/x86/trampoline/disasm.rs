@@ -68,7 +68,7 @@ impl Instruction {
                 .map(|op| match op.size {
                     8  => op.lval.sbyte as isize,
                     32 => op.lval.sdword as isize,
-                    _  => unreachable!(),
+                    _  => unreachable!("Operand size: {}", op.size),
                 })
         }
     }

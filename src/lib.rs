@@ -1,5 +1,6 @@
 #![recursion_limit = "1024"]
 #![feature(range_contains)]
+#![feature(offset_to)]
 #![cfg_attr(test, feature(naked_functions))]
 #![cfg_attr(test, feature(core_intrinsics))]
 #![cfg_attr(test, feature(asm))]

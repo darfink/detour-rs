@@ -17,10 +17,8 @@ generic-array = "0.8.2"
 lazy_static = "0.2.8"
 libc = "0.2"
 matches = "0.1.6"
-slice-pool = "0.3.3"
-
-[dependencies.region]
-git = "https://github.com/darfink/region-rs.git"
+region = "0.0.7"
+slice-pool = "0.3.4"
 
 [dependencies.mmap]
 git = "https://github.com/retep998/rust-mmap.git"

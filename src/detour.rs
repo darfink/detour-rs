@@ -6,9 +6,9 @@ use {pic, util, arch, alloc};
 
 lazy_static! {
     /// Shared allocator for all detours.
-    static ref POOL: Mutex<alloc::ProximityAllocator> = {
+    static ref POOL: Mutex<alloc::Allocator> = {
         // Use a range of +/- 2 GB for seeking a memory block
-        Mutex::new(alloc::ProximityAllocator::new(0x80000000))
+        Mutex::new(alloc::Allocator::new(0x80000000))
     };
 }
 
@@ -30,12 +30,12 @@ impl InlineDetour {
         }
 
         // Create a trampoline generator for the target function
-        let patch_size = arch::patch_size(target);
-        let trampoline = arch::Trampoline::new(target, patch_size)?;
+        let margin = arch::Patcher::prolog_margin(target);
+        let trampoline = arch::Trampoline::new(target, margin)?;
 
         // A relay is used in case a normal branch cannot reach the destination
-        let relay = if let Some(builder) = arch::relay_builder(detour)? {
-            Some(Self::allocate_code(&mut pool, &builder, target)?)
+        let relay = if let Some(emitter) = arch::relay_builder(target, detour)? {
+            Some(Self::allocate_code(&mut pool, &emitter, target)?)
         } else {
             None
         };
@@ -45,22 +45,9 @@ impl InlineDetour {
 
         Ok(InlineDetour {
             patcher: arch::Patcher::new(target, detour, trampoline.prolog_size())?,
-            trampoline: Self::allocate_code(&mut pool, trampoline.builder(), target)?,
-            relay: relay,
+            trampoline: Self::allocate_code(&mut pool, trampoline.emitter(), target)?,
+            relay,
         })
-    }
-
-    /// Allocates PIC code at the specified address.
-    pub fn allocate_code(pool: &mut alloc::ProximityAllocator,
-                         builder: &pic::CodeBuilder,
-                         origin: *const ()) -> Result<alloc::Slice> {
-        // Allocate memory close to the origin
-        let mut memory = pool.allocate(origin, builder.len())?;
-
-        // Generate code for the obtained address
-        let code = builder.build(memory.as_ptr() as *const _);
-        memory.copy_from_slice(code.as_slice());
-        Ok(memory)
     }
 
     /// Enables the detour.
@@ -81,8 +68,21 @@ impl InlineDetour {
     }
 
     /// Returns whether the target is hooked or not.
-    pub fn is_hooked(&self) -> bool {
+    pub fn is_enabled(&self) -> bool {
         self.patcher.is_patched()
+    }
+
+    /// Allocates PIC code at the specified address.
+    fn allocate_code(pool: &mut alloc::Allocator,
+                     emitter: &pic::CodeEmitter,
+                     origin: *const ()) -> Result<alloc::Slice> {
+        // Allocate memory close to the origin
+        let mut memory = pool.allocate(origin, emitter.len())?;
+
+        // Generate code for the obtained address
+        let code = emitter.emit(memory.as_ptr() as *const _);
+        memory.copy_from_slice(code.as_slice());
+        Ok(memory)
     }
 }
 
@@ -95,7 +95,7 @@ impl Drop for InlineDetour {
 
 impl fmt::Debug for InlineDetour {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "InlineDetour {{ hooked: {}, trampoline: {:?} }}",
-               self.is_hooked(), self.callable_address())
+        write!(f, "InlineDetour {{ enabled: {}, trampoline: {:?} }}",
+               self.is_enabled(), self.callable_address())
     }
 }

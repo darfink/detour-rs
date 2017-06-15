@@ -1,4 +1,9 @@
-# `detour-rs`
+detour-rs
+=========
+[![Travis build status][travis-shield]][travis]
+[![Appveyor build status][appveyor-shield]][appveyor]
+[![crates.io version][crate-shield]][crate]
+[![Language (Rust)][rust-shield]][rust]
 
 This is a cross-platform detour library developed in Rust. Beyond the basic
 functionality, this library handles branch redirects, RIP-relative
@@ -104,3 +109,13 @@ fn basics() {
   be hooked with a 5-byte `jmp`, are supported thanks to the detection of
   code padding (`NOP/INT3` instructions). Therefore the required amount of
   trailing `NOP` instructions will be replaced, to make room for the detour.*
+
+<!-- Links -->
+[travis-shield]: https://img.shields.io/travis/darfink/detour-rs.svg?style=flat-square
+[travis]: https://travis-ci.org/darfink/detour-rs
+[appveyor-shield]: https://img.shields.io/appveyor/ci/darfink/detour-rs/master.svg?style=flat-square
+[appveyor]: https://ci.appveyor.com/project/darfink/detour-rs
+[crate-shield]: https://img.shields.io/crates/v/detour.svg?style=flat-square
+[crate]: https://crates.io/crates/detour
+[rust-shield]: https://img.shields.io/badge/powered%20by-rust-blue.svg?style=flat-square
+[rust]: https://www.rust-lang.org

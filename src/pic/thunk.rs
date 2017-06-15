@@ -23,16 +23,16 @@ impl<N: ArrayLength<u8>> pic::Thunkable for StaticThunk<N> {
     }
 }
 
-/// A closure that generates a thunk
+/// A closure that generates a thunk.
 pub struct UnsafeThunk {
     callback: Box<Fn(usize) -> Vec<u8>>,
     size: usize
 }
 
 /// An unsafe thunk, because it cannot assert at compile time that the generated
-/// data is the same size as `len()` (will panic otherwise during construction).
+/// data is the same size as `len()` (will panic otherwise when emitted).
 impl UnsafeThunk {
-    /// Constructs a new dynamic thunk with a specific closure.
+    /// Constructs a new dynamic thunk with a closure.
     pub unsafe fn new<T: Fn(usize) -> Vec<u8> + 'static>(callback: T, size: usize) -> Self {
         UnsafeThunk {
             callback: Box::new(callback),
@@ -42,12 +42,12 @@ impl UnsafeThunk {
 }
 
 impl Thunkable for UnsafeThunk {
-    /// Generates a dynamic thunk assumed to be PIC
+    /// Generates a dynamic thunk, assumed to be PIC.
     fn generate(&self, address: usize) -> Vec<u8> {
         (self.callback)(address)
     }
 
-    /// Returns the size of a generated thunk
+    /// Returns the size of the generated thunk.
     fn len(&self) -> usize {
         self.size
     }

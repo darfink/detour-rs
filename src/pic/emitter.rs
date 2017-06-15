@@ -1,19 +1,19 @@
 use super::Thunkable;
 
 /// An interface for generating PIC.
-pub struct CodeBuilder {
+pub struct CodeEmitter {
     thunks: Vec<Box<Thunkable>>,
 }
 
 /// Used for combining PIC segments.
-impl CodeBuilder {
-    /// Constructs a new code builder.
+impl CodeEmitter {
+    /// Constructs a new code emitter.
     pub fn new() -> Self {
-        CodeBuilder { thunks: Vec::new() }
+        CodeEmitter { thunks: Vec::new() }
     }
 
     /// Generates code for use at the specified address.
-    pub fn build(&self, base: *const ()) -> Vec<u8> {
+    pub fn emit(&self, base: *const ()) -> Vec<u8> {
         let mut result = Vec::with_capacity(self.len());
         let mut base = base as usize;
 

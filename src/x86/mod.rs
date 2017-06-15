@@ -1,4 +1,3 @@
-use std::mem;
 use error::*;
 use pic;
 
@@ -11,26 +10,27 @@ mod patcher;
 mod trampoline;
 mod thunk;
 
+// TODO: Add tests for targets further away than 2GB (i.e test ↓)
+/// Creates a relay; required for destinations further away than 2GB (on x64).
+pub fn relay_builder(target: *const (), detour: *const ()) -> Result<Option<pic::CodeEmitter>> {
+    if cfg!(target_arch = "x86_64") {
+        let target = target as *const u8;
+        let detour = detour as *const u8;
+
+        if !is_within_2gb(target.offset_to(detour).unwrap()) {
+            let mut emitter = pic::CodeEmitter::new();
+            emitter.add_thunk(thunk::jmp(detour as usize));
+            return Ok(Some(emitter));
+        }
+    }
+
+    Ok(None)
+}
+
 /// Returns true if the displacement is within 2GB.
 fn is_within_2gb(displacement: isize) -> bool {
     let range = (i32::min_value() as isize)..(i32::max_value() as isize);
     range.contains(displacement)
-}
-
-/// Returns the default size of a patch.
-pub fn patch_size(_target: *const ()) -> usize {
-    mem::size_of::<thunk::x86::JumpRel>()
-}
-
-/// Creates a relay; required for destinations further away than 2GB (on x64).
-pub fn relay_builder(destination: *const ()) -> Result<Option<pic::CodeBuilder>> {
-    if cfg!(target_arch = "x86_64") {
-        let mut builder = pic::CodeBuilder::new();
-        builder.add_thunk(thunk::jmp(destination as usize));
-        return Ok(Some(builder));
-    }
-
-    Ok(None)
 }
 
 #[cfg(test)]
@@ -39,7 +39,7 @@ mod tests {
     use error::*;
     use InlineDetour;
 
-    /// Detours a C function returning an integer, and asserts all results.
+    /// Detours a C function returning an integer, and asserts its return value.
     unsafe fn detour_test(target: funcs::CRet, result: i32) {
         let mut hook = InlineDetour::new(target as *const (), funcs::ret10 as *const ()).unwrap();
 

@@ -2,21 +2,23 @@ use std::ops::{Deref, DerefMut};
 use std::sync::{Arc, Mutex};
 use error::*;
 
-mod details;
+mod proximity;
+mod search;
 
 /// A thread-safe memory pool for allocating chunks close to addresses.
-pub struct ProximityAllocator(Arc<Mutex<details::Allocator>>);
+pub struct Allocator(Arc<Mutex<proximity::ProximityAllocator>>);
 
-impl ProximityAllocator {
-    /// Creates a new proximity allocator
+// TODO: Decrease use of mutexes
+impl Allocator {
+    /// Creates a new proximity memory allocator.
     pub fn new(max_distance: usize) -> Self {
-        ProximityAllocator(Arc::new(Mutex::new(details::Allocator {
+        Allocator(Arc::new(Mutex::new(proximity::ProximityAllocator {
             max_distance: max_distance,
             pools: Vec::new(),
         })))
     }
 
-    /// Allocates a new slice close to `origin`.
+    /// Allocates read-, write- & executable memory close to `origin`.
     pub fn allocate(&mut self, origin: *const (), size: usize) -> Result<Slice> {
         let mut allocator = self.0.lock().unwrap();
         allocator.allocate(origin, size).map(|value| Slice {
@@ -29,8 +31,8 @@ impl ProximityAllocator {
 // TODO: Come up with a better name
 /// A handle for allocated proximity memory.
 pub struct Slice {
-    allocator: Arc<Mutex<details::Allocator>>,
-    value: details::Allocation,
+    allocator: Arc<Mutex<proximity::ProximityAllocator>>,
+    value: proximity::Allocation,
 }
 
 impl Drop for Slice {

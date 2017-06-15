@@ -1,3 +1,4 @@
+//! The underlying disassembler should be opaque outside.
 extern crate libudis86_sys as udis;
 
 use std::slice;
@@ -61,7 +62,7 @@ impl Instruction {
     }
 
     /// Returns the instructions relative branch offset, if applicable.
-    pub fn relative_branch_offset(&self) -> Option<isize> {
+    pub fn relative_branch_displacement(&self) -> Option<isize> {
         unsafe {
             self.operands.iter()
                 .find(|op| op.otype == udis::ud_type::UD_OP_JIMM)

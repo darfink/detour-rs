@@ -1,7 +1,7 @@
 pub use self::thunk::{StaticThunk, UnsafeThunk};
-pub use self::builder::CodeBuilder;
+pub use self::emitter::CodeEmitter;
 
-mod builder;
+mod emitter;
 mod thunk;
 
 /// An interface for generating PIC thunks.

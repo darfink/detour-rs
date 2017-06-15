@@ -13,11 +13,17 @@ pub struct Patcher {
 }
 
 impl Patcher {
-    /// Creates a new detour patcher for a specific function.
+    /// Creates a new detour patcher for an address.
+    ///
+    /// # Arguments
+    ///
+    /// * `target` - An address that should be hooked.
+    /// * `detour` - An address that the target should be redirected to.
+    /// * `prolog_size` - The available inline space for the hook.
     pub unsafe fn new(target: *const (), detour: *const (), prolog_size: usize) -> Result<Patcher> {
         // Calculate the patch area (i.e if a short or long jump should be used)
         let patch_area = Self::get_patch_area(target, prolog_size)?;
-        let hook = Self::hook_builder(detour, patch_area);
+        let emitter = Self::hook_template(detour, patch_area);
 
         let patch_address = patch_area.as_ptr() as *const ();
         let patch_code = patch_area.to_vec();
@@ -26,11 +32,11 @@ impl Patcher {
             patched: false,
             patch_area: patch_area,
             target_backup: patch_code,
-            detour_bounce: hook.build(patch_address),
+            detour_bounce: emitter.emit(patch_address),
         })
     }
 
-    /// Either patches or unpatches a function.
+    /// Either patches or unpatches the function.
     pub unsafe fn toggle(&mut self, enable: bool) -> Result<()> {
         if self.patched == enable {
             return Ok(());
@@ -57,6 +63,11 @@ impl Patcher {
         self.patched
     }
 
+    /// Returns the preferred prolog size for the target.
+    pub fn prolog_margin(_target: *const ()) -> usize {
+        mem::size_of::<thunk::x86::JumpRel>()
+    }
+
     /// Returns the patch area for a function, consisting of a long jump and possibly a short jump.
     unsafe fn get_patch_area(target: *const (), prolog_size: usize) -> Result<&'static mut [u8]> {
         let jump_rel08_size = mem::size_of::<thunk::x86::JumpShort>();
@@ -71,14 +82,10 @@ impl Patcher {
                 let hot_patch = target as usize - jump_rel32_size;
                 let hot_patch_area = slice::from_raw_parts(hot_patch as *const u8, jump_rel32_size);
 
-                // Assert that the area only contains padding
-                if !Self::is_code_padding(hot_patch_area) {
+                // Ensure that the hot patch area only contains padding and is executable
+                if !Self::is_code_padding(hot_patch_area) ||
+                   !util::is_executable_address(hot_patch_area.as_ptr() as *const _)? {
                     bail!(ErrorKind::NoPatchArea);
-                }
-
-                // Ensure that the hot patch area is executable
-                if !util::is_executable_address(hot_patch_area.as_ptr() as *const _)? {
-                    bail!(ErrorKind::NotExecutable);
                 }
 
                 // The range is from the start of the hot patch to the end of the jump
@@ -93,12 +100,12 @@ impl Patcher {
         }
     }
 
-    /// Creates template code for the targetted patch area.
-    fn hook_builder(detour: *const (), patch_area: &[u8]) -> pic::CodeBuilder {
-        let mut builder = pic::CodeBuilder::new();
+    /// Creates a redirect code template for the targetted patch area.
+    fn hook_template(detour: *const (), patch_area: &[u8]) -> pic::CodeEmitter {
+        let mut emitter = pic::CodeEmitter::new();
 
         // Both hot patch and normal detours use a relative long jump
-        builder.add_thunk(thunk::x86::jmp_rel32(detour as usize));
+        emitter.add_thunk(thunk::x86::jmp_rel32(detour as usize));
 
         // The hot patch relies on a small jump to get to the long jump
         let jump_rel32_size = mem::size_of::<thunk::x86::JumpRel>();
@@ -106,10 +113,10 @@ impl Patcher {
 
         if uses_hot_patch {
             let displacement = -(jump_rel32_size as i8);
-            builder.add_thunk(thunk::x86::jmp_rel8(displacement));
+            emitter.add_thunk(thunk::x86::jmp_rel8(displacement));
         }
 
-        builder
+        emitter
     }
 
     /// Returns whether an address can be inline patched or not.

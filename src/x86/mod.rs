@@ -37,7 +37,7 @@ fn is_within_2gb(displacement: isize) -> bool {
 mod tests {
     use std::mem;
     use error::*;
-    use RawDetour;
+    use {Detour, RawDetour};
 
     /// Detours a C function returning an integer, and asserts its return value.
     unsafe fn detour_test(target: funcs::CRet, result: i32) {

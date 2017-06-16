@@ -1,5 +1,5 @@
-mod typed;
+mod generic;
 mod raw;
 
-pub use self::typed::*;
+pub use self::generic::*;
 pub use self::raw::*;

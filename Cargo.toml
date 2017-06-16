@@ -1,10 +1,10 @@
 [package]
 authors = ["Elliott Linder <elliott.darfink@gmail.com>"]
-description = "Cross-platform detour library"
+description = "A cross-platform detour library written in Rust"
 documentation = "https://docs.rs/detour"
 homepage = "https://github.com/darfink/detour-rs"
 keywords = ["detour", "hook", "function", "api", "redirect"]
-license = "MIT"
+license = "BSD-2-Clause"
 name = "detour"
 repository = "https://github.com/darfink/detour-rs"
 version = "0.1.0"

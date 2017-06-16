@@ -11,8 +11,6 @@ error_chain! {
     errors {
         /// A static detour has already been initialized
         AlreadyExisting { display("detour has already been initialized") }
-        /// The address is not accessable.
-        InvalidAddress { display("cannot read from address") }
         /// The address does not contain valid instructions.
         InvalidCode { display("address contains invalid assembly") }
         /// The address has no available area for patching.

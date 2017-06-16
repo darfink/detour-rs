@@ -4,6 +4,7 @@ extern crate volatile_cell;
 
 use std::mem;
 use volatile_cell::VolatileCell;
+use detour::{Detour, RawDetour, GenericDetour};
 
 type FnAdd = extern "C" fn(i32, i32) -> i32;
 
@@ -18,9 +19,9 @@ extern "C" fn sub_detour(x: i32, y: i32) -> i32 {
 }
 
 #[test]
-fn basics() {
+fn raw() {
     unsafe {
-        let mut hook = detour::RawDetour::new(add as *const (), sub_detour as *const ())
+        let mut hook = RawDetour::new(add as *const (), sub_detour as *const ())
             .expect("target or source is not usable for detouring");
 
         assert_eq!(add(10, 5), 15);
@@ -43,6 +44,25 @@ fn basics() {
 
         // With the hook disabled, the function is restored
         assert_eq!(hook.is_enabled(), false);
+        assert_eq!(add(10, 5), 15);
+    }
+}
+
+#[test]
+fn generic() {
+    unsafe {
+        let mut hook = GenericDetour::<FnAdd>::new(add, sub_detour)
+            .expect("target or source is not usable for detouring");
+
+        assert_eq!(add(10, 5), 15);
+        assert_eq!(hook.call(10, 5), 15);
+        hook.enable().unwrap();
+        {
+            assert_eq!(hook.call(10, 5), 15);
+            assert_eq!(add(10, 5), 5);
+        }
+        hook.disable().unwrap();
+        assert_eq!(hook.call(10, 5), 15);
         assert_eq!(add(10, 5), 15);
     }
 }
@@ -72,3 +92,4 @@ fn static_hook() {
         assert_eq!(add(10, 5), 15);
     }
 }
+

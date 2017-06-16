@@ -2,7 +2,7 @@ use std::fmt;
 use std::sync::Mutex;
 
 use error::*;
-use {pic, util, arch, alloc};
+use {pic, util, arch, alloc, Detour};
 
 lazy_static! {
     /// Shared allocator for all detours.
@@ -17,32 +17,31 @@ lazy_static! {
 /// # Example
 ///
 /// ```rust
-/// # extern crate detour;
-/// # fn main() { unsafe { example() } }
 /// use std::mem;
-/// use detour::RawDetour;
+/// use detour::{Detour, RawDetour};
 ///
 /// fn add5(val: i32) -> i32 { val + 5 }
 /// fn add10(val: i32) -> i32 { val + 10 }
 ///
-/// unsafe fn example() {
-///     let mut hook = RawDetour::new(add5 as *const (), add10 as *const ()).unwrap();
+/// let mut hook = unsafe {
+///     RawDetour::new(add5 as *const (), add10 as *const ()).unwrap()
+/// };
 ///
-///     assert_eq!(add5(5), 10);
-///     assert_eq!(hook.is_enabled(), false);
+/// assert_eq!(add5(5), 10);
+/// assert_eq!(hook.is_enabled(), false);
 ///
+/// unsafe {
 ///     hook.enable().unwrap();
-///     {
-///         assert!(hook.is_enabled());
+///     assert!(hook.is_enabled());
 ///
-///         let original: fn(i32) -> i32 = mem::transmute(hook.trampoline());
+///     let original: fn(i32) -> i32 = mem::transmute(hook.trampoline());
 ///
-///         assert_eq!(add5(5), 15);
-///         assert_eq!(original(5), 10);
-///     }
+///     assert_eq!(add5(5), 15);
+///     assert_eq!(original(5), 10);
+///
 ///     hook.disable().unwrap();
-///     assert_eq!(add5(5), 10);
 /// }
+/// assert_eq!(add5(5), 10);
 /// ```
 pub struct RawDetour {
     patcher: arch::Patcher,
@@ -54,6 +53,12 @@ pub struct RawDetour {
 // TODO: stop all threads in target during patch?
 impl RawDetour {
     /// Constructs a new inline detour patcher.
+    ///
+    /// The hook is disabled by default. Even when this function is succesful,
+    /// there is no guaranteee that the detour function will actually get called
+    /// when the target function gets called. An invocation of the target
+    /// function might for example get inlined in which case it is impossible to
+    /// hook at runtime.
     pub unsafe fn new(target: *const (), detour: *const ()) -> Result<Self> {
         let mut pool = POOL.lock().unwrap();
         if !util::is_executable_address(target)? || !util::is_executable_address(detour)? {
@@ -81,28 +86,6 @@ impl RawDetour {
         })
     }
 
-    /// Enables the detour.
-    pub unsafe fn enable(&mut self) -> Result<()> {
-        let _guard = POOL.lock().unwrap();
-        self.patcher.toggle(true)
-    }
-
-    /// Disables the detour.
-    pub unsafe fn disable(&mut self) -> Result<()> {
-        let _guard = POOL.lock().unwrap();
-        self.patcher.toggle(false)
-    }
-
-    /// Returns a callable address to the target.
-    pub fn trampoline(&self) -> *const () {
-        self.trampoline.as_ptr() as *const ()
-    }
-
-    /// Returns whether the target is hooked or not.
-    pub fn is_enabled(&self) -> bool {
-        self.patcher.is_patched()
-    }
-
     /// Allocates PIC code at the specified address.
     fn allocate_code(pool: &mut alloc::Allocator,
                      emitter: &pic::CodeEmitter,
@@ -117,6 +100,25 @@ impl RawDetour {
     }
 }
 
+unsafe impl Detour for RawDetour {
+    unsafe fn toggle(&mut self, enabled: bool) -> Result<()> {
+        let _guard = POOL.lock().unwrap();
+        self.patcher.toggle(enabled)
+    }
+
+    fn is_enabled(&self) -> bool {
+        self.patcher.is_patched()
+    }
+
+    fn trampoline(&self) -> &() {
+        unsafe {
+            (self.trampoline.as_ptr() as *const ())
+                .as_ref()
+                .expect("trampoline should not be null")
+        }
+    }
+}
+
 impl Drop for RawDetour {
     /// Disables the detour, if enabled.
     fn drop(&mut self) {
@@ -125,8 +127,12 @@ impl Drop for RawDetour {
 }
 
 impl fmt::Debug for RawDetour {
+    /// Output whether the detour is enabled or not.
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "RawDetour {{ enabled: {}, trampoline: {:?} }}",
+        write!(f, "Detour {{ enabled: {}, trampoline: {:?} }}",
                self.is_enabled(), self.trampoline())
     }
 }
+
+unsafe impl Send for RawDetour { }
+unsafe impl Sync for RawDetour { }

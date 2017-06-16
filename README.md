@@ -37,6 +37,7 @@ detour = "0.1.0"
 ... and this to your crate root:
 
 ```rust
+#[macro_use]
 extern crate detour;
 ```
 

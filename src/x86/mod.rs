@@ -37,18 +37,18 @@ fn is_within_2gb(displacement: isize) -> bool {
 mod tests {
     use std::mem;
     use error::*;
-    use InlineDetour;
+    use RawDetour;
 
     /// Detours a C function returning an integer, and asserts its return value.
     unsafe fn detour_test(target: funcs::CRet, result: i32) {
-        let mut hook = InlineDetour::new(target as *const (), funcs::ret10 as *const ()).unwrap();
+        let mut hook = RawDetour::new(target as *const (), funcs::ret10 as *const ()).unwrap();
 
         assert_eq!(target(), result);
         hook.enable().unwrap();
         {
             assert_eq!(target(), 10);
 
-            let original: funcs::CRet = mem::transmute(hook.callable_address());
+            let original: funcs::CRet = mem::transmute(hook.trampoline());
             assert_eq!(original(), result);
         }
         hook.disable().unwrap();
@@ -73,9 +73,9 @@ mod tests {
     #[test]
     fn detour_external_loop() {
         unsafe {
-            let error = InlineDetour::new(funcs::external_loop as *const (),
+            let error = RawDetour::new(funcs::external_loop as *const (),
                                           funcs::ret10 as *const ()).unwrap_err();
-            assert!(matches!(error.kind(), &ErrorKind::ExternalLoop));
+            assert_matches!(error.kind(), &ErrorKind::UnsupportedLoop);
         }
     }
 

@@ -13,7 +13,38 @@ lazy_static! {
 }
 
 /// Implementation of an inline detour.
-pub struct InlineDetour {
+///
+/// # Example
+///
+/// ```rust
+/// # extern crate detour;
+/// # fn main() { unsafe { example() } }
+/// use std::mem;
+/// use detour::RawDetour;
+///
+/// fn add5(val: i32) -> i32 { val + 5 }
+/// fn add10(val: i32) -> i32 { val + 10 }
+///
+/// unsafe fn example() {
+///     let mut hook = RawDetour::new(add5 as *const (), add10 as *const ()).unwrap();
+///
+///     assert_eq!(add5(5), 10);
+///     assert_eq!(hook.is_enabled(), false);
+///
+///     hook.enable().unwrap();
+///     {
+///         assert!(hook.is_enabled());
+///
+///         let original: fn(i32) -> i32 = mem::transmute(hook.trampoline());
+///
+///         assert_eq!(add5(5), 15);
+///         assert_eq!(original(5), 10);
+///     }
+///     hook.disable().unwrap();
+///     assert_eq!(add5(5), 10);
+/// }
+/// ```
+pub struct RawDetour {
     patcher: arch::Patcher,
     trampoline: alloc::Slice,
     #[allow(dead_code)]
@@ -21,7 +52,7 @@ pub struct InlineDetour {
 }
 
 // TODO: stop all threads in target during patch?
-impl InlineDetour {
+impl RawDetour {
     /// Constructs a new inline detour patcher.
     pub unsafe fn new(target: *const (), detour: *const ()) -> Result<Self> {
         let mut pool = POOL.lock().unwrap();
@@ -43,7 +74,7 @@ impl InlineDetour {
         // If a relay is supplied, use it instead of the detour address
         let detour = relay.as_ref().map(|code| code.as_ptr() as *const ()).unwrap_or(detour);
 
-        Ok(InlineDetour {
+        Ok(RawDetour {
             patcher: arch::Patcher::new(target, detour, trampoline.prolog_size())?,
             trampoline: Self::allocate_code(&mut pool, trampoline.emitter(), target)?,
             relay,
@@ -63,7 +94,7 @@ impl InlineDetour {
     }
 
     /// Returns a callable address to the target.
-    pub fn callable_address(&self) -> *const () {
+    pub fn trampoline(&self) -> *const () {
         self.trampoline.as_ptr() as *const ()
     }
 
@@ -86,16 +117,16 @@ impl InlineDetour {
     }
 }
 
-impl Drop for InlineDetour {
+impl Drop for RawDetour {
     /// Disables the detour, if enabled.
     fn drop(&mut self) {
         unsafe { self.disable().unwrap() };
     }
 }
 
-impl fmt::Debug for InlineDetour {
+impl fmt::Debug for RawDetour {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "InlineDetour {{ enabled: {}, trampoline: {:?} }}",
-               self.is_enabled(), self.callable_address())
+        write!(f, "RawDetour {{ enabled: {}, trampoline: {:?} }}",
+               self.is_enabled(), self.trampoline())
     }
 }

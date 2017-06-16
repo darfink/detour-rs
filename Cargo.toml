@@ -9,6 +9,10 @@ name = "detour"
 repository = "https://github.com/darfink/detour-rs"
 version = "0.1.0"
 
+[features]
+default = ["example"]
+example = []
+
 [dependencies]
 boolinator = "2.4.0"
 cfg-if = "0.1.1"

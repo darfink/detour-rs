@@ -57,9 +57,10 @@ struct Builder {
     target: *const (),
 }
 
-// TODO: should margins larger than 5 bytes be accounted for?
 impl Builder {
     /// Creates a trampoline with the supplied settings.
+    ///
+    /// Margins larger than five bytes may lead to undefined behavior.
     pub unsafe fn build(mut self) -> Result<Trampoline> {
         let mut emitter = pic::CodeEmitter::new();
 
@@ -194,7 +195,7 @@ impl Builder {
             Ok(Box::new(instruction.as_slice().to_vec()))
         } else if instruction.is_loop() {
             // Loops (e.g 'loopnz', 'jecxz') to the outside are not supported
-            Err(ErrorKind::ExternalLoop.into())
+            Err(ErrorKind::UnsupportedLoop.into())
         } else if instruction.is_unconditional_jump() {
             // If the function is not in a branch, and it unconditionally jumps
             // a distance larger than the prolog, it's the same as if it terminates.

@@ -1,6 +1,5 @@
 use std::mem;
 use generic_array::{GenericArray, typenum};
-use arch::x86::is_within_2gb;
 use pic::{Thunkable, StaticThunk};
 
 #[repr(packed)]
@@ -84,7 +83,7 @@ fn calculate_displacement(source: usize,
     // Ensure that the detour can be reached with a relative jump (+/- 2GB).
     // This only needs to be asserted on x64, since it wraps around on x86.
     #[cfg(target_arch = "x86_64")]
-    assert!(is_within_2gb(displacement));
+    assert!(::arch::x86::is_within_2gb(displacement));
 
     displacement as u32
 }

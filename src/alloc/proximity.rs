@@ -3,7 +3,7 @@ use std::ops::Range;
 
 use slice_pool::{SlicePool, PoolVal};
 use boolinator::Boolinator;
-use mmap;
+use mmap_fixed as mmap;
 
 use error::*;
 use super::search as region_search;

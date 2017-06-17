@@ -1,6 +1,6 @@
 //! Error types and utilities.
+use mmap_fixed as mmap;
 use region;
-use mmap;
 
 error_chain! {
     foreign_links {

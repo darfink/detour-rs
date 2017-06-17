@@ -23,9 +23,7 @@ libc = "0.2"
 matches = "0.1.6"
 region = "0.0.7"
 slice-pool = "0.3.4"
-
-[dependencies.mmap]
-git = "https://github.com/retep998/rust-mmap.git"
+mmap-fixed = "0.1.2"
 
 [dev-dependencies]
 volatile_cell = "1.0.0"

@@ -74,7 +74,7 @@ fn generic() {
 }
 
 #[cfg(feature = "static")]
-mod static_test {
+mod statik {
     use super::*;
 
     #[inline(never)]
@@ -87,7 +87,7 @@ mod static_test {
     }
 
     #[test]
-    fn static_hook() {
+    fn test() {
         unsafe {
             let mut hook = DetourAdd.initialize(add, |x, y| x - y).unwrap();
 

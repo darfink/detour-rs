@@ -1,9 +1,7 @@
 #![recursion_limit = "1024"]
-#![feature(range_contains)]
-#![feature(offset_to)]
-#![cfg_attr(test, feature(naked_functions))]
-#![cfg_attr(test, feature(core_intrinsics))]
-#![cfg_attr(test, feature(asm))]
+#![feature(range_contains, offset_to)]
+#![cfg_attr(feature = "static", feature(const_fn, unboxed_closures))]
+#![cfg_attr(test, feature(naked_functions, core_intrinsics, asm))]
 
 //! A cross-platform detour library written in Rust.
 //!
@@ -31,7 +29,7 @@
 //!   prototype is enforced for both the target and the detour.  
 //!   It is also enforced when invoking the original target.
 //!
-//! - [Static](./macro.static_detours.html): A static & type-safe interface.
+//! - [Static](./struct.StaticDetour.html): A static & type-safe interface.
 //!   Thanks to its static nature it can accept a closure as its second
 //!   argument, but on the other hand, it can only have one detour active at a
 //!   time.
@@ -42,7 +40,13 @@
 //!   It should be avoided unless the types used aren't known until runtime.
 //!
 //! All detours implement the [Detour](./trait.Detour.html) trait, which exposes
-//! several methods, and enforces `Sync + Send`.
+//! several methods, and enforces `Send + Sync`. Therefore you must also include
+//! it into your scope whenever you are using a detour.
+//!
+//! ## Features
+//!
+//! - **static**: Enabled by default. Includes the static detour functionality,
+//!   but requires the nightly features *const_fn* & *unboxed_closures*.
 //!
 //! ## Procedure
 //!
@@ -97,8 +101,8 @@ extern crate region;
 extern crate slice_pool;
 
 // Re-exports
-pub use variant::{RawDetour, GenericDetour};
-pub use traits::{Detour, Function, HookableWith};
+pub use variant::*;
+pub use traits::*;
 
 #[macro_use]
 mod macros;
@@ -110,9 +114,6 @@ mod alloc;
 mod pic;
 mod util;
 mod variant;
-
-#[cfg(feature = "example")]
-pub mod example;
 
 cfg_if! {
     if #[cfg(any(target_arch = "x86", target_arch = "x86_64"))] {

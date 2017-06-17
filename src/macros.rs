@@ -1,51 +1,55 @@
-/// Macro for defining type-safe detours.
+/// A macro for defining type-safe detours.
 ///
-/// This macro uses `RawDetour` for its implementation, but it exposes its
-/// functionality in a type-safe wrapper.  
-/// The macro can contain one or more definitions — each definition will become a
-/// distinct type.
+/// This macro creates a `StaticDetourController`, which returns a `StaticDetour`
+/// upon initialization. It can accept both functions and closures as its second
+/// argument. Due to the requirements of the implementation, *const_fn* is needed
+/// if the macro is to be used.
 ///
-/// A type may only have one active detour at a time. Therefore another
-/// `initialize` call can only be done once the previous detour has been dropped.
-/// This is due to the closures being stored as static variables.
+/// A static detour may only have one active detour at a time. Therefore another
+/// `initialize` call can only be done once the previous instance has been
+/// dropped. This is because the closures are being stored as static variables.
 ///
 /// # Example
 ///
 /// ```rust
-/// # #[macro_use] extern crate lazy_static;
-/// # #[macro_use] extern crate detour;
-/// # use detour::Detour;
-/// # fn main() { unsafe { example() } }
+/// #![feature(const_fn)]
+/// #[macro_use] extern crate detour;
+///
+/// use detour::Detour;
+///
 /// static_detours! {
-///     struct Test: /* [extern "X"] */ fn(i32) -> i32;
+///     struct Test: /* extern "X" */ fn(i32) -> i32;
 /// }
 ///
 /// fn add5(val: i32) -> i32 { val + 5 }
 /// fn add10(val: i32) -> i32 { val + 10 }
 ///
-/// unsafe fn example() {
-///     // The detour can also be a closure
-///     let mut hook = Test::initialize(add5, add10).unwrap();
+/// fn main() {
+///     let mut hook = unsafe { Test.initialize(add5, add10).unwrap() };
 ///
-///     assert_eq!(add5(5), 10);
-///     assert_eq!(hook.call(5), 10);
+///     assert_eq!(add5(1), 6);
+///     assert_eq!(hook.call(1), 6);
 ///
-///     hook.enable().unwrap();
+///     unsafe { hook.enable().unwrap(); }
 ///
-///     assert_eq!(add5(5), 15);
-///     assert_eq!(hook.call(5), 10);
+///     assert_eq!(add5(1), 11);
+///     assert_eq!(hook.call(1), 6);
 ///
-///     hook.disable().unwrap();
+///     // You can also call using the static object
+///     assert_eq!(unsafe { Test.get().unwrap().call(1) }, 6);
 ///
-///     assert_eq!(add5(5), 10);
+///     // ... and change the detour whilst hooked
+///     hook.set_detour(|val| val - 5);
+///     assert_eq!(add5(5), 0);
+///
+///     unsafe { hook.disable().unwrap() };
+///
+///     assert_eq!(add5(1), 6);
 /// }
 /// ```
 ///
-/// Any type of function is supported, and `extern` is optional.
-///
-/// There is also an example module [available](example/index.html).
-///
-/// **NOTE: Requires [lazy_static](https://crates.io/crates/lazy_static).**
+/// Any type of function is supported, and *extern* is optional.
+#[cfg(feature = "static")]
 #[macro_export]
 // Inspired by: https://github.com/Jascha-N/minhook-rs
 macro_rules! static_detours {
@@ -125,56 +129,24 @@ macro_rules! static_detours {
                     ($name:ident) ($($modifier:tt)*) ($($argument_type:ty)*)
                     ($return_type:ty) ($fn_type:ty)) => {
         static_detours!(@generate
+            #[allow(non_upper_case_globals)]
             $(#[$attribute])*
-            $($visibility)* struct $name(());
+            $($visibility)* static $name: $crate::StaticDetourController<$fn_type> = {
+                use std::sync::atomic::{AtomicPtr, Ordering};
+                use std::ptr;
+
+                static DATA: AtomicPtr<$crate::__StaticDetourInner<$fn_type>> =
+                    AtomicPtr::new(ptr::null_mut());
+
+                #[inline(never)]
+                $($modifier) * fn __ffi_detour($($argument_name: $argument_type),*) -> $return_type {
+                    let data = unsafe { DATA.load(Ordering::SeqCst).as_ref().unwrap() };
+                    (data.closure)($($argument_name),*)
+                }
+
+                $crate::StaticDetourController::__new(&DATA, __ffi_detour)
+            };
         );
-        static_detours!(@generate
-            impl $name {
-                /// Constructs a new detour for the target, and initializes the
-                /// static mutex with the supplied closure.
-                pub unsafe fn initialize<T>(target: $fn_type, closure: T) ->
-                        $crate::error::Result<$crate::GenericDetour<$fn_type>>
-                        where T: Fn($($argument_type),*) -> $return_type + Send + 'static {
-                    let mut static_closure = Self::closure().lock().unwrap();
-                    if static_closure.is_some() {
-                        Err($crate::error::ErrorKind::AlreadyExisting.into())
-                    } else {
-                        let detour = $crate::GenericDetour::<$fn_type>::new(target, Self::callback)?;
-                        *static_closure = Some(Box::new(closure));
-                        Ok(detour)
-                    }
-                }
-
-                #[doc(hidden)]
-                #[allow(dead_code)]
-                $($modifier) * fn callback($($argument_name: $argument_type),*) -> $return_type {
-                    Self::closure().lock().unwrap()
-                        .as_ref().expect("calling detour closure; is null")($($argument_name),*)
-                }
-
-                fn closure() -> &'static ::std::sync::Mutex<Option<Box<Fn($($argument_type),*)
-                        -> $return_type + Send>>> {
-                    lazy_static! {
-                        static ref CLOSURE:
-                            ::std::sync::Mutex<Option<Box<Fn($($argument_type),*) -> $return_type + Send>>> =
-                                ::std::sync::Mutex::new(None);
-                    }
-
-                    &*CLOSURE
-                }
-            }
-        );
-        //static_detours!(@generate
-        //    impl Drop for $name {
-        //        /// Disables the detour and frees the associated closure.
-        //        fn drop(&mut self) {
-        //            unsafe {
-        //                self.0.disable().expect("disabling detour on drop");
-        //                *Self::closure().lock().unwrap() = None;
-        //            }
-        //        }
-        //    }
-        //);
     };
 
     // Associates each argument type with a dummy name.

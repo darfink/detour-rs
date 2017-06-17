@@ -1,5 +1,6 @@
-#[macro_use] extern crate lazy_static;
-#[macro_use] extern crate detour;
+#![cfg_attr(feature = "static", feature(const_fn))]
+#[cfg_attr(feature = "static", macro_use)]
+extern crate detour;
 extern crate volatile_cell;
 
 use std::mem;
@@ -67,29 +68,33 @@ fn generic() {
     }
 }
 
-static_detours! {
-    pub struct DetourAdd: extern "C" fn(i32, i32) -> i32;
-}
+#[cfg(feature = "static")]
+mod static_test {
+    use super::*;
 
-#[test]
-fn static_hook() {
-    unsafe {
-        let mut hook = DetourAdd::initialize(add, |x, y| x - y).unwrap();
+    static_detours! {
+        pub struct DetourAdd: extern "C" fn(i32, i32) -> i32;
+    }
 
-        assert_eq!(add(10, 5), 15);
-        assert_eq!(hook.is_enabled(), false);
+    #[test]
+    fn static_hook() {
+        unsafe {
+            let mut hook = DetourAdd.initialize(add, |x, y| x - y).unwrap();
 
-        hook.enable().unwrap();
-        {
-            assert!(hook.is_enabled());
+            assert_eq!(add(10, 5), 15);
+            assert_eq!(hook.is_enabled(), false);
+
+            hook.enable().unwrap();
+            {
+                assert!(hook.is_enabled());
+                assert_eq!(hook.call(10, 5), 15);
+                assert_eq!(add(10, 5), 5);
+            }
+            hook.disable().unwrap();
+
+            assert_eq!(hook.is_enabled(), false);
             assert_eq!(hook.call(10, 5), 15);
-            assert_eq!(add(10, 5), 5);
+            assert_eq!(add(10, 5), 15);
         }
-        hook.disable().unwrap();
-
-        assert_eq!(hook.is_enabled(), false);
-        assert_eq!(hook.call(10, 5), 15);
-        assert_eq!(add(10, 5), 15);
     }
 }
-

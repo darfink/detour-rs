@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 use error::*;
 use {Detour, Function, HookableWith, RawDetour};
 
-/// This is a type-safe wrapper around [RawDetour](./struct.RawDetour.html).  
+/// A type-safe wrapper around [RawDetour](./struct.RawDetour.html).  
 ///
 /// Therefore documentation related to `RawDetour` affects this interface as well.
 ///

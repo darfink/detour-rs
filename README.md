@@ -3,6 +3,7 @@ detour-rs
 [![Travis build status][travis-shield]][travis]
 [![Appveyor build status][appveyor-shield]][appveyor]
 [![crates.io version][crate-shield]][crate]
+[![Documentation][docs-shield]][docs]
 [![Language (Rust)][rust-shield]][rust]
 
 This is a cross-platform detour library developed in Rust. Beyond the basic
@@ -15,15 +16,13 @@ maintain this feature, not all desired functionality can be supported due to
 lack of cross-platform APIs. Therefore [EIP relocation](#appendix) is not
 supported.
 
+**NOTE**: Nightly is currently required, mostly due to *untagged_union*.
+
 ## Platforms
 
 - `x86`: Windows, Linux, macOS
 - `x64`: Windows, Linux, macOS
 - `ARM`: Not implemented, but foundation exists.
-
-## Documentation
-
-https://docs.rs/detour
 
 ## Installation
 
@@ -45,7 +44,6 @@ extern crate detour;
 
 ```rust
 #[macro_use] extern crate detour;
-#[macro_use] extern crate lazy_static;
 
 extern "C" fn add(x: i32, y: i32) -> i32 {
     x + y
@@ -55,26 +53,27 @@ static_detours! {
     struct DetourAdd: extern "C" fn(i32, i32) -> i32;
 }
 
-#[test]
-fn static_hook() {
-    unsafe {
-        let mut hook = DetourAdd::initialize(add, |x, y| x - y).unwrap();
+fn main() {
+    // Replace the add function with a closure that subtracts
+    let mut hook = unsafe { DetourAdd.initialize(add, |x, y| x - y).unwrap() };
 
-        assert_eq!(add(10, 5), 15);
-        assert_eq!(hook.is_enabled(), false);
+    assert_eq!(add(1, 5), 6);
+    assert_eq!(hook.is_enabled(), false);
 
-        hook.enable().unwrap();
-        {
-            assert!(hook.is_enabled());
-            assert_eq!(hook.call(10, 5), 15);
-            assert_eq!(add(10, 5), 5);
-        }
-        hook.disable().unwrap();
+    unsafe { hook.enable().unwrap(); }
 
-        assert_eq!(hook.is_enabled(), false);
-        assert_eq!(hook.call(10, 5), 15);
-        assert_eq!(add(10, 5), 15);
-    }
+    assert_eq!(add(1, 5), -4);
+    assert_eq!(hook.call(1, 5), 6);
+
+    // Change the detour whilst hooked
+    hook.set_detour(|x, y| x * y);
+    assert_eq!(add(5, 5), 25);
+
+    unsafe { hook.disable().unwrap(); }
+
+    assert_eq!(hook.is_enabled(), false);
+    assert_eq!(hook.call(1, 5), 6);
+    assert_eq!(add(1, 5), 6);
 }
 ```
 
@@ -111,3 +110,5 @@ fn static_hook() {
 [crate]: https://crates.io/crates/detour
 [rust-shield]: https://img.shields.io/badge/powered%20by-rust-blue.svg?style=flat-square
 [rust]: https://www.rust-lang.org
+[docs-shield]: https://img.shields.io/badge/docs-github-green.svg?style=flat-square
+[docs]: https://darfink.github.io/detour-rs/detour/index.html

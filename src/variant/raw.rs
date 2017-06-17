@@ -12,7 +12,7 @@ lazy_static! {
     };
 }
 
-/// Implementation of an inline detour.
+/// A type-less detour.
 ///
 /// # Example
 ///

@@ -56,7 +56,7 @@ static_detours! {
 }
 
 fn main() {
-    // Replace the add function with a closure that subtracts
+    // Replaces the 'add' function with a closure that subtracts
     let mut hook = unsafe { DetourAdd.initialize(add, |x, y| x - y).unwrap() };
 
     assert_eq!(add(1, 5), 6);
@@ -81,7 +81,7 @@ fn main() {
 
 ## Mentions
 
-Much of the library's external user interface was inspired by
+Parh of the library's external user interface was inspired by
 [minhook-rs][minhook], created by [Jascha-N][minhook], and it contains
 derivative code of his work.
 

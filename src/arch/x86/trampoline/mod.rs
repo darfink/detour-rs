@@ -1,6 +1,6 @@
 use std::mem;
 use error::*;
-use x86::thunk;
+use arch::x86::{thunk, is_within_2gb};
 use pic;
 use self::disasm::*;
 
@@ -158,7 +158,7 @@ impl Builder {
             let adjusted_displacement = instruction_address
                 .wrapping_sub(offset as isize)
                 .wrapping_add(displacement);
-            assert!(::x86::is_within_2gb(adjusted_displacement));
+            assert!(is_within_2gb(adjusted_displacement));
 
             // The displacement value is placed at (instruction - disp32)
             let index = instruction_bytes.len() - mem::size_of::<u32>();

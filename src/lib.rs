@@ -101,7 +101,7 @@ extern crate region;
 extern crate slice_pool;
 
 // Re-exports
-pub use variant::*;
+pub use detour::*;
 pub use traits::*;
 
 #[macro_use]
@@ -109,17 +109,51 @@ mod macros;
 
 // Modules
 pub mod error;
-mod traits;
 mod alloc;
+mod arch;
+mod detour;
 mod pic;
+mod traits;
 mod util;
-mod variant;
 
-cfg_if! {
-    if #[cfg(any(target_arch = "x86", target_arch = "x86_64"))] {
-        mod x86;
-        use self::x86 as arch;
-    } else {
-        // Implement ARM support!
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn detours_share_target() {
+        #[inline(never)]
+        extern "C" fn add(x: i32, y: i32) -> i32 {
+            x + y
+        }
+
+        static_detours! {
+            struct Hook1: extern "C" fn (i32, i32) -> i32;
+            struct Hook2: extern "C" fn (i32, i32) -> i32;
+        }
+
+        let mut hook1 = unsafe { Hook1.initialize(add, |x, y| x - y).unwrap() };
+
+        unsafe { hook1.enable().unwrap() };
+        assert_eq!(add(5, 5), 0);
+
+        let mut hook2 = unsafe { Hook2.initialize(add, |x, y| x / y).unwrap() };
+
+        unsafe { hook2.enable().unwrap() };
+
+        // This will call the previous hook's detour
+        assert_eq!(hook2.call(5, 5), 0);
+        assert_eq!(add(5, 5), 1);
+    }
+
+    #[test]
+    fn same_detour_and_target() {
+        #[inline(never)]
+        extern "C" fn add(x: i32, y: i32) -> i32 {
+            x + y
+        }
+
+        let err = unsafe { RawDetour::new(add as *const (), add as *const()).unwrap_err() };
+        assert_matches!(err.kind(), &error::ErrorKind::SameAddress);
     }
 }

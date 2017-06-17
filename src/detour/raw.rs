@@ -61,6 +61,11 @@ impl RawDetour {
     /// hook at runtime.
     pub unsafe fn new(target: *const (), detour: *const ()) -> Result<Self> {
         let mut pool = POOL.lock().unwrap();
+
+        if target == detour {
+            bail!(ErrorKind::SameAddress);
+        }
+
         if !util::is_executable_address(target)? || !util::is_executable_address(detour)? {
             bail!(ErrorKind::NotExecutable);
         }

@@ -11,6 +11,8 @@ error_chain! {
     errors {
         /// A static detour has already been initialized
         AlreadyExisting { display("detour has already been initialized") }
+        /// The address for the target and detour are identical
+        SameAddress { display("target and detour address is the same") }
         /// The address does not contain valid instructions.
         InvalidCode { display("address contains invalid assembly") }
         /// The address has no available area for patching.

@@ -10,17 +10,17 @@ use detour::{Detour, RawDetour, GenericDetour};
 type FnAdd = extern "C" fn(i32, i32) -> i32;
 
 #[inline(never)]
-extern "C" fn add(x: i32, y: i32) -> i32 {
-    VolatileCell::new(x).get() + y
-}
-
-#[inline(never)]
 extern "C" fn sub_detour(x: i32, y: i32) -> i32 {
     VolatileCell::new(x).get() - y
 }
 
 #[test]
 fn raw() {
+    #[inline(never)]
+    extern "C" fn add(x: i32, y: i32) -> i32 {
+        VolatileCell::new(x).get() + y
+    }
+
     unsafe {
         let mut hook = RawDetour::new(add as *const (), sub_detour as *const ())
             .expect("target or source is not usable for detouring");
@@ -51,6 +51,11 @@ fn raw() {
 
 #[test]
 fn generic() {
+    #[inline(never)]
+    extern "C" fn add(x: i32, y: i32) -> i32 {
+        VolatileCell::new(x).get() + y
+    }
+
     unsafe {
         let mut hook = GenericDetour::<FnAdd>::new(add, sub_detour)
             .expect("target or source is not usable for detouring");
@@ -71,6 +76,11 @@ fn generic() {
 #[cfg(feature = "static")]
 mod static_test {
     use super::*;
+
+    #[inline(never)]
+    extern "C" fn add(x: i32, y: i32) -> i32 {
+        VolatileCell::new(x).get() + y
+    }
 
     static_detours! {
         pub struct DetourAdd: extern "C" fn(i32, i32) -> i32;

@@ -7,7 +7,7 @@
 //!
 //! ## Intro
 //!
-//! This library provides thread-safe, inline detouring functionality by
+//! This library provides a thread-safe, inline detouring functionality by
 //! disassembling and patching functions during runtime, using assembly opcodes
 //! allocated within executable memory. It modifies the target functions and
 //! replaces their prolog with an unconditional jump.

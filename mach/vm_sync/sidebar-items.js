@@ -1,0 +1,1 @@
+initSidebarItems({"constant":[["VM_SYNC_ASYNCHRONOUS",""],["VM_SYNC_CONTIGUOUS",""],["VM_SYNC_DEACTIVATE",""],["VM_SYNC_INVALIDATE",""],["VM_SYNC_KILLPAGES",""],["VM_SYNC_REUSABLEPAGES",""],["VM_SYNC_SYNCHRONOUS",""]],"type":[["vm_sync_t",""]]});

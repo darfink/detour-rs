@@ -1,0 +1,1 @@
+initSidebarItems({"trait":[["Boolinator","This trait defines a number of combinator-style methods for use with `bool` values."]]});

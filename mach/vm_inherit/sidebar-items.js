@@ -1,0 +1,1 @@
+initSidebarItems({"constant":[["VM_INHERIT_COPY",""],["VM_INHERIT_DEFAULT",""],["VM_INHERIT_DONATE_COPY",""],["VM_INHERIT_LAST_VALID",""],["VM_INHERIT_NONE",""],["VM_INHERIT_SHARE",""]],"type":[["vm_inherit_t",""]]});

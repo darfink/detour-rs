@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `region` crate.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, region">
+
+    <title>region - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../normalize.css">
+    <link rel="stylesheet" type="text/css" href="../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../main.css">
+    
+
+    
+    
+</head>
+<body class="rustdoc mod">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'>Crate region</p><div class="block items"><ul><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#functions">Functions</a></li></ul></div><p class='location'></p><script>window.sidebarCurrent = {name: 'region', ty: 'mod', relpath: '../'};</script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content">
+<h1 class='fqn'><span class='in-band'>Crate <a class="mod" href=''>region</a></span><span class='out-of-band'><span id='render-detail'>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a class='srclink' href='../src/region/lib.rs.html#1-353' title='goto source code'>[src]</a></span></h1>
+<div class='docblock'><p>A library for manipulating memory regions</p>
+
+<p>This crate provides several functions for handling memory pages and regions.
+It is implemented using platform specific APIs. The library exposes both low
+and high level functionality for manipulating pages.</p>
+
+<p>Not all OS specific quirks are abstracted away. For instance; some OSs
+enforce memory pages to be readable whilst other may prevent pages from
+becoming executable (i.e DEP).</p>
+
+<p><em>Note: a region is a collection of one or more pages laying consecutively in
+memory, with the same properties.</em></p>
+
+<h1 id='installation' class='section-header'><a href='#installation'>Installation</a></h1>
+<p>This crate is <a href="https://crates.io/crates/region">on crates.io</a> and can be
+used by adding <code>region</code> to your dependencies in your project&#39;s <code>Cargo.toml</code>.</p>
+
+<pre><code class="language-toml">[dependencies]
+region = &quot;0.0.6&quot;
+</code></pre>
+
+<p>and this to your crate root:</p>
+
+<pre class="rust rust-example-rendered">
+<span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">region</span>;</pre>
+
+<h1 id='examples' class='section-header'><a href='#examples'>Examples</a></h1>
+<ul>
+<li><p>Using <code>View</code> to retrieve and change the state of memory pages.</p>
+
+<pre class="rust rust-example-rendered">
+<span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[<span class="number">0xFF</span>; <span class="number">100</span>];
+<span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">view</span> <span class="op">=</span> <span class="ident">View</span>::<span class="ident">new</span>(<span class="ident">data</span>.<span class="ident">as_ptr</span>(), <span class="ident">data</span>.<span class="ident">len</span>()).<span class="ident">unwrap</span>();
+
+<span class="comment">// Change memory protection to Read | Write | Execute</span>
+<span class="kw">unsafe</span> { <span class="ident">view</span>.<span class="ident">set_prot</span>(<span class="ident">Protection</span>::<span class="ident">ReadWriteExecute</span>.<span class="ident">into</span>()).<span class="ident">unwrap</span>() };
+<span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">view</span>.<span class="ident">get_prot</span>(), <span class="prelude-val">Some</span>(<span class="ident">Protection</span>::<span class="ident">ReadWriteExecute</span>));
+
+<span class="comment">// Restore to the previous memory protection</span>
+<span class="kw">unsafe</span> { <span class="ident">view</span>.<span class="ident">set_prot</span>(<span class="ident">Access</span>::<span class="ident">Previous</span>).<span class="ident">unwrap</span>() };
+<span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">view</span>.<span class="ident">get_prot</span>(), <span class="prelude-val">Some</span>(<span class="ident">Protection</span>::<span class="ident">ReadWrite</span>));
+
+<span class="comment">// Temporarily change memory protection</span>
+<span class="kw">unsafe</span> {
+  <span class="ident">view</span>.<span class="ident">exec_with_prot</span>(<span class="ident">Protection</span>::<span class="ident">Read</span>, <span class="op">||</span> {
+      <span class="comment">// This would result in a memory violation</span>
+      <span class="comment">// data[0] = 0xCC;</span>
+  }).<span class="ident">unwrap</span>();
+}
+
+<span class="comment">// Lock the memory page(s) to RAM</span>
+<span class="kw">let</span> <span class="ident">_guard</span> <span class="op">=</span> <span class="ident">view</span>.<span class="ident">lock</span>().<span class="ident">unwrap</span>();</pre></li>
+</ul>
+</div><h2 id='modules' class='section-header'><a href="#modules">Modules</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="mod" href="Protection/index.html"
+                                  title='mod region::Protection'>Protection</a></td>
+                           <td class='docblock-short'>
+                                <p>This module exists solely to wrap the protection flags in a namespace, until
+<a href="https://github.com/rust-lang/rust/issues/17841">associated constants</a> are in stable.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="mod" href="error/index.html"
+                                  title='mod region::error'>error</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr></table><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.LockGuard.html"
+                                  title='struct region::LockGuard'>LockGuard</a></td>
+                           <td class='docblock-short'>
+                                <p>An RAII implementation of a &quot;scoped lock&quot;. When this structure is dropped
+(falls out of scope), the virtual lock will be unlocked.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.Region.html"
+                                  title='struct region::Region'>Region</a></td>
+                           <td class='docblock-short'>
+                                <p>A descriptor for a memory region</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.View.html"
+                                  title='struct region::View'>View</a></td>
+                           <td class='docblock-short'>
+                                <p>A view aligned to page boundaries.</p>
+                           </td>
+                       </tr></table><h2 id='enums' class='section-header'><a href="#enums">Enums</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="enum" href="enum.Access.html"
+                                  title='enum region::Access'>Access</a></td>
+                           <td class='docblock-short'>
+                                <p>View protection access.</p>
+                           </td>
+                       </tr></table><h2 id='functions' class='section-header'><a href="#functions">Functions</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.lock.html"
+                                  title='fn region::lock'>lock</a></td>
+                           <td class='docblock-short'>
+                                <p>Locks one or more memory regions to RAM.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.page_size.html"
+                                  title='fn region::page_size'>page_size</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.protect.html"
+                                  title='fn region::protect'>protect</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                <p>Changes the memory protection of one or more regions.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.query.html"
+                                  title='fn region::query'>query</a></td>
+                           <td class='docblock-short'>
+                                <p>Queries the OS with an address, returning the region it resides within.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.query_range.html"
+                                  title='fn region::query_range'>query_range</a></td>
+                           <td class='docblock-short'>
+                                <p>Queries the OS with a range, returning the regions it contains.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.unlock.html"
+                                  title='fn region::unlock'>unlock</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                <p>Unlocks one or more memory regions from RAM.</p>
+                           </td>
+                       </tr></table></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../";
+        window.currentCrate = "region";
+    </script>
+    <script src="../main.js"></script>
+    <script defer src="../search-index.js"></script>
+</body>
+</html>

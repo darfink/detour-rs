@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `generic_array` crate.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, generic_array">
+
+    <title>generic_array - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../normalize.css">
+    <link rel="stylesheet" type="text/css" href="../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../main.css">
+    
+
+    
+    
+</head>
+<body class="rustdoc mod">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'>Crate generic_array</p><div class="block items"><ul><li><a href="#reexports">Reexports</a></li><li><a href="#modules">Modules</a></li><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li></ul></div><p class='location'></p><script>window.sidebarCurrent = {name: 'generic_array', ty: 'mod', relpath: '../'};</script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content">
+<h1 class='fqn'><span class='in-band'>Crate <a class="mod" href=''>generic_array</a></span><span class='out-of-band'><span id='render-detail'>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a class='srclink' href='../src/generic_array/lib.rs.html#1-212' title='goto source code'>[src]</a></span></h1>
+<div class='docblock'><p>This crate implements a structure that can be used as a generic array type.use
+Core Rust array types <code>[T; N]</code> can&#39;t be used generically with respect to <code>N</code>, so for example this:</p>
+
+<pre><code class="language-{should_fail}">struct Foo&lt;T, N&gt; {
+    data: [T; N]
+}
+</code></pre>
+
+<p>won&#39;t work.</p>
+
+<p><strong>generic-array</strong> exports a <code>GenericArray&lt;T,N&gt;</code> type, which lets the above be implemented as:</p>
+
+<pre class="rust rust-example-rendered">
+<span class="kw">struct</span> <span class="ident">Foo</span><span class="op">&lt;</span><span class="ident">T</span>, <span class="ident">N</span>: <span class="ident">ArrayLength</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;&gt;</span> {
+    <span class="ident">data</span>: <span class="ident">GenericArray</span><span class="op">&lt;</span><span class="ident">T</span>,<span class="ident">N</span><span class="op">&gt;</span>
+}</pre>
+
+<p>The <code>ArrayLength&lt;T&gt;</code> trait is implemented by default for <a href="../typenum/uint/index.html">unsigned integer types</a> from <a href="../typenum/index.html">typenum</a>.</p>
+
+<p>For ease of use, an <code>arr!</code> macro is provided - example below:</p>
+
+<pre class="rust rust-example-rendered">
+<span class="kw">let</span> <span class="ident">array</span> <span class="op">=</span> <span class="macro">arr</span><span class="macro">!</span>[<span class="ident">u32</span>; <span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>];
+<span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">array</span>[<span class="number">2</span>], <span class="number">3</span>);</pre>
+</div><h2 id='reexports' class='section-header'><a href="#reexports">Reexports</a></h2>
+<table><tr><td><code>pub extern crate <a class="mod" href="../typenum/index.html" title="mod typenum">typenum</a>;</code></td></tr><tr><td><code>pub use iter::<a class="struct" href="../generic_array/iter/struct.GenericArrayIter.html" title="struct generic_array::iter::GenericArrayIter">GenericArrayIter</a>;</code></td></tr></table><h2 id='modules' class='section-header'><a href="#modules">Modules</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="mod" href="arr/index.html"
+                                  title='mod generic_array::arr'>arr</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="mod" href="iter/index.html"
+                                  title='mod generic_array::iter'>iter</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr></table><h2 id='macros' class='section-header'><a href="#macros">Macros</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="macro" href="macro.arr.html"
+                                  title='macro generic_array::arr'>arr</a></td>
+                           <td class='docblock-short'>
+                                <p>Macro allowing for easy generation of Generic Arrays.
+Example: <code>let test = arr![u32; 1, 2, 3];</code></p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="macro" href="macro.arr_impl.html"
+                                  title='macro generic_array::arr_impl'>arr_impl</a></td>
+                           <td class='docblock-short'>
+                                <p>Proper implementation of <code>arr!</code></p>
+                           </td>
+                       </tr></table><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.GenericArray.html"
+                                  title='struct generic_array::GenericArray'>GenericArray</a></td>
+                           <td class='docblock-short'>
+                                <p>Struct representing a generic array - <code>GenericArray&lt;T, N&gt;</code> works like [T; N]</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.GenericArrayImplEven.html"
+                                  title='struct generic_array::GenericArrayImplEven'>GenericArrayImplEven</a></td>
+                           <td class='docblock-short'>
+                                <p>Internal type used to generate a struct of appropriate size</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="struct" href="struct.GenericArrayImplOdd.html"
+                                  title='struct generic_array::GenericArrayImplOdd'>GenericArrayImplOdd</a></td>
+                           <td class='docblock-short'>
+                                <p>Internal type used to generate a struct of appropriate size</p>
+                           </td>
+                       </tr></table><h2 id='traits' class='section-header'><a href="#traits">Traits</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="trait" href="trait.ArrayLength.html"
+                                  title='trait generic_array::ArrayLength'>ArrayLength</a></td>
+                           <td class='docblock-short'>
+                                <p>Trait making <code>GenericArray</code> work, marking types to be used as length of an array</p>
+                           </td>
+                       </tr></table><h2 id='functions' class='section-header'><a href="#functions">Functions</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="fn" href="fn.transmute.html"
+                                  title='fn generic_array::transmute'>transmute</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td>
+                           <td class='docblock-short'>
+                                <p>Reinterprets the bits of a value of one type as another type.</p>
+                           </td>
+                       </tr></table></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../";
+        window.currentCrate = "generic_array";
+    </script>
+    <script src="../main.js"></script>
+    <script defer src="../search-index.js"></script>
+</body>
+</html>

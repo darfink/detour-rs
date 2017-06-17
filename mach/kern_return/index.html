@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `kern_return` mod in crate `mach`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, kern_return">
+
+    <title>mach::kern_return - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../../normalize.css">
+    <link rel="stylesheet" type="text/css" href="../../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../../main.css">
+    
+
+    
+    
+</head>
+<body class="rustdoc mod">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'>Module kern_return</p><div class="block items"><ul><li><a href="#constants">Constants</a></li><li><a href="#types">Type Definitions</a></li></ul></div><p class='location'><a href='../index.html'>mach</a></p><script>window.sidebarCurrent = {name: 'kern_return', ty: 'mod', relpath: '../'};</script><script defer src="../sidebar-items.js"></script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content">
+<h1 class='fqn'><span class='in-band'>Module <a href='../index.html'>mach</a>::<wbr><a class="mod" href=''>kern_return</a></span><span class='out-of-band'><span id='render-detail'>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a class='srclink' href='../../src/mach/kern_return.rs.html#1-58' title='goto source code'>[src]</a></span></h1>
+<div class='docblock'><p>This module corresponds to <code>mach/kern_return.h</code> and
+<code>mach/i386/kern_return.h</code>.</p>
+</div><h2 id='constants' class='section-header'><a href="#constants">Constants</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_ABORTED.html"
+                                  title='constant mach::kern_return::KERN_ABORTED'>KERN_ABORTED</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_ALREADY_IN_SET.html"
+                                  title='constant mach::kern_return::KERN_ALREADY_IN_SET'>KERN_ALREADY_IN_SET</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_ALREADY_WAITING.html"
+                                  title='constant mach::kern_return::KERN_ALREADY_WAITING'>KERN_ALREADY_WAITING</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_CODESIGN_ERROR.html"
+                                  title='constant mach::kern_return::KERN_CODESIGN_ERROR'>KERN_CODESIGN_ERROR</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_DEFAULT_SET.html"
+                                  title='constant mach::kern_return::KERN_DEFAULT_SET'>KERN_DEFAULT_SET</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_EXCEPTION_PROTECTED.html"
+                                  title='constant mach::kern_return::KERN_EXCEPTION_PROTECTED'>KERN_EXCEPTION_PROTECTED</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_FAILURE.html"
+                                  title='constant mach::kern_return::KERN_FAILURE'>KERN_FAILURE</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_INVALID_ADDRESS.html"
+                                  title='constant mach::kern_return::KERN_INVALID_ADDRESS'>KERN_INVALID_ADDRESS</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_INVALID_ARGUMENT.html"
+                                  title='constant mach::kern_return::KERN_INVALID_ARGUMENT'>KERN_INVALID_ARGUMENT</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_INVALID_CAPABILITY.html"
+                                  title='constant mach::kern_return::KERN_INVALID_CAPABILITY'>KERN_INVALID_CAPABILITY</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_INVALID_HOST.html"
+                                  title='constant mach::kern_return::KERN_INVALID_HOST'>KERN_INVALID_HOST</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_INVALID_LEDGER.html"
+                                  title='constant mach::kern_return::KERN_INVALID_LEDGER'>KERN_INVALID_LEDGER</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_INVALID_MEMORY_CONTROL.html"
+                                  title='constant mach::kern_return::KERN_INVALID_MEMORY_CONTROL'>KERN_INVALID_MEMORY_CONTROL</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_INVALID_NAME.html"
+                                  title='constant mach::kern_return::KERN_INVALID_NAME'>KERN_INVALID_NAME</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_INVALID_OBJECT.html"
+                                  title='constant mach::kern_return::KERN_INVALID_OBJECT'>KERN_INVALID_OBJECT</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_INVALID_POLICY.html"
+                                  title='constant mach::kern_return::KERN_INVALID_POLICY'>KERN_INVALID_POLICY</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_INVALID_PROCESSOR_SET.html"
+                                  title='constant mach::kern_return::KERN_INVALID_PROCESSOR_SET'>KERN_INVALID_PROCESSOR_SET</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_INVALID_RIGHT.html"
+                                  title='constant mach::kern_return::KERN_INVALID_RIGHT'>KERN_INVALID_RIGHT</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_INVALID_SECURITY.html"
+                                  title='constant mach::kern_return::KERN_INVALID_SECURITY'>KERN_INVALID_SECURITY</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_INVALID_TASK.html"
+                                  title='constant mach::kern_return::KERN_INVALID_TASK'>KERN_INVALID_TASK</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_INVALID_VALUE.html"
+                                  title='constant mach::kern_return::KERN_INVALID_VALUE'>KERN_INVALID_VALUE</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_LOCK_OWNED.html"
+                                  title='constant mach::kern_return::KERN_LOCK_OWNED'>KERN_LOCK_OWNED</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_LOCK_OWNED_SELF.html"
+                                  title='constant mach::kern_return::KERN_LOCK_OWNED_SELF'>KERN_LOCK_OWNED_SELF</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_LOCK_SET_DESTROYED.html"
+                                  title='constant mach::kern_return::KERN_LOCK_SET_DESTROYED'>KERN_LOCK_SET_DESTROYED</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_LOCK_UNSTABLE.html"
+                                  title='constant mach::kern_return::KERN_LOCK_UNSTABLE'>KERN_LOCK_UNSTABLE</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_MEMORY_DATA_MOVED.html"
+                                  title='constant mach::kern_return::KERN_MEMORY_DATA_MOVED'>KERN_MEMORY_DATA_MOVED</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_MEMORY_ERROR.html"
+                                  title='constant mach::kern_return::KERN_MEMORY_ERROR'>KERN_MEMORY_ERROR</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_MEMORY_FAILURE.html"
+                                  title='constant mach::kern_return::KERN_MEMORY_FAILURE'>KERN_MEMORY_FAILURE</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_MEMORY_PRESENT.html"
+                                  title='constant mach::kern_return::KERN_MEMORY_PRESENT'>KERN_MEMORY_PRESENT</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_MEMORY_RESTART_COPY.html"
+                                  title='constant mach::kern_return::KERN_MEMORY_RESTART_COPY'>KERN_MEMORY_RESTART_COPY</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_NAME_EXISTS.html"
+                                  title='constant mach::kern_return::KERN_NAME_EXISTS'>KERN_NAME_EXISTS</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_NODE_DOWN.html"
+                                  title='constant mach::kern_return::KERN_NODE_DOWN'>KERN_NODE_DOWN</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_NOT_DEPRESSED.html"
+                                  title='constant mach::kern_return::KERN_NOT_DEPRESSED'>KERN_NOT_DEPRESSED</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_NOT_IN_SET.html"
+                                  title='constant mach::kern_return::KERN_NOT_IN_SET'>KERN_NOT_IN_SET</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_NOT_RECEIVER.html"
+                                  title='constant mach::kern_return::KERN_NOT_RECEIVER'>KERN_NOT_RECEIVER</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_NOT_SUPPORTED.html"
+                                  title='constant mach::kern_return::KERN_NOT_SUPPORTED'>KERN_NOT_SUPPORTED</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_NOT_WAITING.html"
+                                  title='constant mach::kern_return::KERN_NOT_WAITING'>KERN_NOT_WAITING</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_NO_ACCESS.html"
+                                  title='constant mach::kern_return::KERN_NO_ACCESS'>KERN_NO_ACCESS</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_NO_SPACE.html"
+                                  title='constant mach::kern_return::KERN_NO_SPACE'>KERN_NO_SPACE</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_OPERATION_TIMED_OUT.html"
+                                  title='constant mach::kern_return::KERN_OPERATION_TIMED_OUT'>KERN_OPERATION_TIMED_OUT</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_POLICY_LIMIT.html"
+                                  title='constant mach::kern_return::KERN_POLICY_LIMIT'>KERN_POLICY_LIMIT</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_POLICY_STATIC.html"
+                                  title='constant mach::kern_return::KERN_POLICY_STATIC'>KERN_POLICY_STATIC</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_PROTECTION_FAILURE.html"
+                                  title='constant mach::kern_return::KERN_PROTECTION_FAILURE'>KERN_PROTECTION_FAILURE</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_RESOURCE_SHORTAGE.html"
+                                  title='constant mach::kern_return::KERN_RESOURCE_SHORTAGE'>KERN_RESOURCE_SHORTAGE</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_RETURN_MAX.html"
+                                  title='constant mach::kern_return::KERN_RETURN_MAX'>KERN_RETURN_MAX</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_RIGHT_EXISTS.html"
+                                  title='constant mach::kern_return::KERN_RIGHT_EXISTS'>KERN_RIGHT_EXISTS</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_RPC_CONTINUE_ORPHAN.html"
+                                  title='constant mach::kern_return::KERN_RPC_CONTINUE_ORPHAN'>KERN_RPC_CONTINUE_ORPHAN</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_RPC_SERVER_TERMINATED.html"
+                                  title='constant mach::kern_return::KERN_RPC_SERVER_TERMINATED'>KERN_RPC_SERVER_TERMINATED</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_RPC_TERMINATE_ORPHAN.html"
+                                  title='constant mach::kern_return::KERN_RPC_TERMINATE_ORPHAN'>KERN_RPC_TERMINATE_ORPHAN</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_SEMAPHORE_DESTROYED.html"
+                                  title='constant mach::kern_return::KERN_SEMAPHORE_DESTROYED'>KERN_SEMAPHORE_DESTROYED</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_SUCCESS.html"
+                                  title='constant mach::kern_return::KERN_SUCCESS'>KERN_SUCCESS</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_TERMINATED.html"
+                                  title='constant mach::kern_return::KERN_TERMINATED'>KERN_TERMINATED</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class="constant" href="constant.KERN_UREFS_OVERFLOW.html"
+                                  title='constant mach::kern_return::KERN_UREFS_OVERFLOW'>KERN_UREFS_OVERFLOW</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr></table><h2 id='types' class='section-header'><a href="#types">Type Definitions</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class="type" href="type.kern_return_t.html"
+                                  title='type mach::kern_return::kern_return_t'>kern_return_t</a></td>
+                           <td class='docblock-short'>
+                                
+                           </td>
+                       </tr></table></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../../";
+        window.currentCrate = "mach";
+    </script>
+    <script src="../../main.js"></script>
+    <script defer src="../../search-index.js"></script>
+</body>
+</html>

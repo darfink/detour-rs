@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `ud_type` enum in crate `libudis86_sys`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, ud_type">
+
+    <title>libudis86_sys::ud_type - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../normalize.css">
+    <link rel="stylesheet" type="text/css" href="../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../main.css">
+    
+
+    
+    
+</head>
+<body class="rustdoc enum">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'>Enum ud_type</p><div class="block items"><ul><li><a href="#variants">Variants</a></li><li><a href="#implementations">Trait Implementations</a></li></ul></div><p class='location'><a href='index.html'>libudis86_sys</a></p><script>window.sidebarCurrent = {name: 'ud_type', ty: 'enum', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content">
+<h1 class='fqn'><span class='in-band'>Enum <a href='index.html'>libudis86_sys</a>::<wbr><a class="enum" href=''>ud_type</a></span><span class='out-of-band'><span id='render-detail'>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a class='srclink' href='../src/libudis86_sys/types.rs.html#6-169' title='goto source code'>[src]</a></span></h1>
+<pre class='rust enum'><div class="docblock attributes">#[repr(u32)]
+</div>pub enum ud_type {
+    UD_NONE,
+    UD_R_AL,
+    UD_R_CL,
+    UD_R_DL,
+    UD_R_BL,
+    UD_R_AH,
+    UD_R_CH,
+    UD_R_DH,
+    UD_R_BH,
+    UD_R_SPL,
+    UD_R_BPL,
+    UD_R_SIL,
+    UD_R_DIL,
+    UD_R_R8B,
+    UD_R_R9B,
+    UD_R_R10B,
+    UD_R_R11B,
+    UD_R_R12B,
+    UD_R_R13B,
+    UD_R_R14B,
+    UD_R_R15B,
+    UD_R_AX,
+    UD_R_CX,
+    UD_R_DX,
+    UD_R_BX,
+    UD_R_SP,
+    UD_R_BP,
+    UD_R_SI,
+    UD_R_DI,
+    UD_R_R8W,
+    UD_R_R9W,
+    UD_R_R10W,
+    UD_R_R11W,
+    UD_R_R12W,
+    UD_R_R13W,
+    UD_R_R14W,
+    UD_R_R15W,
+    UD_R_EAX,
+    UD_R_ECX,
+    UD_R_EDX,
+    UD_R_EBX,
+    UD_R_ESP,
+    UD_R_EBP,
+    UD_R_ESI,
+    UD_R_EDI,
+    UD_R_R8D,
+    UD_R_R9D,
+    UD_R_R10D,
+    UD_R_R11D,
+    UD_R_R12D,
+    UD_R_R13D,
+    UD_R_R14D,
+    UD_R_R15D,
+    UD_R_RAX,
+    UD_R_RCX,
+    UD_R_RDX,
+    UD_R_RBX,
+    UD_R_RSP,
+    UD_R_RBP,
+    UD_R_RSI,
+    UD_R_RDI,
+    UD_R_R8,
+    UD_R_R9,
+    UD_R_R10,
+    UD_R_R11,
+    UD_R_R12,
+    UD_R_R13,
+    UD_R_R14,
+    UD_R_R15,
+    UD_R_ES,
+    UD_R_CS,
+    UD_R_SS,
+    UD_R_DS,
+    UD_R_FS,
+    UD_R_GS,
+    UD_R_CR0,
+    UD_R_CR1,
+    UD_R_CR2,
+    UD_R_CR3,
+    UD_R_CR4,
+    UD_R_CR5,
+    UD_R_CR6,
+    UD_R_CR7,
+    UD_R_CR8,
+    UD_R_CR9,
+    UD_R_CR10,
+    UD_R_CR11,
+    UD_R_CR12,
+    UD_R_CR13,
+    UD_R_CR14,
+    UD_R_CR15,
+    UD_R_DR0,
+    UD_R_DR1,
+    UD_R_DR2,
+    UD_R_DR3,
+    UD_R_DR4,
+    UD_R_DR5,
+    UD_R_DR6,
+    UD_R_DR7,
+    UD_R_DR8,
+    UD_R_DR9,
+    UD_R_DR10,
+    UD_R_DR11,
+    UD_R_DR12,
+    UD_R_DR13,
+    UD_R_DR14,
+    UD_R_DR15,
+    UD_R_MM0,
+    UD_R_MM1,
+    UD_R_MM2,
+    UD_R_MM3,
+    UD_R_MM4,
+    UD_R_MM5,
+    UD_R_MM6,
+    UD_R_MM7,
+    UD_R_ST0,
+    UD_R_ST1,
+    UD_R_ST2,
+    UD_R_ST3,
+    UD_R_ST4,
+    UD_R_ST5,
+    UD_R_ST6,
+    UD_R_ST7,
+    UD_R_XMM0,
+    UD_R_XMM1,
+    UD_R_XMM2,
+    UD_R_XMM3,
+    UD_R_XMM4,
+    UD_R_XMM5,
+    UD_R_XMM6,
+    UD_R_XMM7,
+    UD_R_XMM8,
+    UD_R_XMM9,
+    UD_R_XMM10,
+    UD_R_XMM11,
+    UD_R_XMM12,
+    UD_R_XMM13,
+    UD_R_XMM14,
+    UD_R_XMM15,
+    UD_R_YMM0,
+    UD_R_YMM1,
+    UD_R_YMM2,
+    UD_R_YMM3,
+    UD_R_YMM4,
+    UD_R_YMM5,
+    UD_R_YMM6,
+    UD_R_YMM7,
+    UD_R_YMM8,
+    UD_R_YMM9,
+    UD_R_YMM10,
+    UD_R_YMM11,
+    UD_R_YMM12,
+    UD_R_YMM13,
+    UD_R_YMM14,
+    UD_R_YMM15,
+    UD_R_RIP,
+    UD_OP_REG,
+    UD_OP_MEM,
+    UD_OP_PTR,
+    UD_OP_IMM,
+    UD_OP_JIMM,
+    UD_OP_CONST,
+}</pre><h2 id='variants' class='variants'>Variants</h2>
+<span id='variant.UD_NONE' class='variant'><span id='UD_NONE.v' class='invisible'><code>UD_NONE</code></span></span><span id='variant.UD_R_AL' class='variant'><span id='UD_R_AL.v' class='invisible'><code>UD_R_AL</code></span></span><span id='variant.UD_R_CL' class='variant'><span id='UD_R_CL.v' class='invisible'><code>UD_R_CL</code></span></span><span id='variant.UD_R_DL' class='variant'><span id='UD_R_DL.v' class='invisible'><code>UD_R_DL</code></span></span><span id='variant.UD_R_BL' class='variant'><span id='UD_R_BL.v' class='invisible'><code>UD_R_BL</code></span></span><span id='variant.UD_R_AH' class='variant'><span id='UD_R_AH.v' class='invisible'><code>UD_R_AH</code></span></span><span id='variant.UD_R_CH' class='variant'><span id='UD_R_CH.v' class='invisible'><code>UD_R_CH</code></span></span><span id='variant.UD_R_DH' class='variant'><span id='UD_R_DH.v' class='invisible'><code>UD_R_DH</code></span></span><span id='variant.UD_R_BH' class='variant'><span id='UD_R_BH.v' class='invisible'><code>UD_R_BH</code></span></span><span id='variant.UD_R_SPL' class='variant'><span id='UD_R_SPL.v' class='invisible'><code>UD_R_SPL</code></span></span><span id='variant.UD_R_BPL' class='variant'><span id='UD_R_BPL.v' class='invisible'><code>UD_R_BPL</code></span></span><span id='variant.UD_R_SIL' class='variant'><span id='UD_R_SIL.v' class='invisible'><code>UD_R_SIL</code></span></span><span id='variant.UD_R_DIL' class='variant'><span id='UD_R_DIL.v' class='invisible'><code>UD_R_DIL</code></span></span><span id='variant.UD_R_R8B' class='variant'><span id='UD_R_R8B.v' class='invisible'><code>UD_R_R8B</code></span></span><span id='variant.UD_R_R9B' class='variant'><span id='UD_R_R9B.v' class='invisible'><code>UD_R_R9B</code></span></span><span id='variant.UD_R_R10B' class='variant'><span id='UD_R_R10B.v' class='invisible'><code>UD_R_R10B</code></span></span><span id='variant.UD_R_R11B' class='variant'><span id='UD_R_R11B.v' class='invisible'><code>UD_R_R11B</code></span></span><span id='variant.UD_R_R12B' class='variant'><span id='UD_R_R12B.v' class='invisible'><code>UD_R_R12B</code></span></span><span id='variant.UD_R_R13B' class='variant'><span id='UD_R_R13B.v' class='invisible'><code>UD_R_R13B</code></span></span><span id='variant.UD_R_R14B' class='variant'><span id='UD_R_R14B.v' class='invisible'><code>UD_R_R14B</code></span></span><span id='variant.UD_R_R15B' class='variant'><span id='UD_R_R15B.v' class='invisible'><code>UD_R_R15B</code></span></span><span id='variant.UD_R_AX' class='variant'><span id='UD_R_AX.v' class='invisible'><code>UD_R_AX</code></span></span><span id='variant.UD_R_CX' class='variant'><span id='UD_R_CX.v' class='invisible'><code>UD_R_CX</code></span></span><span id='variant.UD_R_DX' class='variant'><span id='UD_R_DX.v' class='invisible'><code>UD_R_DX</code></span></span><span id='variant.UD_R_BX' class='variant'><span id='UD_R_BX.v' class='invisible'><code>UD_R_BX</code></span></span><span id='variant.UD_R_SP' class='variant'><span id='UD_R_SP.v' class='invisible'><code>UD_R_SP</code></span></span><span id='variant.UD_R_BP' class='variant'><span id='UD_R_BP.v' class='invisible'><code>UD_R_BP</code></span></span><span id='variant.UD_R_SI' class='variant'><span id='UD_R_SI.v' class='invisible'><code>UD_R_SI</code></span></span><span id='variant.UD_R_DI' class='variant'><span id='UD_R_DI.v' class='invisible'><code>UD_R_DI</code></span></span><span id='variant.UD_R_R8W' class='variant'><span id='UD_R_R8W.v' class='invisible'><code>UD_R_R8W</code></span></span><span id='variant.UD_R_R9W' class='variant'><span id='UD_R_R9W.v' class='invisible'><code>UD_R_R9W</code></span></span><span id='variant.UD_R_R10W' class='variant'><span id='UD_R_R10W.v' class='invisible'><code>UD_R_R10W</code></span></span><span id='variant.UD_R_R11W' class='variant'><span id='UD_R_R11W.v' class='invisible'><code>UD_R_R11W</code></span></span><span id='variant.UD_R_R12W' class='variant'><span id='UD_R_R12W.v' class='invisible'><code>UD_R_R12W</code></span></span><span id='variant.UD_R_R13W' class='variant'><span id='UD_R_R13W.v' class='invisible'><code>UD_R_R13W</code></span></span><span id='variant.UD_R_R14W' class='variant'><span id='UD_R_R14W.v' class='invisible'><code>UD_R_R14W</code></span></span><span id='variant.UD_R_R15W' class='variant'><span id='UD_R_R15W.v' class='invisible'><code>UD_R_R15W</code></span></span><span id='variant.UD_R_EAX' class='variant'><span id='UD_R_EAX.v' class='invisible'><code>UD_R_EAX</code></span></span><span id='variant.UD_R_ECX' class='variant'><span id='UD_R_ECX.v' class='invisible'><code>UD_R_ECX</code></span></span><span id='variant.UD_R_EDX' class='variant'><span id='UD_R_EDX.v' class='invisible'><code>UD_R_EDX</code></span></span><span id='variant.UD_R_EBX' class='variant'><span id='UD_R_EBX.v' class='invisible'><code>UD_R_EBX</code></span></span><span id='variant.UD_R_ESP' class='variant'><span id='UD_R_ESP.v' class='invisible'><code>UD_R_ESP</code></span></span><span id='variant.UD_R_EBP' class='variant'><span id='UD_R_EBP.v' class='invisible'><code>UD_R_EBP</code></span></span><span id='variant.UD_R_ESI' class='variant'><span id='UD_R_ESI.v' class='invisible'><code>UD_R_ESI</code></span></span><span id='variant.UD_R_EDI' class='variant'><span id='UD_R_EDI.v' class='invisible'><code>UD_R_EDI</code></span></span><span id='variant.UD_R_R8D' class='variant'><span id='UD_R_R8D.v' class='invisible'><code>UD_R_R8D</code></span></span><span id='variant.UD_R_R9D' class='variant'><span id='UD_R_R9D.v' class='invisible'><code>UD_R_R9D</code></span></span><span id='variant.UD_R_R10D' class='variant'><span id='UD_R_R10D.v' class='invisible'><code>UD_R_R10D</code></span></span><span id='variant.UD_R_R11D' class='variant'><span id='UD_R_R11D.v' class='invisible'><code>UD_R_R11D</code></span></span><span id='variant.UD_R_R12D' class='variant'><span id='UD_R_R12D.v' class='invisible'><code>UD_R_R12D</code></span></span><span id='variant.UD_R_R13D' class='variant'><span id='UD_R_R13D.v' class='invisible'><code>UD_R_R13D</code></span></span><span id='variant.UD_R_R14D' class='variant'><span id='UD_R_R14D.v' class='invisible'><code>UD_R_R14D</code></span></span><span id='variant.UD_R_R15D' class='variant'><span id='UD_R_R15D.v' class='invisible'><code>UD_R_R15D</code></span></span><span id='variant.UD_R_RAX' class='variant'><span id='UD_R_RAX.v' class='invisible'><code>UD_R_RAX</code></span></span><span id='variant.UD_R_RCX' class='variant'><span id='UD_R_RCX.v' class='invisible'><code>UD_R_RCX</code></span></span><span id='variant.UD_R_RDX' class='variant'><span id='UD_R_RDX.v' class='invisible'><code>UD_R_RDX</code></span></span><span id='variant.UD_R_RBX' class='variant'><span id='UD_R_RBX.v' class='invisible'><code>UD_R_RBX</code></span></span><span id='variant.UD_R_RSP' class='variant'><span id='UD_R_RSP.v' class='invisible'><code>UD_R_RSP</code></span></span><span id='variant.UD_R_RBP' class='variant'><span id='UD_R_RBP.v' class='invisible'><code>UD_R_RBP</code></span></span><span id='variant.UD_R_RSI' class='variant'><span id='UD_R_RSI.v' class='invisible'><code>UD_R_RSI</code></span></span><span id='variant.UD_R_RDI' class='variant'><span id='UD_R_RDI.v' class='invisible'><code>UD_R_RDI</code></span></span><span id='variant.UD_R_R8' class='variant'><span id='UD_R_R8.v' class='invisible'><code>UD_R_R8</code></span></span><span id='variant.UD_R_R9' class='variant'><span id='UD_R_R9.v' class='invisible'><code>UD_R_R9</code></span></span><span id='variant.UD_R_R10' class='variant'><span id='UD_R_R10.v' class='invisible'><code>UD_R_R10</code></span></span><span id='variant.UD_R_R11' class='variant'><span id='UD_R_R11.v' class='invisible'><code>UD_R_R11</code></span></span><span id='variant.UD_R_R12' class='variant'><span id='UD_R_R12.v' class='invisible'><code>UD_R_R12</code></span></span><span id='variant.UD_R_R13' class='variant'><span id='UD_R_R13.v' class='invisible'><code>UD_R_R13</code></span></span><span id='variant.UD_R_R14' class='variant'><span id='UD_R_R14.v' class='invisible'><code>UD_R_R14</code></span></span><span id='variant.UD_R_R15' class='variant'><span id='UD_R_R15.v' class='invisible'><code>UD_R_R15</code></span></span><span id='variant.UD_R_ES' class='variant'><span id='UD_R_ES.v' class='invisible'><code>UD_R_ES</code></span></span><span id='variant.UD_R_CS' class='variant'><span id='UD_R_CS.v' class='invisible'><code>UD_R_CS</code></span></span><span id='variant.UD_R_SS' class='variant'><span id='UD_R_SS.v' class='invisible'><code>UD_R_SS</code></span></span><span id='variant.UD_R_DS' class='variant'><span id='UD_R_DS.v' class='invisible'><code>UD_R_DS</code></span></span><span id='variant.UD_R_FS' class='variant'><span id='UD_R_FS.v' class='invisible'><code>UD_R_FS</code></span></span><span id='variant.UD_R_GS' class='variant'><span id='UD_R_GS.v' class='invisible'><code>UD_R_GS</code></span></span><span id='variant.UD_R_CR0' class='variant'><span id='UD_R_CR0.v' class='invisible'><code>UD_R_CR0</code></span></span><span id='variant.UD_R_CR1' class='variant'><span id='UD_R_CR1.v' class='invisible'><code>UD_R_CR1</code></span></span><span id='variant.UD_R_CR2' class='variant'><span id='UD_R_CR2.v' class='invisible'><code>UD_R_CR2</code></span></span><span id='variant.UD_R_CR3' class='variant'><span id='UD_R_CR3.v' class='invisible'><code>UD_R_CR3</code></span></span><span id='variant.UD_R_CR4' class='variant'><span id='UD_R_CR4.v' class='invisible'><code>UD_R_CR4</code></span></span><span id='variant.UD_R_CR5' class='variant'><span id='UD_R_CR5.v' class='invisible'><code>UD_R_CR5</code></span></span><span id='variant.UD_R_CR6' class='variant'><span id='UD_R_CR6.v' class='invisible'><code>UD_R_CR6</code></span></span><span id='variant.UD_R_CR7' class='variant'><span id='UD_R_CR7.v' class='invisible'><code>UD_R_CR7</code></span></span><span id='variant.UD_R_CR8' class='variant'><span id='UD_R_CR8.v' class='invisible'><code>UD_R_CR8</code></span></span><span id='variant.UD_R_CR9' class='variant'><span id='UD_R_CR9.v' class='invisible'><code>UD_R_CR9</code></span></span><span id='variant.UD_R_CR10' class='variant'><span id='UD_R_CR10.v' class='invisible'><code>UD_R_CR10</code></span></span><span id='variant.UD_R_CR11' class='variant'><span id='UD_R_CR11.v' class='invisible'><code>UD_R_CR11</code></span></span><span id='variant.UD_R_CR12' class='variant'><span id='UD_R_CR12.v' class='invisible'><code>UD_R_CR12</code></span></span><span id='variant.UD_R_CR13' class='variant'><span id='UD_R_CR13.v' class='invisible'><code>UD_R_CR13</code></span></span><span id='variant.UD_R_CR14' class='variant'><span id='UD_R_CR14.v' class='invisible'><code>UD_R_CR14</code></span></span><span id='variant.UD_R_CR15' class='variant'><span id='UD_R_CR15.v' class='invisible'><code>UD_R_CR15</code></span></span><span id='variant.UD_R_DR0' class='variant'><span id='UD_R_DR0.v' class='invisible'><code>UD_R_DR0</code></span></span><span id='variant.UD_R_DR1' class='variant'><span id='UD_R_DR1.v' class='invisible'><code>UD_R_DR1</code></span></span><span id='variant.UD_R_DR2' class='variant'><span id='UD_R_DR2.v' class='invisible'><code>UD_R_DR2</code></span></span><span id='variant.UD_R_DR3' class='variant'><span id='UD_R_DR3.v' class='invisible'><code>UD_R_DR3</code></span></span><span id='variant.UD_R_DR4' class='variant'><span id='UD_R_DR4.v' class='invisible'><code>UD_R_DR4</code></span></span><span id='variant.UD_R_DR5' class='variant'><span id='UD_R_DR5.v' class='invisible'><code>UD_R_DR5</code></span></span><span id='variant.UD_R_DR6' class='variant'><span id='UD_R_DR6.v' class='invisible'><code>UD_R_DR6</code></span></span><span id='variant.UD_R_DR7' class='variant'><span id='UD_R_DR7.v' class='invisible'><code>UD_R_DR7</code></span></span><span id='variant.UD_R_DR8' class='variant'><span id='UD_R_DR8.v' class='invisible'><code>UD_R_DR8</code></span></span><span id='variant.UD_R_DR9' class='variant'><span id='UD_R_DR9.v' class='invisible'><code>UD_R_DR9</code></span></span><span id='variant.UD_R_DR10' class='variant'><span id='UD_R_DR10.v' class='invisible'><code>UD_R_DR10</code></span></span><span id='variant.UD_R_DR11' class='variant'><span id='UD_R_DR11.v' class='invisible'><code>UD_R_DR11</code></span></span><span id='variant.UD_R_DR12' class='variant'><span id='UD_R_DR12.v' class='invisible'><code>UD_R_DR12</code></span></span><span id='variant.UD_R_DR13' class='variant'><span id='UD_R_DR13.v' class='invisible'><code>UD_R_DR13</code></span></span><span id='variant.UD_R_DR14' class='variant'><span id='UD_R_DR14.v' class='invisible'><code>UD_R_DR14</code></span></span><span id='variant.UD_R_DR15' class='variant'><span id='UD_R_DR15.v' class='invisible'><code>UD_R_DR15</code></span></span><span id='variant.UD_R_MM0' class='variant'><span id='UD_R_MM0.v' class='invisible'><code>UD_R_MM0</code></span></span><span id='variant.UD_R_MM1' class='variant'><span id='UD_R_MM1.v' class='invisible'><code>UD_R_MM1</code></span></span><span id='variant.UD_R_MM2' class='variant'><span id='UD_R_MM2.v' class='invisible'><code>UD_R_MM2</code></span></span><span id='variant.UD_R_MM3' class='variant'><span id='UD_R_MM3.v' class='invisible'><code>UD_R_MM3</code></span></span><span id='variant.UD_R_MM4' class='variant'><span id='UD_R_MM4.v' class='invisible'><code>UD_R_MM4</code></span></span><span id='variant.UD_R_MM5' class='variant'><span id='UD_R_MM5.v' class='invisible'><code>UD_R_MM5</code></span></span><span id='variant.UD_R_MM6' class='variant'><span id='UD_R_MM6.v' class='invisible'><code>UD_R_MM6</code></span></span><span id='variant.UD_R_MM7' class='variant'><span id='UD_R_MM7.v' class='invisible'><code>UD_R_MM7</code></span></span><span id='variant.UD_R_ST0' class='variant'><span id='UD_R_ST0.v' class='invisible'><code>UD_R_ST0</code></span></span><span id='variant.UD_R_ST1' class='variant'><span id='UD_R_ST1.v' class='invisible'><code>UD_R_ST1</code></span></span><span id='variant.UD_R_ST2' class='variant'><span id='UD_R_ST2.v' class='invisible'><code>UD_R_ST2</code></span></span><span id='variant.UD_R_ST3' class='variant'><span id='UD_R_ST3.v' class='invisible'><code>UD_R_ST3</code></span></span><span id='variant.UD_R_ST4' class='variant'><span id='UD_R_ST4.v' class='invisible'><code>UD_R_ST4</code></span></span><span id='variant.UD_R_ST5' class='variant'><span id='UD_R_ST5.v' class='invisible'><code>UD_R_ST5</code></span></span><span id='variant.UD_R_ST6' class='variant'><span id='UD_R_ST6.v' class='invisible'><code>UD_R_ST6</code></span></span><span id='variant.UD_R_ST7' class='variant'><span id='UD_R_ST7.v' class='invisible'><code>UD_R_ST7</code></span></span><span id='variant.UD_R_XMM0' class='variant'><span id='UD_R_XMM0.v' class='invisible'><code>UD_R_XMM0</code></span></span><span id='variant.UD_R_XMM1' class='variant'><span id='UD_R_XMM1.v' class='invisible'><code>UD_R_XMM1</code></span></span><span id='variant.UD_R_XMM2' class='variant'><span id='UD_R_XMM2.v' class='invisible'><code>UD_R_XMM2</code></span></span><span id='variant.UD_R_XMM3' class='variant'><span id='UD_R_XMM3.v' class='invisible'><code>UD_R_XMM3</code></span></span><span id='variant.UD_R_XMM4' class='variant'><span id='UD_R_XMM4.v' class='invisible'><code>UD_R_XMM4</code></span></span><span id='variant.UD_R_XMM5' class='variant'><span id='UD_R_XMM5.v' class='invisible'><code>UD_R_XMM5</code></span></span><span id='variant.UD_R_XMM6' class='variant'><span id='UD_R_XMM6.v' class='invisible'><code>UD_R_XMM6</code></span></span><span id='variant.UD_R_XMM7' class='variant'><span id='UD_R_XMM7.v' class='invisible'><code>UD_R_XMM7</code></span></span><span id='variant.UD_R_XMM8' class='variant'><span id='UD_R_XMM8.v' class='invisible'><code>UD_R_XMM8</code></span></span><span id='variant.UD_R_XMM9' class='variant'><span id='UD_R_XMM9.v' class='invisible'><code>UD_R_XMM9</code></span></span><span id='variant.UD_R_XMM10' class='variant'><span id='UD_R_XMM10.v' class='invisible'><code>UD_R_XMM10</code></span></span><span id='variant.UD_R_XMM11' class='variant'><span id='UD_R_XMM11.v' class='invisible'><code>UD_R_XMM11</code></span></span><span id='variant.UD_R_XMM12' class='variant'><span id='UD_R_XMM12.v' class='invisible'><code>UD_R_XMM12</code></span></span><span id='variant.UD_R_XMM13' class='variant'><span id='UD_R_XMM13.v' class='invisible'><code>UD_R_XMM13</code></span></span><span id='variant.UD_R_XMM14' class='variant'><span id='UD_R_XMM14.v' class='invisible'><code>UD_R_XMM14</code></span></span><span id='variant.UD_R_XMM15' class='variant'><span id='UD_R_XMM15.v' class='invisible'><code>UD_R_XMM15</code></span></span><span id='variant.UD_R_YMM0' class='variant'><span id='UD_R_YMM0.v' class='invisible'><code>UD_R_YMM0</code></span></span><span id='variant.UD_R_YMM1' class='variant'><span id='UD_R_YMM1.v' class='invisible'><code>UD_R_YMM1</code></span></span><span id='variant.UD_R_YMM2' class='variant'><span id='UD_R_YMM2.v' class='invisible'><code>UD_R_YMM2</code></span></span><span id='variant.UD_R_YMM3' class='variant'><span id='UD_R_YMM3.v' class='invisible'><code>UD_R_YMM3</code></span></span><span id='variant.UD_R_YMM4' class='variant'><span id='UD_R_YMM4.v' class='invisible'><code>UD_R_YMM4</code></span></span><span id='variant.UD_R_YMM5' class='variant'><span id='UD_R_YMM5.v' class='invisible'><code>UD_R_YMM5</code></span></span><span id='variant.UD_R_YMM6' class='variant'><span id='UD_R_YMM6.v' class='invisible'><code>UD_R_YMM6</code></span></span><span id='variant.UD_R_YMM7' class='variant'><span id='UD_R_YMM7.v' class='invisible'><code>UD_R_YMM7</code></span></span><span id='variant.UD_R_YMM8' class='variant'><span id='UD_R_YMM8.v' class='invisible'><code>UD_R_YMM8</code></span></span><span id='variant.UD_R_YMM9' class='variant'><span id='UD_R_YMM9.v' class='invisible'><code>UD_R_YMM9</code></span></span><span id='variant.UD_R_YMM10' class='variant'><span id='UD_R_YMM10.v' class='invisible'><code>UD_R_YMM10</code></span></span><span id='variant.UD_R_YMM11' class='variant'><span id='UD_R_YMM11.v' class='invisible'><code>UD_R_YMM11</code></span></span><span id='variant.UD_R_YMM12' class='variant'><span id='UD_R_YMM12.v' class='invisible'><code>UD_R_YMM12</code></span></span><span id='variant.UD_R_YMM13' class='variant'><span id='UD_R_YMM13.v' class='invisible'><code>UD_R_YMM13</code></span></span><span id='variant.UD_R_YMM14' class='variant'><span id='UD_R_YMM14.v' class='invisible'><code>UD_R_YMM14</code></span></span><span id='variant.UD_R_YMM15' class='variant'><span id='UD_R_YMM15.v' class='invisible'><code>UD_R_YMM15</code></span></span><span id='variant.UD_R_RIP' class='variant'><span id='UD_R_RIP.v' class='invisible'><code>UD_R_RIP</code></span></span><span id='variant.UD_OP_REG' class='variant'><span id='UD_OP_REG.v' class='invisible'><code>UD_OP_REG</code></span></span><span id='variant.UD_OP_MEM' class='variant'><span id='UD_OP_MEM.v' class='invisible'><code>UD_OP_MEM</code></span></span><span id='variant.UD_OP_PTR' class='variant'><span id='UD_OP_PTR.v' class='invisible'><code>UD_OP_PTR</code></span></span><span id='variant.UD_OP_IMM' class='variant'><span id='UD_OP_IMM.v' class='invisible'><code>UD_OP_IMM</code></span></span><span id='variant.UD_OP_JIMM' class='variant'><span id='UD_OP_JIMM.v' class='invisible'><code>UD_OP_JIMM</code></span></span><span id='variant.UD_OP_CONST' class='variant'><span id='UD_OP_CONST.v' class='invisible'><code>UD_OP_CONST</code></span></span><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><span class='in-band'><code>impl <a class="trait" href="https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html" title="trait core::fmt::Debug">Debug</a> for <a class="enum" href="../libudis86_sys/enum.ud_type.html" title="enum libudis86_sys::ud_type">ud_type</a></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/libudis86_sys/types.rs.html#5' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.fmt' class="method"><span id='fmt.v' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html#tymethod.fmt' class='fnname'>fmt</a>(&amp;self, __arg_0: &amp;mut <a class="struct" href="https://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html" title="struct core::fmt::Formatter">Formatter</a>) -&gt; <a class="type" href="https://doc.rust-lang.org/nightly/core/fmt/type.Result.html" title="type core::fmt::Result">Result</a></code></span></h4>
+<div class='docblock'><p>Formats the value using the given formatter.</p>
+</div></div><h3 class='impl'><span class='in-band'><code>impl <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Copy.html" title="trait core::marker::Copy">Copy</a> for <a class="enum" href="../libudis86_sys/enum.ud_type.html" title="enum libudis86_sys::ud_type">ud_type</a></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/libudis86_sys/types.rs.html#5' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'></div><h3 class='impl'><span class='in-band'><code>impl <a class="trait" href="https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html" title="trait core::clone::Clone">Clone</a> for <a class="enum" href="../libudis86_sys/enum.ud_type.html" title="enum libudis86_sys::ud_type">ud_type</a></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/libudis86_sys/types.rs.html#5' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.clone' class="method"><span id='clone.v' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#tymethod.clone' class='fnname'>clone</a>(&amp;self) -&gt; <a class="enum" href="../libudis86_sys/enum.ud_type.html" title="enum libudis86_sys::ud_type">ud_type</a></code></span></h4>
+<div class='docblock'><p>Returns a copy of the value. <a href="https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#tymethod.clone">Read more</a></p>
+</div><h4 id='method.clone_from' class="method"><span id='clone_from.v' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#method.clone_from' class='fnname'>clone_from</a>(&amp;mut self, source: &amp;Self)</code><div class='since' title='Stable since Rust version 1.0.0'>1.0.0</div></span></h4>
+<div class='docblock'><p>Performs copy-assignment from <code>source</code>. <a href="https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#method.clone_from">Read more</a></p>
+</div></div><h3 class='impl'><span class='in-band'><code>impl <a class="trait" href="https://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html" title="trait core::cmp::PartialEq">PartialEq</a> for <a class="enum" href="../libudis86_sys/enum.ud_type.html" title="enum libudis86_sys::ud_type">ud_type</a></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/libudis86_sys/types.rs.html#5' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.eq' class="method"><span id='eq.v' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html#tymethod.eq' class='fnname'>eq</a>(&amp;self, __arg_0: &amp;<a class="enum" href="../libudis86_sys/enum.ud_type.html" title="enum libudis86_sys::ud_type">ud_type</a>) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a></code></span></h4>
+<div class='docblock'><p>This method tests for <code>self</code> and <code>other</code> values to be equal, and is used by <code>==</code>. <a href="https://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html#tymethod.eq">Read more</a></p>
+</div><h4 id='method.ne' class="method"><span id='ne.v' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html#method.ne' class='fnname'>ne</a>(&amp;self, other: &amp;Rhs) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.bool.html">bool</a></code><div class='since' title='Stable since Rust version 1.0.0'>1.0.0</div></span></h4>
+<div class='docblock'><p>This method tests for <code>!=</code>.</p>
+</div></div><h3 class='impl'><span class='in-band'><code>impl <a class="trait" href="https://doc.rust-lang.org/nightly/core/cmp/trait.Eq.html" title="trait core::cmp::Eq">Eq</a> for <a class="enum" href="../libudis86_sys/enum.ud_type.html" title="enum libudis86_sys::ud_type">ud_type</a></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/libudis86_sys/types.rs.html#5' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'></div><h3 class='impl'><span class='in-band'><code>impl <a class="trait" href="https://doc.rust-lang.org/nightly/core/hash/trait.Hash.html" title="trait core::hash::Hash">Hash</a> for <a class="enum" href="../libudis86_sys/enum.ud_type.html" title="enum libudis86_sys::ud_type">ud_type</a></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/libudis86_sys/types.rs.html#5' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.hash' class="method"><span id='hash.v' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/hash/trait.Hash.html#tymethod.hash' class='fnname'>hash</a>&lt;__H:&nbsp;<a class="trait" href="https://doc.rust-lang.org/nightly/core/hash/trait.Hasher.html" title="trait core::hash::Hasher">Hasher</a>&gt;(&amp;self, __arg_0: &amp;mut __H)</code></span></h4>
+<div class='docblock'><p>Feeds this value into the given [<code>Hasher</code>]. <a href="https://doc.rust-lang.org/nightly/core/hash/trait.Hash.html#tymethod.hash">Read more</a></p>
+</div><h4 id='method.hash_slice' class="method"><span id='hash_slice.v' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/hash/trait.Hash.html#method.hash_slice' class='fnname'>hash_slice</a>&lt;H&gt;(data: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.slice.html">&amp;[Self]</a>, state: &amp;mut H) <span class="where fmt-newline">where<br>&nbsp;&nbsp;&nbsp;&nbsp;H: <a class="trait" href="https://doc.rust-lang.org/nightly/core/hash/trait.Hasher.html" title="trait core::hash::Hasher">Hasher</a>,&nbsp;</span></code><div class='since' title='Stable since Rust version 1.3.0'>1.3.0</div></span></h4>
+<div class='docblock'><p>Feeds a slice of this type into the given [<code>Hasher</code>]. <a href="https://doc.rust-lang.org/nightly/core/hash/trait.Hash.html#method.hash_slice">Read more</a></p>
+</div></div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../";
+        window.currentCrate = "libudis86_sys";
+    </script>
+    <script src="../main.js"></script>
+    <script defer src="../search-index.js"></script>
+</body>
+</html>

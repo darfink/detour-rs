@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `Function` trait in crate `detour`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, Function">
+
+    <title>detour::Function - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../normalize.css">
+    <link rel="stylesheet" type="text/css" href="../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../main.css">
+    
+
+    
+    
+</head>
+<body class="rustdoc trait">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'>Trait Function</p><div class="block items"><ul><li><a href="#associated-types">Associated Types</a></li><li><a href="#required-methods">Required Methods</a></li><li><a href="#implementors">Implementors</a></li></ul></div><p class='location'><a href='index.html'>detour</a></p><script>window.sidebarCurrent = {name: 'Function', ty: 'trait', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content">
+<h1 class='fqn'><span class='in-band'>Trait <a href='index.html'>detour</a>::<wbr><a class="trait" href=''>Function</a></span><span class='out-of-band'><span id='render-detail'>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a class='srclink' href='../src/detour/traits.rs.html#27-39' title='goto source code'>[src]</a></span></h1>
+<pre class='rust trait'>pub unsafe trait Function: <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a> + <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Copy.html" title="trait core::marker::Copy">Copy</a> + <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static {
+    type <a href='#associatedtype.Arguments' class="type">Arguments</a>;
+    type <a href='#associatedtype.Output' class="type">Output</a>;
+    unsafe fn <a href='#tymethod.from_ptr' class='fnname'>from_ptr</a>(ptr: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*const </a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.tuple.html">()</a>) -&gt; Self;
+    fn <a href='#tymethod.to_ptr' class='fnname'>to_ptr</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*const </a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.tuple.html">()</a>;
+}</pre><div class='docblock'><p>Trait representing a function that can be used as a target or detour for
+detouring.</p>
+</div>
+            <h2 id='associated-types'>Associated Types</h2>
+            <div class='methods'>
+        <h3 id='associatedtype.Arguments' class='method'><span id='Arguments.t' class='invisible'><code>type <a href='#associatedtype.Arguments' class="type">Arguments</a></code></span></h3><div class='docblock'><p>The argument types as a tuple.</p>
+</div><h3 id='associatedtype.Output' class='method'><span id='Output.t' class='invisible'><code>type <a href='#associatedtype.Output' class="type">Output</a></code></span></h3><div class='docblock'><p>The return type.</p>
+</div></div>
+            <h2 id='required-methods'>Required Methods</h2>
+            <div class='methods'>
+        <h3 id='tymethod.from_ptr' class='method'><span id='from_ptr.v' class='invisible'><code>unsafe fn <a href='#tymethod.from_ptr' class='fnname'>from_ptr</a>(ptr: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*const </a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.tuple.html">()</a>) -&gt; Self</code></span></h3><div class='docblock'><p>Constructs a <code>Function</code> from an untyped pointer.</p>
+</div><h3 id='tymethod.to_ptr' class='method'><span id='to_ptr.v' class='invisible'><code>fn <a href='#tymethod.to_ptr' class='fnname'>to_ptr</a>(&amp;self) -&gt; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*const </a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.tuple.html">()</a></code></span></h3><div class='docblock'><p>Returns an untyped pointer for this function.</p>
+</div></div>
+        <h2 id='implementors'>Implementors</h2>
+        <ul class='item-list' id='implementors-list'>
+    <li><code>impl&lt;Ret:&nbsp;'static&gt; Function for fn() -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static&gt; Function for unsafe fn() -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static&gt; Function for extern &quot;cdecl&quot; fn() -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static&gt; Function for unsafe extern &quot;cdecl&quot; fn() -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static&gt; Function for extern &quot;stdcall&quot; fn() -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static&gt; Function for unsafe extern &quot;stdcall&quot; fn() -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static&gt; Function for extern &quot;fastcall&quot; fn() -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static&gt; Function for unsafe extern &quot;fastcall&quot; fn() -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static&gt; Function for extern &quot;win64&quot; fn() -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static&gt; Function for unsafe extern &quot;win64&quot; fn() -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static&gt; Function for extern &quot;C&quot; fn() -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static&gt; Function for unsafe extern &quot;C&quot; fn() -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static&gt; Function for extern &quot;system&quot; fn() -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static&gt; Function for unsafe extern &quot;system&quot; fn() -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static&gt; Function for fn(_: A) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static&gt; Function for unsafe fn(_: A) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static&gt; Function for extern &quot;cdecl&quot; fn(_: A) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static&gt; Function for unsafe extern &quot;cdecl&quot; fn(_: A) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static&gt; Function for extern &quot;stdcall&quot; fn(_: A) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static&gt; Function for unsafe extern &quot;stdcall&quot; fn(_: A) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static&gt; Function for extern &quot;fastcall&quot; fn(_: A) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static&gt; Function for unsafe extern &quot;fastcall&quot; fn(_: A) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static&gt; Function for extern &quot;win64&quot; fn(_: A) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static&gt; Function for unsafe extern &quot;win64&quot; fn(_: A) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static&gt; Function for extern &quot;C&quot; fn(_: A) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static&gt; Function for unsafe extern &quot;C&quot; fn(_: A) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static&gt; Function for extern &quot;system&quot; fn(_: A) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static&gt; Function for unsafe extern &quot;system&quot; fn(_: A) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static&gt; Function for fn(_: A, _: B) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static&gt; Function for unsafe fn(_: A, _: B) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static&gt; Function for extern &quot;cdecl&quot; fn(_: A, _: B) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static&gt; Function for unsafe extern &quot;cdecl&quot; fn(_: A, _: B) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static&gt; Function for extern &quot;stdcall&quot; fn(_: A, _: B) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static&gt; Function for unsafe extern &quot;stdcall&quot; fn(_: A, _: B) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static&gt; Function for extern &quot;fastcall&quot; fn(_: A, _: B) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static&gt; Function for unsafe extern &quot;fastcall&quot; fn(_: A, _: B) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static&gt; Function for extern &quot;win64&quot; fn(_: A, _: B) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static&gt; Function for unsafe extern &quot;win64&quot; fn(_: A, _: B) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static&gt; Function for extern &quot;C&quot; fn(_: A, _: B) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static&gt; Function for unsafe extern &quot;C&quot; fn(_: A, _: B) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static&gt; Function for extern &quot;system&quot; fn(_: A, _: B) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static&gt; Function for unsafe extern &quot;system&quot; fn(_: A, _: B) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static&gt; Function for fn(_: A, _: B, _: C) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static&gt; Function for unsafe fn(_: A, _: B, _: C) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static&gt; Function for extern &quot;cdecl&quot; fn(_: A, _: B, _: C) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static&gt; Function for unsafe extern &quot;cdecl&quot; fn(_: A, _: B, _: C) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static&gt; Function for extern &quot;stdcall&quot; fn(_: A, _: B, _: C) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static&gt; Function for unsafe extern &quot;stdcall&quot; fn(_: A, _: B, _: C) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static&gt; Function for extern &quot;fastcall&quot; fn(_: A, _: B, _: C) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static&gt; Function for unsafe extern &quot;fastcall&quot; fn(_: A, _: B, _: C) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static&gt; Function for extern &quot;win64&quot; fn(_: A, _: B, _: C) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static&gt; Function for unsafe extern &quot;win64&quot; fn(_: A, _: B, _: C) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static&gt; Function for extern &quot;C&quot; fn(_: A, _: B, _: C) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static&gt; Function for unsafe extern &quot;C&quot; fn(_: A, _: B, _: C) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static&gt; Function for extern &quot;system&quot; fn(_: A, _: B, _: C) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static&gt; Function for unsafe extern &quot;system&quot; fn(_: A, _: B, _: C) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static&gt; Function for fn(_: A, _: B, _: C, _: D) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static&gt; Function for unsafe fn(_: A, _: B, _: C, _: D) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static&gt; Function for extern &quot;cdecl&quot; fn(_: A, _: B, _: C, _: D) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static&gt; Function for unsafe extern &quot;cdecl&quot; fn(_: A, _: B, _: C, _: D) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static&gt; Function for extern &quot;stdcall&quot; fn(_: A, _: B, _: C, _: D) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static&gt; Function for unsafe extern &quot;stdcall&quot; fn(_: A, _: B, _: C, _: D) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static&gt; Function for extern &quot;fastcall&quot; fn(_: A, _: B, _: C, _: D) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static&gt; Function for unsafe extern &quot;fastcall&quot; fn(_: A, _: B, _: C, _: D) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static&gt; Function for extern &quot;win64&quot; fn(_: A, _: B, _: C, _: D) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static&gt; Function for unsafe extern &quot;win64&quot; fn(_: A, _: B, _: C, _: D) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static&gt; Function for extern &quot;C&quot; fn(_: A, _: B, _: C, _: D) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static&gt; Function for unsafe extern &quot;C&quot; fn(_: A, _: B, _: C, _: D) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static&gt; Function for extern &quot;system&quot; fn(_: A, _: B, _: C, _: D) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static&gt; Function for unsafe extern &quot;system&quot; fn(_: A, _: B, _: C, _: D) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static&gt; Function for fn(_: A, _: B, _: C, _: D, _: E) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static&gt; Function for unsafe fn(_: A, _: B, _: C, _: D, _: E) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static&gt; Function for extern &quot;cdecl&quot; fn(_: A, _: B, _: C, _: D, _: E) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static&gt; Function for unsafe extern &quot;cdecl&quot; fn(_: A, _: B, _: C, _: D, _: E) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static&gt; Function for extern &quot;stdcall&quot; fn(_: A, _: B, _: C, _: D, _: E) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static&gt; Function for unsafe extern &quot;stdcall&quot; fn(_: A, _: B, _: C, _: D, _: E) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static&gt; Function for extern &quot;fastcall&quot; fn(_: A, _: B, _: C, _: D, _: E) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static&gt; Function for unsafe extern &quot;fastcall&quot; fn(_: A, _: B, _: C, _: D, _: E) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static&gt; Function for extern &quot;win64&quot; fn(_: A, _: B, _: C, _: D, _: E) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static&gt; Function for unsafe extern &quot;win64&quot; fn(_: A, _: B, _: C, _: D, _: E) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static&gt; Function for extern &quot;C&quot; fn(_: A, _: B, _: C, _: D, _: E) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static&gt; Function for unsafe extern &quot;C&quot; fn(_: A, _: B, _: C, _: D, _: E) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static&gt; Function for extern &quot;system&quot; fn(_: A, _: B, _: C, _: D, _: E) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static&gt; Function for unsafe extern &quot;system&quot; fn(_: A, _: B, _: C, _: D, _: E) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static&gt; Function for fn(_: A, _: B, _: C, _: D, _: E, _: F) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static&gt; Function for unsafe fn(_: A, _: B, _: C, _: D, _: E, _: F) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static&gt; Function for extern &quot;cdecl&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static&gt; Function for unsafe extern &quot;cdecl&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static&gt; Function for extern &quot;stdcall&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static&gt; Function for unsafe extern &quot;stdcall&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static&gt; Function for extern &quot;fastcall&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static&gt; Function for unsafe extern &quot;fastcall&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static&gt; Function for extern &quot;win64&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static&gt; Function for unsafe extern &quot;win64&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static&gt; Function for extern &quot;C&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static&gt; Function for unsafe extern &quot;C&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static&gt; Function for extern &quot;system&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static&gt; Function for unsafe extern &quot;system&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static&gt; Function for fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static&gt; Function for unsafe fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static&gt; Function for extern &quot;cdecl&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static&gt; Function for unsafe extern &quot;cdecl&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static&gt; Function for extern &quot;stdcall&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static&gt; Function for unsafe extern &quot;stdcall&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static&gt; Function for extern &quot;fastcall&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static&gt; Function for unsafe extern &quot;fastcall&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static&gt; Function for extern &quot;win64&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static&gt; Function for unsafe extern &quot;win64&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static&gt; Function for extern &quot;C&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static&gt; Function for unsafe extern &quot;C&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static&gt; Function for extern &quot;system&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static&gt; Function for unsafe extern &quot;system&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static&gt; Function for fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static&gt; Function for unsafe fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static&gt; Function for extern &quot;cdecl&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static&gt; Function for unsafe extern &quot;cdecl&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static&gt; Function for extern &quot;stdcall&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static&gt; Function for unsafe extern &quot;stdcall&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static&gt; Function for extern &quot;fastcall&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static&gt; Function for unsafe extern &quot;fastcall&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static&gt; Function for extern &quot;win64&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static&gt; Function for unsafe extern &quot;win64&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static&gt; Function for extern &quot;C&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static&gt; Function for unsafe extern &quot;C&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static&gt; Function for extern &quot;system&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static&gt; Function for unsafe extern &quot;system&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static&gt; Function for fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static&gt; Function for unsafe fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static&gt; Function for extern &quot;cdecl&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static&gt; Function for unsafe extern &quot;cdecl&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static&gt; Function for extern &quot;stdcall&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static&gt; Function for unsafe extern &quot;stdcall&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static&gt; Function for extern &quot;fastcall&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static&gt; Function for unsafe extern &quot;fastcall&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static&gt; Function for extern &quot;win64&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static&gt; Function for unsafe extern &quot;win64&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static&gt; Function for extern &quot;C&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static&gt; Function for unsafe extern &quot;C&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static&gt; Function for extern &quot;system&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static&gt; Function for unsafe extern &quot;system&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static&gt; Function for fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static&gt; Function for unsafe fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static&gt; Function for extern &quot;cdecl&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static&gt; Function for unsafe extern &quot;cdecl&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static&gt; Function for extern &quot;stdcall&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static&gt; Function for unsafe extern &quot;stdcall&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static&gt; Function for extern &quot;fastcall&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static&gt; Function for unsafe extern &quot;fastcall&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static&gt; Function for extern &quot;win64&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static&gt; Function for unsafe extern &quot;win64&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static&gt; Function for extern &quot;C&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static&gt; Function for unsafe extern &quot;C&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static&gt; Function for extern &quot;system&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static&gt; Function for unsafe extern &quot;system&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static&gt; Function for fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static&gt; Function for unsafe fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static&gt; Function for extern &quot;cdecl&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static&gt; Function for unsafe extern &quot;cdecl&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static&gt; Function for extern &quot;stdcall&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static&gt; Function for unsafe extern &quot;stdcall&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static&gt; Function for extern &quot;fastcall&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static&gt; Function for unsafe extern &quot;fastcall&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static&gt; Function for extern &quot;win64&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static&gt; Function for unsafe extern &quot;win64&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static&gt; Function for extern &quot;C&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static&gt; Function for unsafe extern &quot;C&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static&gt; Function for extern &quot;system&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static&gt; Function for unsafe extern &quot;system&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static, L:&nbsp;'static&gt; Function for fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K, _: L) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static, L:&nbsp;'static&gt; Function for unsafe fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K, _: L) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static, L:&nbsp;'static&gt; Function for extern &quot;cdecl&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K, _: L) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static, L:&nbsp;'static&gt; Function for unsafe extern &quot;cdecl&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K, _: L) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static, L:&nbsp;'static&gt; Function for extern &quot;stdcall&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K, _: L) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static, L:&nbsp;'static&gt; Function for unsafe extern &quot;stdcall&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K, _: L) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static, L:&nbsp;'static&gt; Function for extern &quot;fastcall&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K, _: L) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static, L:&nbsp;'static&gt; Function for unsafe extern &quot;fastcall&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K, _: L) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static, L:&nbsp;'static&gt; Function for extern &quot;win64&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K, _: L) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static, L:&nbsp;'static&gt; Function for unsafe extern &quot;win64&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K, _: L) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static, L:&nbsp;'static&gt; Function for extern &quot;C&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K, _: L) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static, L:&nbsp;'static&gt; Function for unsafe extern &quot;C&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K, _: L) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static, L:&nbsp;'static&gt; Function for extern &quot;system&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K, _: L) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static, L:&nbsp;'static&gt; Function for unsafe extern &quot;system&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K, _: L) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static, L:&nbsp;'static, M:&nbsp;'static&gt; Function for fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K, _: L, _: M) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static, L:&nbsp;'static, M:&nbsp;'static&gt; Function for unsafe fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K, _: L, _: M) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static, L:&nbsp;'static, M:&nbsp;'static&gt; Function for extern &quot;cdecl&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K, _: L, _: M) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static, L:&nbsp;'static, M:&nbsp;'static&gt; Function for unsafe extern &quot;cdecl&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K, _: L, _: M) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static, L:&nbsp;'static, M:&nbsp;'static&gt; Function for extern &quot;stdcall&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K, _: L, _: M) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static, L:&nbsp;'static, M:&nbsp;'static&gt; Function for unsafe extern &quot;stdcall&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K, _: L, _: M) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static, L:&nbsp;'static, M:&nbsp;'static&gt; Function for extern &quot;fastcall&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K, _: L, _: M) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static, L:&nbsp;'static, M:&nbsp;'static&gt; Function for unsafe extern &quot;fastcall&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K, _: L, _: M) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static, L:&nbsp;'static, M:&nbsp;'static&gt; Function for extern &quot;win64&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K, _: L, _: M) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static, L:&nbsp;'static, M:&nbsp;'static&gt; Function for unsafe extern &quot;win64&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K, _: L, _: M) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static, L:&nbsp;'static, M:&nbsp;'static&gt; Function for extern &quot;C&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K, _: L, _: M) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static, L:&nbsp;'static, M:&nbsp;'static&gt; Function for unsafe extern &quot;C&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K, _: L, _: M) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static, L:&nbsp;'static, M:&nbsp;'static&gt; Function for extern &quot;system&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K, _: L, _: M) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static, L:&nbsp;'static, M:&nbsp;'static&gt; Function for unsafe extern &quot;system&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K, _: L, _: M) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static, L:&nbsp;'static, M:&nbsp;'static, N:&nbsp;'static&gt; Function for fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K, _: L, _: M, _: N) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static, L:&nbsp;'static, M:&nbsp;'static, N:&nbsp;'static&gt; Function for unsafe fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K, _: L, _: M, _: N) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static, L:&nbsp;'static, M:&nbsp;'static, N:&nbsp;'static&gt; Function for extern &quot;cdecl&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K, _: L, _: M, _: N) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static, L:&nbsp;'static, M:&nbsp;'static, N:&nbsp;'static&gt; Function for unsafe extern &quot;cdecl&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K, _: L, _: M, _: N) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static, L:&nbsp;'static, M:&nbsp;'static, N:&nbsp;'static&gt; Function for extern &quot;stdcall&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K, _: L, _: M, _: N) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static, L:&nbsp;'static, M:&nbsp;'static, N:&nbsp;'static&gt; Function for unsafe extern &quot;stdcall&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K, _: L, _: M, _: N) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static, L:&nbsp;'static, M:&nbsp;'static, N:&nbsp;'static&gt; Function for extern &quot;fastcall&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K, _: L, _: M, _: N) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static, L:&nbsp;'static, M:&nbsp;'static, N:&nbsp;'static&gt; Function for unsafe extern &quot;fastcall&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K, _: L, _: M, _: N) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static, L:&nbsp;'static, M:&nbsp;'static, N:&nbsp;'static&gt; Function for extern &quot;win64&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K, _: L, _: M, _: N) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static, L:&nbsp;'static, M:&nbsp;'static, N:&nbsp;'static&gt; Function for unsafe extern &quot;win64&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K, _: L, _: M, _: N) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static, L:&nbsp;'static, M:&nbsp;'static, N:&nbsp;'static&gt; Function for extern &quot;C&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K, _: L, _: M, _: N) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static, L:&nbsp;'static, M:&nbsp;'static, N:&nbsp;'static&gt; Function for unsafe extern &quot;C&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K, _: L, _: M, _: N) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static, L:&nbsp;'static, M:&nbsp;'static, N:&nbsp;'static&gt; Function for extern &quot;system&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K, _: L, _: M, _: N) -&gt; Ret</code></li>
+<li><code>impl&lt;Ret:&nbsp;'static, A:&nbsp;'static, B:&nbsp;'static, C:&nbsp;'static, D:&nbsp;'static, E:&nbsp;'static, F:&nbsp;'static, G:&nbsp;'static, H:&nbsp;'static, I:&nbsp;'static, J:&nbsp;'static, K:&nbsp;'static, L:&nbsp;'static, M:&nbsp;'static, N:&nbsp;'static&gt; Function for unsafe extern &quot;system&quot; fn(_: A, _: B, _: C, _: D, _: E, _: F, _: G, _: H, _: I, _: J, _: K, _: L, _: M, _: N) -&gt; Ret</code></li>
+</ul><script type="text/javascript" async
+                         src="../implementors/detour/trait.Function.js">
+                 </script></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../";
+        window.currentCrate = "detour";
+    </script>
+    <script src="../main.js"></script>
+    <script defer src="../search-index.js"></script>
+</body>
+</html>

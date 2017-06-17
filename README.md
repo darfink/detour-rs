@@ -42,6 +42,8 @@ extern crate detour;
 
 ## Example
 
+- A static detour (one of *three* different detours):
+
 ```rust
 #[macro_use] extern crate detour;
 

@@ -118,13 +118,15 @@ mod util;
 
 #[cfg(test)]
 mod tests {
+    extern crate volatile_cell;
+    use self::volatile_cell::VolatileCell;
     use super::*;
 
     #[test]
     fn detours_share_target() {
         #[inline(never)]
         extern "C" fn add(x: i32, y: i32) -> i32 {
-            x + y
+            VolatileCell::new(x).get() + y
         }
 
         static_detours! {
@@ -150,7 +152,7 @@ mod tests {
     fn same_detour_and_target() {
         #[inline(never)]
         extern "C" fn add(x: i32, y: i32) -> i32 {
-            x + y
+            VolatileCell::new(x).get() + y
         }
 
         let err = unsafe { RawDetour::new(add as *const (), add as *const()).unwrap_err() };

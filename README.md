@@ -77,6 +77,12 @@ fn main() {
 }
 ```
 
+## Mentions
+
+Much of the library's external user interface was inspired by
+[minhook-rs][minhook], created by [Jascha-N][minhook], and it contains
+derivative code of his work.
+
 ## Appendix
 
 - *EIP relocation*
@@ -112,3 +118,5 @@ fn main() {
 [rust]: https://www.rust-lang.org
 [docs-shield]: https://img.shields.io/badge/docs-github-green.svg?style=flat-square
 [docs]: https://darfink.github.io/detour-rs/detour/index.html
+[minhook-author]: https://github.com/Jascha-N
+[minhook]: https://github.com/Jascha-N/minhook-rs/

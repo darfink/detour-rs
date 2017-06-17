@@ -23,7 +23,7 @@ libc = "0.2"
 matches = "0.1.6"
 region = "0.0.7"
 slice-pool = "0.3.4"
-mmap-fixed = "0.1.2"
+mmap-fixed = "0.1"
 
 [dev-dependencies]
 volatile_cell = "1.0.0"

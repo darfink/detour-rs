@@ -51,8 +51,8 @@
                </span></span></h1>
 <pre class='rust enum'>pub enum ErrorKind {
     Msg(<a class="struct" href="https://doc.rust-lang.org/nightly/collections/string/struct.String.html" title="struct collections::string::String">String</a>),
-    RegionFailure(<a class="struct" href="../../region/error/struct.Error.html" title="struct region::error::Error">Error</a>),
-    AllocateFailure(<a class="enum" href="../../mmap/enum.MapError.html" title="enum mmap::MapError">MapError</a>),
+    RegionFailure(Error),
+    AllocateFailure(MapError),
     AlreadyExisting,
     InvalidCode,
     NoPatchArea,
@@ -63,7 +63,7 @@
 }</pre><div class='docblock'><p>The kind of an error.</p>
 </div><h2 id='variants' class='variants'>Variants</h2>
 <span id='variant.Msg' class='variant'><span id='Msg.v' class='invisible'><code>Msg(<a class="struct" href="https://doc.rust-lang.org/nightly/collections/string/struct.String.html" title="struct collections::string::String">String</a>)</code></span></span><div class='docblock'><p>A convenient variant for String.</p>
-</div><span id='variant.RegionFailure' class='variant'><span id='RegionFailure.v' class='invisible'><code>RegionFailure(<a class="struct" href="../../region/error/struct.Error.html" title="struct region::error::Error">Error</a>)</code></span></span><span id='variant.AllocateFailure' class='variant'><span id='AllocateFailure.v' class='invisible'><code>AllocateFailure(<a class="enum" href="../../mmap/enum.MapError.html" title="enum mmap::MapError">MapError</a>)</code></span></span><span id='variant.AlreadyExisting' class='variant'><span id='AlreadyExisting.v' class='invisible'><code>AlreadyExisting</code></span></span><div class='docblock'><p>A static detour has already been initialized</p>
+</div><span id='variant.RegionFailure' class='variant'><span id='RegionFailure.v' class='invisible'><code>RegionFailure(Error)</code></span></span><span id='variant.AllocateFailure' class='variant'><span id='AllocateFailure.v' class='invisible'><code>AllocateFailure(MapError)</code></span></span><span id='variant.AlreadyExisting' class='variant'><span id='AlreadyExisting.v' class='invisible'><code>AlreadyExisting</code></span></span><div class='docblock'><p>A static detour has already been initialized</p>
 </div><span id='variant.InvalidCode' class='variant'><span id='InvalidCode.v' class='invisible'><code>InvalidCode</code></span></span><div class='docblock'><p>The address does not contain valid instructions.</p>
 </div><span id='variant.NoPatchArea' class='variant'><span id='NoPatchArea.v' class='invisible'><code>NoPatchArea</code></span></span><div class='docblock'><p>The address has no available area for patching.</p>
 </div><span id='variant.NotExecutable' class='variant'><span id='NotExecutable.v' class='invisible'><code>NotExecutable</code></span></span><div class='docblock'><p>The address is not executable memory.</p>

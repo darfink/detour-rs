@@ -1,1 +1,0 @@
-initSidebarItems({"constant":[["MATTR_CACHE",""],["MATTR_MIGRATE",""],["MATTR_REPLICATE",""],["MATTR_VAL_CACHE_FLUSH",""],["MATTR_VAL_CACHE_SYNC",""],["MATTR_VAL_DCACHE_FLUSH",""],["MATTR_VAL_GET",""],["MATTR_VAL_GET_INFO",""],["MATTR_VAL_ICACHE_FLUSH",""],["MATTR_VAL_OFF",""],["MATTR_VAL_ON",""]],"type":[["vm_machine_attribute_t",""],["vm_machine_attribute_val_t",""]]});

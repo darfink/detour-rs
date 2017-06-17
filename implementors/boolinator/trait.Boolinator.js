@@ -1,5 +1,4 @@
 (function() {var implementors = {};
-implementors["boolinator"] = [];
 implementors["detour"] = [];
 
             if (window.register_implementors) {

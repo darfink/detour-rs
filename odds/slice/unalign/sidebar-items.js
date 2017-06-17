@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["UnalignedIter","An iterator of `T` (by value) where each value read using an unaligned load."]]});

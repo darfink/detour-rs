@@ -1,6 +1,5 @@
 (function() {var implementors = {};
 implementors["detour"] = [];
-implementors["odds"] = [];
 
             if (window.register_implementors) {
                 window.register_implementors(implementors);

@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["mach_timespec",""]],"type":[["alarm_type_t",""],["clock_attr_t",""],["clock_flavor_t",""],["clock_id_t",""],["clock_res_t",""],["mach_timespec_t",""],["sleep_type_t",""]]});

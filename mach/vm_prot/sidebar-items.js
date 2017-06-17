@@ -1,1 +1,0 @@
-initSidebarItems({"constant":[["VM_PROT_ALL",""],["VM_PROT_COPY",""],["VM_PROT_DEFAULT",""],["VM_PROT_EXECUTE",""],["VM_PROT_NONE",""],["VM_PROT_NO_CHANGE",""],["VM_PROT_READ",""],["VM_PROT_TRUSTED",""],["VM_PROT_WANTS_COPY",""],["VM_PROT_WRITE",""]],"type":[["vm_prot_t",""]]});

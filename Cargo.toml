@@ -6,8 +6,9 @@ homepage = "https://github.com/darfink/detour-rs"
 keywords = ["detour", "hook", "function", "api", "redirect"]
 license = "BSD-2-Clause"
 name = "detour"
+readme = "README.md"
 repository = "https://github.com/darfink/detour-rs"
-version = "0.1.0"
+version = "0.1.1"
 
 [features]
 default = ["static"]
@@ -32,3 +33,7 @@ volatile_cell = "1.0.0"
 
 [target."cfg(any(target_arch = \"x86\", target_arch = \"x86_64\"))".dependencies]
 libudis86-sys = "0.1.0"
+
+[badges]
+travis-ci = { repository = "darfink/detour-rs" }
+appveyor = { repository = "darfink/detour-rs" }

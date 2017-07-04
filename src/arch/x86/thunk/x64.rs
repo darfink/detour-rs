@@ -1,6 +1,5 @@
 use std::mem;
-use generic_array::{GenericArray, typenum};
-use pic::{Thunkable, StaticThunk};
+use pic::Thunkable;
 
 #[repr(packed)]
 pub struct CallAbs {
@@ -16,19 +15,17 @@ pub struct CallAbs {
 }
 
 pub fn call_abs(destination: usize) -> Box<Thunkable> {
-    Box::new(StaticThunk::<typenum::U16>::new(move |_| {
-        let code = CallAbs {
-            opcode0: 0xFF,
-            opcode1: 0x15,
-            dummy0: 0x000000002,
-            dummy1: 0xEB,
-            dummy2: 0x08,
-            address: destination,
-        };
+    let code = CallAbs {
+        opcode0: 0xFF,
+        opcode1: 0x15,
+        dummy0: 0x000000002,
+        dummy1: 0xEB,
+        dummy2: 0x08,
+        address: destination,
+    };
 
-        let slice: [u8; 16] = unsafe { mem::transmute(code) };
-        GenericArray::clone_from_slice(&slice)
-    }))
+    let slice: [u8; 16] = unsafe { mem::transmute(code) };
+    Box::new(slice.to_vec())
 }
 
 #[repr(packed)]
@@ -42,17 +39,15 @@ pub struct JumpAbs {
 }
 
 pub fn jmp_abs(destination: usize) -> Box<Thunkable> {
-    Box::new(StaticThunk::<typenum::U14>::new(move |_| {
-        let code = JumpAbs {
-            opcode0: 0xFF,
-            opcode1: 0x25,
-            dummy0: 0x000000000,
-            address: destination,
-        };
+    let code = JumpAbs {
+        opcode0: 0xFF,
+        opcode1: 0x25,
+        dummy0: 0x000000000,
+        address: destination,
+    };
 
-        let slice: [u8; 14] = unsafe { mem::transmute(code) };
-        GenericArray::clone_from_slice(&slice)
-    }))
+    let slice: [u8; 14] = unsafe { mem::transmute(code) };
+    Box::new(slice.to_vec())
 }
 
 #[repr(packed)]
@@ -68,18 +63,16 @@ pub struct JccAbs {
 }
 
 pub fn jcc_abs(destination: usize, condition: u8) -> Box<Thunkable> {
-    Box::new(StaticThunk::<typenum::U16>::new(move |_| {
-        let code = JccAbs {
-            // Invert the condition in x64 mode to simplify the conditional jump logic
-            opcode: 0x71 ^ condition,
-            dummy0: 0x0E,
-            dummy1: 0xFF,
-            dummy2: 0x25,
-            dummy3: 0x00000000,
-            address: destination,
-        };
+    let code = JccAbs {
+        // Invert the condition in x64 mode to simplify the conditional jump logic
+        opcode: 0x71 ^ condition,
+        dummy0: 0x0E,
+        dummy1: 0xFF,
+        dummy2: 0x25,
+        dummy3: 0x00000000,
+        address: destination,
+    };
 
-        let slice: [u8; 16] = unsafe { mem::transmute(code) };
-        GenericArray::clone_from_slice(&slice)
-    }))
+    let slice: [u8; 16] = unsafe { mem::transmute(code) };
+    Box::new(slice.to_vec())
 }

@@ -81,7 +81,7 @@ fn main() {
 
 ## Mentions
 
-Parh of the library's external user interface was inspired by
+Part of the library's external user interface was inspired by
 [minhook-rs][minhook], created by [Jascha-N][minhook], and it contains
 derivative code of his work.
 

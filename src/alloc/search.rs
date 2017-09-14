@@ -41,7 +41,7 @@ impl Iterator for RegionIter {
 
     /// Returns the closest free region for the current address.
     fn next(&mut self) -> Option<Self::Item> {
-        let page_size = region::page_size();
+        let page_size = region::page::page_size();
 
         while self.current > 0 && self.range.contains(self.current) {
             match region::query(self.current as *const _) {

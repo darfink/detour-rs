@@ -1,7 +1,12 @@
 #![recursion_limit = "1024"]
 #![feature(range_contains, offset_to)]
-#![cfg_attr(feature = "static", feature(const_fn, unboxed_closures))]
 #![cfg_attr(test, feature(naked_functions, core_intrinsics, asm))]
+#![cfg_attr(feature = "static", feature(
+    const_fn,
+    const_ptr_null_mut,
+    const_atomic_ptr_new,
+    unboxed_closures,
+))]
 
 //! A cross-platform detour library written in Rust.
 //!

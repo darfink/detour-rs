@@ -1,4 +1,4 @@
-#![cfg_attr(feature = "static", feature(const_fn))]
+#![cfg_attr(feature = "static", feature(const_fn, const_atomic_ptr_new, const_ptr_null_mut))]
 #[cfg_attr(feature = "static", macro_use)]
 extern crate detour;
 extern crate volatile_cell;

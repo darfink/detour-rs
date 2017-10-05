@@ -12,7 +12,7 @@
 /// # Example
 ///
 /// ```rust
-/// #![feature(const_fn)]
+/// #![feature(const_fn, const_atomic_ptr_new, const_ptr_null_mut)]
 /// #[macro_use] extern crate detour;
 ///
 /// use detour::Detour;

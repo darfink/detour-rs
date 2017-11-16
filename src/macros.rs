@@ -139,6 +139,7 @@ macro_rules! static_detours {
                     AtomicPtr::new(ptr::null_mut());
 
                 #[inline(never)]
+                #[allow(unused_unsafe)]
                 $($modifier) * fn __ffi_detour($($argument_name: $argument_type),*) -> $return_type {
                     let data = unsafe { DATA.load(Ordering::SeqCst).as_ref().unwrap() };
                     (data.closure)($($argument_name),*)
@@ -198,12 +199,20 @@ macro_rules! impl_hookable {
         impl_hookable!(@impl_core ($($nm : $ty),*) ($safe_type));
         impl_hookable!(@impl_core ($($nm : $ty),*) ($unsafe_type));
 
-        impl_hookable!(@impl_hookable_with ($($nm : $ty),*) ($unsafe_type) ($safe_type));
+        impl_hookable!(@impl_unsafe ($($nm : $ty),*) ($unsafe_type) ($safe_type));
         impl_hookable!(@impl_safe ($($nm : $ty),*) ($safe_type));
     };
 
-    (@impl_hookable_with ($($nm:ident : $ty:ident),*) ($target:ty) ($detour:ty)) => {
+    (@impl_unsafe ($($nm:ident : $ty:ident),*) ($target:ty) ($detour:ty)) => {
         unsafe impl<Ret: 'static, $($ty: 'static),*> HookableWith<$detour> for $target {}
+
+        impl<Ret: 'static, $($ty: 'static),*> $crate::GenericDetour<$target> {
+            #[doc(hidden)]
+            pub unsafe fn call(&self, $($nm : $ty),*) -> Ret {
+                let original: $target = ::std::mem::transmute(self.trampoline());
+                original($($nm),*)
+            }
+        }
     };
 
     (@impl_safe ($($nm:ident : $ty:ident),*) ($fn_type:ty)) => {

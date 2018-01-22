@@ -177,7 +177,7 @@ impl Builder {
                                      -> Result<Box<pic::Thunkable>> {
         // Calculate the absolute address of the target destination
         let destination_address_abs = instruction.next_instruction_address()
-                                    + displacement as usize;
+            .wrapping_add(displacement as usize);
 
         if instruction.is_call() {
             // Calls are not an issue since they return to the original address

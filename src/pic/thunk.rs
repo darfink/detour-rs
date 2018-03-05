@@ -2,17 +2,17 @@ use generic_array::{GenericArray, ArrayLength};
 use super::Thunkable;
 
 /// A closure that generates a thunk.
-pub struct StaticThunk<N: ArrayLength<u8>>(Box<Fn(usize) -> GenericArray<u8, N>>);
+pub struct FixedThunk<N: ArrayLength<u8>>(Box<Fn(usize) -> GenericArray<u8, N>>);
 
-impl<N: ArrayLength<u8>> StaticThunk<N> {
+impl<N: ArrayLength<u8>> FixedThunk<N> {
     /// Constructs a new thunk with a specific closure.
     pub fn new<T: Fn(usize) -> GenericArray<u8, N> + 'static>(callback: T) -> Self {
-        StaticThunk(Box::new(callback))
+        FixedThunk(Box::new(callback))
     }
 }
 
 /// Thunks implement the thunkable interface.
-impl<N: ArrayLength<u8>> Thunkable for StaticThunk<N> {
+impl<N: ArrayLength<u8>> Thunkable for FixedThunk<N> {
     fn generate(&self, address: usize) -> Vec<u8> {
         self.0(address).to_vec()
     }

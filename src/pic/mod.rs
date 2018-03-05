@@ -1,4 +1,4 @@
-pub use self::thunk::{StaticThunk, UnsafeThunk};
+pub use self::thunk::{FixedThunk, UnsafeThunk};
 pub use self::emitter::CodeEmitter;
 
 mod emitter;

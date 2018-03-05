@@ -1,9 +1,11 @@
 /// A macro for defining type-safe detours.
 ///
-/// This macro creates a `StaticDetourController`, which returns a `StaticDetour`
-/// upon initialization. It can accept both functions and closures as its second
-/// argument. Due to the requirements of the implementation, *const_fn* is needed
-/// if the macro is to be used.
+/// This macro defines a
+/// [StaticDetourController](./struct.StaticDetourController.html), which returns
+/// a [StaticDetour](./struct.StaticDetour.html) upon initialization. It can
+/// accept both functions and closures as its second argument. Due to the
+/// requirements of the implementation, *const_fn* is needed if the macro is to
+/// be used.
 ///
 /// A static detour may only have one active detour at a time. Therefore another
 /// `initialize` call can only be done once the previous instance has been
@@ -12,10 +14,9 @@
 /// # Example
 ///
 /// ```rust
-/// #![feature(const_fn, const_atomic_ptr_new, const_ptr_null_mut)]
-/// #[macro_use] extern crate detour;
-///
-/// use detour::Detour;
+/// #![feature(const_fn)]
+/// #[macro_use]
+/// extern crate detour;
 ///
 /// static_detours! {
 ///     struct Test: /* extern "X" */ fn(i32) -> i32;
@@ -49,7 +50,7 @@
 /// ```
 ///
 /// Any type of function is supported, and *extern* is optional.
-#[cfg(feature = "static")]
+#[cfg(feature = "nightly")]
 #[macro_export]
 // Inspired by: https://github.com/Jascha-N/minhook-rs
 macro_rules! static_detours {
@@ -124,7 +125,6 @@ macro_rules! static_detours {
     };
 
     // 10 - detour type implementation
-    // TODO: Support access to detour in closure
     (@create_detour ($($argument_name:ident)*) ($($attribute:meta)*) ($($visibility:tt)*)
                     ($name:ident) ($($modifier:tt)*) ($($argument_type:ty)*)
                     ($return_type:ty) ($fn_type:ty)) => {
@@ -141,6 +141,7 @@ macro_rules! static_detours {
                 #[inline(never)]
                 #[allow(unused_unsafe)]
                 $($modifier) * fn __ffi_detour($($argument_name: $argument_type),*) -> $return_type {
+                    #[allow(unused_unsafe)]
                     let data = unsafe { DATA.load(Ordering::SeqCst).as_ref().unwrap() };
                     (data.closure)($($argument_name),*)
                 }

@@ -2,25 +2,6 @@
 //!
 //! Several of the traits in this module are automatically implemented and should
 //! generally not be implemented by users of this library.
-use error::*;
-
-/// Generic trait exposing functionality shared between all detours.
-pub unsafe trait Detour: Send + Sync {
-    /// Enables or disables the detour.
-    unsafe fn toggle(&mut self, enabled: bool) -> Result<()>;
-
-    /// Enables the detour.
-    unsafe fn enable(&mut self) -> Result<()> { self.toggle(true) }
-
-    /// Disables the detour
-    unsafe fn disable(&mut self) -> Result<()> { self.toggle(false) }
-
-    /// Returns whether the detour is enabled or not.
-    fn is_enabled(&self) -> bool;
-
-    /// Returns a reference to the generated trampoline.
-    fn trampoline(&self) -> &();
-}
 
 /// Trait representing a function that can be used as a target or detour for
 /// detouring.

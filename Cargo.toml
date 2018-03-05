@@ -10,33 +10,34 @@ readme = "README.md"
 repository = "https://github.com/darfink/detour-rs"
 version = "0.3.0"
 
-[features]
-default = ["static"]
-static = []
+[badges]
+
+[badges.appveyor]
+repository = "darfink/detour-rs"
+
+[badges.travis-ci]
+repository = "darfink/detour-rs"
 
 [dependencies]
 boolinator = "2.4.0"
 cfg-if = "0.1.1"
+failure = "0.1.1"
 generic-array = "0.8.2"
 lazy_static = "0.2.8"
 libc = "0.2"
 matches = "0.1.6"
-region = "0.0.9"
-slice-pool = "0.3.4"
 mmap-fixed = "0.1"
+region = "0.1"
+slice-pool = "0.3.4"
+tap = "0.2.1"
 
-[dependencies.error-chain]
-version = "0.11.0"
-default-features = false
-
-[dev-dependencies]
-volatile_cell = "1.0.0"
+[features]
+default = ["nightly"]
+nightly = []
 
 [target]
 
-[target."cfg(any(target_arch = \"x86\", target_arch = \"x86_64\"))".dependencies]
-libudis86-sys = "0.1.0"
+[target."cfg(any(target_arch = \"x86\", target_arch = \"x86_64\"))"]
 
-[badges]
-travis-ci = { repository = "darfink/detour-rs" }
-appveyor = { repository = "darfink/detour-rs" }
+[target."cfg(any(target_arch = \"x86\", target_arch = \"x86_64\"))".dependencies]
+libudis86-sys = "0.2.0"

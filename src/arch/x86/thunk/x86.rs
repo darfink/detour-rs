@@ -24,6 +24,11 @@ fn relative32(destination: usize, is_jump: bool) -> Box<Thunkable> {
     }))
 }
 
+/// Returns a no-op instruction.
+pub fn nop() -> Box<Thunkable> {
+    Box::new([0x90].to_vec())
+}
+
 /// Constructs a relative call operation.
 pub fn call_rel32(destination: usize) -> Box<Thunkable> {
     relative32(destination, false)
@@ -35,7 +40,7 @@ pub fn jmp_rel32(destination: usize) -> Box<Thunkable> {
 }
 
 #[repr(packed)]
-pub struct JccRel {
+struct JccRel {
     opcode0: u8,
     opcode1: u8,
     operand: u32,
@@ -83,7 +88,7 @@ fn calculate_displacement(source: usize,
     // Ensure that the detour can be reached with a relative jump (+/- 2GB).
     // This only needs to be asserted on x64, since it wraps around on x86.
     #[cfg(target_arch = "x86_64")]
-    assert!(::arch::x86::is_within_2gb(displacement));
+    assert!(::arch::is_within_range(displacement));
 
     displacement as u32
 }

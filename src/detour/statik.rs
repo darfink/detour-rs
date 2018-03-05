@@ -39,7 +39,7 @@ impl<T: Function> StaticDetourController<T> {
         });
 
         if !self.inner.compare_and_swap(ptr::null_mut(), &mut *boxed, Ordering::SeqCst).is_null() {
-            bail!(ErrorKind::AlreadyExisting)
+            Err(Error::AlreadyExisting)?;
         }
 
         mem::forget(boxed);
@@ -48,8 +48,8 @@ impl<T: Function> StaticDetourController<T> {
 
     /// Returns a reference to the underlying detour.
     ///
-    /// It is mostly provided so the original function can easily be called
-    /// within a detour.
+    /// It is provided so the original function can easily be called within a
+    /// detour.
     ///
     /// This is unsafe because the lifetime of the detour has no relation to the
     /// actual detour returned by `initialize`. Therefore it can be dropped at
@@ -62,13 +62,13 @@ impl<T: Function> StaticDetourController<T> {
 
 /// A type-safe static detour.
 ///
-/// It can only be created using
+/// It can only be instantiated using
 /// [StaticDetourController::initialize](struct.StaticDetourController.html#method.initialize).
 ///
-/// When this object has been dropped, the detour is freed and the controller can
-/// be initialized once again.  
-/// It dereferences to `GenericDetour` so it provides the same functions that it
-/// (and `Detour`) provides.
+/// When this object is dropped, its detour is freed and the controller can be
+/// initialized once again.
+/// It dereferences to [GenericDetour](./struct.GenericDetour.html) and therefore
+/// providing the same interface.
 ///
 /// Beyond this it also provides a `set_detour` method, enabling the detour to be
 /// changed whilst hooked.
@@ -80,6 +80,7 @@ impl<T: Function> StaticDetour<T> {
     /// Changes the detour, regardless of whether the target is hooked or not.
     pub fn set_detour<C>(&mut self, closure: C)
             where C: Fn<T::Arguments, Output = T::Output> + Send + 'static {
+        // TODO: This is not really thread-safe?
         let data = unsafe { self.0.load(Ordering::SeqCst).as_mut().unwrap() };
         data.closure = Box::new(closure);
     }
@@ -88,6 +89,7 @@ impl<T: Function> StaticDetour<T> {
 impl<T: Function> Drop for StaticDetour<T> {
     /// Removes the detour and frees the controller for new initializations.
     fn drop(&mut self) {
+        // TODO: This is not really thread-safe?
         let data = self.0.swap(ptr::null_mut(), Ordering::SeqCst);
         assert_eq!(data.is_null(), false);
         unsafe { Box::from_raw(data) };

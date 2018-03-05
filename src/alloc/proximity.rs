@@ -6,6 +6,7 @@ use boolinator::Boolinator;
 use mmap_fixed as mmap;
 
 use error::*;
+use util::RangeContains;
 use super::search as region_search;
 
 /// Defines the allocation type.
@@ -43,7 +44,7 @@ impl ProximityAllocator {
             let upper = lower + pool.len();
 
             // Determine if this is the associated memory pool
-            (lower..upper).contains(value.as_ptr() as usize)
+            (lower..upper).contains_(value.as_ptr() as usize)
         }).expect("retrieving associated memory pool");
 
         // Release the pool if the associated allocation is unique
@@ -58,17 +59,17 @@ impl ProximityAllocator {
         let is_pool_in_range = |pool: &SlicePool<u8>| {
             let lower = pool.as_ptr() as usize;
             let upper = lower + pool.len();
-            range.contains(lower) && range.contains(upper - 1)
+            range.contains_(lower) && range.contains_(upper - 1)
         };
 
         // Tries to allocate a slice within any eligible pool
         self.pools.iter_mut()
             .filter_map(|pool| is_pool_in_range(pool).and_option_from(|| pool.allocate(size)))
             .next()
-            .ok_or(ErrorKind::OutOfMemory.into())
+            .ok_or(Error::OutOfMemory.into())
     }
 
-    /// Allocates a new pool close to the `origin`.
+    /// Allocates a new pool close to `origin`.
     fn allocate_pool(&mut self,
                      range: &Range<usize>,
                      origin: *const (),
@@ -79,12 +80,16 @@ impl ProximityAllocator {
         // TODO: Part of the pool can be out of range
         // Try to allocate after the specified address first (mostly because
         // macOS cannot allocate memory before the process's address).
-        after.chain(before).filter_map(|result| {
-            match result {
-                Ok(address) => Self::allocate_fixed_pool(address, size).map(Ok),
-                Err(error) => Some(Err(error)),
-            }
-        }).next().unwrap_or(Err(ErrorKind::OutOfMemory.into()))
+        after
+            .chain(before)
+            .filter_map(|result| {
+                match result {
+                    Ok(address) => Self::allocate_fixed_pool(address, size).map(Ok),
+                    Err(error) => Some(Err(error)),
+                }
+            })
+            .next()
+            .unwrap_or(Err(Error::OutOfMemory.into()))
     }
 
     /// Tries to allocate fixed memory at the specified address.
@@ -95,7 +100,10 @@ impl ProximityAllocator {
             mmap::MapOption::MapWritable,
             mmap::MapOption::MapExecutable,
             mmap::MapOption::MapAddr(address as *const _),
-        ]).ok().map(SliceableMemoryMap).map(SlicePool::new)
+        ])
+        .ok()
+        .map(SliceableMemoryMap)
+        .map(SlicePool::new)
     }
 }
 

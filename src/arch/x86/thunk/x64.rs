@@ -2,7 +2,7 @@ use std::mem;
 use pic::Thunkable;
 
 #[repr(packed)]
-pub struct CallAbs {
+struct CallAbs {
     // call [rip+8]
     opcode0: u8,
     opcode1: u8,
@@ -29,7 +29,7 @@ pub fn call_abs(destination: usize) -> Box<Thunkable> {
 }
 
 #[repr(packed)]
-pub struct JumpAbs {
+struct JumpAbs {
     // jmp +6
     opcode0: u8,
     opcode1: u8,
@@ -51,7 +51,7 @@ pub fn jmp_abs(destination: usize) -> Box<Thunkable> {
 }
 
 #[repr(packed)]
-pub struct JccAbs {
+struct JccAbs {
     // jxx + 16
     opcode: u8,
     dummy0: u8,

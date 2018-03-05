@@ -12,11 +12,26 @@
 /// - A `Patcher`, modifies a target in-memory.
 /// - A `Trampoline`, generates a callable address to the target.
 
+pub use self::detour::Detour;
+
+// TODO: flush instruction cache? __clear_cache
+// See: https://github.com/llvm-mirror/compiler-rt/blob/master/lib/builtins/clear_cache.c
 cfg_if! {
     if #[cfg(any(target_arch = "x86", target_arch = "x86_64"))] {
         mod x86;
-        pub use self::x86::{Patcher, Trampoline, relay_builder};
+        use self::x86::{Patcher, Trampoline, meta};
     } else {
-        // Implement ARM support!
+        // TODO: Implement ARM/AARCH64/MIPS support!
     }
+}
+
+mod detour;
+mod memory;
+
+/// Returns true if the displacement is within a certain range.
+pub fn is_within_range(displacement: isize) -> bool {
+    use util::RangeContains;
+
+    let range = meta::DETOUR_RANGE as isize;
+    (-range..range).contains_(displacement)
 }

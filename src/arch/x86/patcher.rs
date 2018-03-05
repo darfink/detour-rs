@@ -1,15 +1,12 @@
 use std::{mem, slice};
-use region;
-
 use {util, pic};
 use error::*;
 use super::thunk;
 
 pub struct Patcher {
-    patched: bool,
     patch_area: &'static mut [u8],
-    detour_bounce: Vec<u8>,
-    target_backup: Vec<u8>,
+    original_prolog: Vec<u8>,
+    detour_prolog: Vec<u8>,
 }
 
 impl Patcher {
@@ -22,54 +19,36 @@ impl Patcher {
     /// * `prolog_size` - The available inline space for the hook.
     pub unsafe fn new(target: *const (), detour: *const (), prolog_size: usize) -> Result<Patcher> {
         // Calculate the patch area (i.e if a short or long jump should be used)
-        let patch_area = Self::get_patch_area(target, prolog_size)?;
+        let patch_area = Self::patch_area(target, prolog_size)?;
         let emitter = Self::hook_template(detour, patch_area);
 
         let patch_address = patch_area.as_ptr() as *const ();
-        let patch_code = patch_area.to_vec();
+        let original_prolog = patch_area.to_vec();
 
         Ok(Patcher {
-            patched: false,
-            patch_area: patch_area,
-            target_backup: patch_code,
-            detour_bounce: emitter.emit(patch_address),
+            detour_prolog: emitter.emit(patch_address),
+            original_prolog,
+            patch_area,
         })
     }
 
+    /// Returns the target's patch area.
+    pub fn area(&self) -> &[u8] {
+        self.patch_area
+    }
+
     /// Either patches or unpatches the function.
-    pub unsafe fn toggle(&mut self, enable: bool) -> Result<()> {
-        if self.patched == enable {
-            return Ok(());
-        }
-
-        // Runtime code is by default only read-execute
-        let mut region = region::View::new(self.patch_area.as_ptr(), self.patch_area.len())?;
-
-        region.exec_with_prot(region::Protection::ReadWriteExecute, || {
-            // Copy either the detour or the original bytes of the function
-            self.patch_area.copy_from_slice(if enable {
-                &self.detour_bounce
-            } else {
-                &self.target_backup
-            });
-        })?;
-
-        self.patched = enable;
-        Ok(())
-    }
-
-    /// Returns whether the function is patched or not.
-    pub fn is_patched(&self) -> bool {
-        self.patched
-    }
-
-    /// Returns the preferred prolog size for the target.
-    pub fn prolog_margin(_target: *const ()) -> usize {
-        mem::size_of::<thunk::x86::JumpRel>()
+    pub unsafe fn toggle(&mut self, enable: bool) {
+        // Copy either the detour or the original bytes of the function
+        self.patch_area.copy_from_slice(if enable {
+            &self.detour_prolog
+        } else {
+            &self.original_prolog
+        });
     }
 
     /// Returns the patch area for a function, consisting of a long jump and possibly a short jump.
-    unsafe fn get_patch_area(target: *const (), prolog_size: usize) -> Result<&'static mut [u8]> {
+    unsafe fn patch_area(target: *const (), prolog_size: usize) -> Result<&'static mut [u8]> {
         let jump_rel08_size = mem::size_of::<thunk::x86::JumpShort>();
         let jump_rel32_size = mem::size_of::<thunk::x86::JumpRel>();
 
@@ -85,14 +64,14 @@ impl Patcher {
                 // Ensure that the hot patch area only contains padding and is executable
                 if !Self::is_code_padding(hot_patch_area) ||
                    !util::is_executable_address(hot_patch_area.as_ptr() as *const _)? {
-                    bail!(ErrorKind::NoPatchArea);
+                    Err(Error::NoPatchArea)?;
                 }
 
                 // The range is from the start of the hot patch to the end of the jump
                 let patch_size = jump_rel32_size + jump_rel08_size;
                 Ok(slice::from_raw_parts_mut(hot_patch as *mut u8, patch_size))
             } else {
-                bail!(ErrorKind::NoPatchArea);
+                Err(Error::NoPatchArea.into())
             }
         } else {
             // The range is from the start of the function to the end of the jump
@@ -114,6 +93,11 @@ impl Patcher {
         if uses_hot_patch {
             let displacement = -(jump_rel32_size as i8);
             emitter.add_thunk(thunk::x86::jmp_rel8(displacement));
+        }
+
+        // Pad leftover bytes with nops
+        while emitter.len() < patch_area.len() {
+            emitter.add_thunk(thunk::x86::nop());
         }
 
         emitter

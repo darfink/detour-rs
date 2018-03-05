@@ -1,7 +1,8 @@
 use std::mem;
 use error::*;
-use arch::x86::{thunk, is_within_2gb};
+use arch::x86::thunk;
 use pic;
+use util::RangeContains;
 use self::disasm::*;
 
 mod disasm;
@@ -15,7 +16,7 @@ pub struct Trampoline {
 impl Trampoline {
     /// Constructs a new trampoline for an address.
     pub unsafe fn new(target: *const (), margin: usize) -> Result<Trampoline> {
-        Self::builder(target, margin).build()
+        Builder::new(target, margin).build()
     }
 
     /// Returns a reference to the trampoline's code emitter.
@@ -26,18 +27,6 @@ impl Trampoline {
     /// Returns the size of the prolog (i.e the amount of disassembled bytes).
     pub fn prolog_size(&self) -> usize {
         self.prolog_size
-    }
-
-    /// Returns a trampoline builder.
-    fn builder(target: *const(), margin: usize) -> Builder {
-        Builder {
-            disassembler: Disassembler::new(target),
-            branch_address: None,
-            total_bytes_disassembled: 0,
-            finished: false,
-            target,
-            margin,
-        }
     }
 }
 
@@ -58,6 +47,18 @@ struct Builder {
 }
 
 impl Builder {
+    /// Returns a trampoline builder.
+    pub fn new(target: *const(), margin: usize) -> Self {
+        Builder {
+            disassembler: Disassembler::new(target),
+            branch_address: None,
+            total_bytes_disassembled: 0,
+            finished: false,
+            target,
+            margin,
+        }
+   }
+
     /// Creates a trampoline with the supplied settings.
     ///
     /// Margins larger than five bytes may lead to undefined behavior.
@@ -72,7 +73,7 @@ impl Builder {
             // function, all instructions will be displaced, and if there is
             // internal branching, it will end up at the wrong instructions.
             if self.is_instruction_in_branch(&instruction) && instruction.len() != thunk.len() {
-                bail!(ErrorKind::UnsupportedRelativeBranch);
+                Err(Error::UnsupportedInstruction)?;
             } else {
                 emitter.add_thunk(thunk);
             }
@@ -97,7 +98,7 @@ impl Builder {
 
         // Disassemble the next instruction
         match Instruction::new(&mut self.disassembler, instruction_address as *const _) {
-            None => bail!(ErrorKind::InvalidCode),
+            None => Err(Error::InvalidCode)?,
             Some(instruction) => {
                 // Keep track of the total amount of bytes
                 self.total_bytes_disassembled += instruction.len();
@@ -109,20 +110,18 @@ impl Builder {
     /// Returns an instruction after analysing and potentially modifies it.
     unsafe fn process_instruction(&mut self, instruction: &Instruction) -> Result<Box<pic::Thunkable>> {
         if let Some(displacement) = instruction.rip_operand_displacement() {
-            self.handle_rip_relative_instruction(instruction, displacement)
+            return self.handle_rip_relative_instruction(instruction, displacement);
         } else if let Some(displacement) = instruction.relative_branch_displacement() {
-            self.handle_relative_branch(instruction, displacement)
-        } else {
-            if instruction.is_return() {
-                // In case the operand is not placed in a branch, the function
-                // returns unconditionally, (i.e it terminates here).
-                self.finished = !self.is_instruction_in_branch(instruction);
-            }
-
-            // The instruction does not use any position-dependant operands,
-            // therefore the bytes can be copied directly from source.
-            Ok(Box::new(instruction.as_slice().to_vec()))
+            return self.handle_relative_branch(instruction, displacement);
+        } else if instruction.is_return() {
+            // In case the operand is not placed in a branch, the function
+            // returns unconditionally (i.e it terminates here).
+            self.finished = !self.is_instruction_in_branch(instruction);
         }
+
+        // The instruction does not use any position-dependant operands,
+        // therefore the bytes can be copied directly from source.
+        Ok(Box::new(instruction.as_slice().to_vec()))
     }
 
     /// Adjusts the offsets for RIP relative operands. They are only available
@@ -141,7 +140,7 @@ impl Builder {
         self.finished = instruction.is_unconditional_jump();
 
         // Nothing should be done if `displacement` is within the prolog.
-        if (-(self.total_bytes_disassembled as isize)..0).contains(displacement) {
+        if (-(self.total_bytes_disassembled as isize)..0).contains_(displacement) {
             return Ok(Box::new(instruction.as_slice().to_vec()));
         }
 
@@ -158,7 +157,7 @@ impl Builder {
             let adjusted_displacement = instruction_address
                 .wrapping_sub(offset as isize)
                 .wrapping_add(displacement);
-            assert!(is_within_2gb(adjusted_displacement));
+            assert!(::arch::is_within_range(adjusted_displacement));
 
             // The displacement value is placed at (instruction - disp32)
             let index = instruction_bytes.len() - mem::size_of::<u32>();
@@ -176,7 +175,8 @@ impl Builder {
                                      displacement: isize)
                                      -> Result<Box<pic::Thunkable>> {
         // Calculate the absolute address of the target destination
-        let destination_address_abs = instruction.next_instruction_address()
+        let destination_address_abs = instruction
+            .next_instruction_address()
             .wrapping_add(displacement as usize);
 
         if instruction.is_call() {
@@ -189,13 +189,13 @@ impl Builder {
         // If the relative jump is internal, and short enough to
         // fit within the copied function prolog (i.e `margin`),
         // the jump instruction can be copied indiscriminately.
-        if prolog_range.contains(destination_address_abs) {
+        if prolog_range.contains_(destination_address_abs) {
             // Keep track of the jump's destination address
             self.branch_address = Some(destination_address_abs);
             Ok(Box::new(instruction.as_slice().to_vec()))
         } else if instruction.is_loop() {
             // Loops (e.g 'loopnz', 'jecxz') to the outside are not supported
-            Err(ErrorKind::UnsupportedLoop.into())
+            Err(Error::UnsupportedInstruction.into())
         } else if instruction.is_unconditional_jump() {
             // If the function is not in a branch, and it unconditionally jumps
             // a distance larger than the prolog, it's the same as if it terminates.

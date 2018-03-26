@@ -4,14 +4,13 @@
 ///
 /// - A standalone `relay_builder` function.  
 ///   This function creates a relay for targets with large displacement, that
-///   requires special attention. An example would be detours further away than 2GB
-///   on x64. A relative jump is not enough, so the `relay_builder` generates an
-///   absolute jump that the relative jump can reach. If it's needless, `None` can
-///   be returned.
+/// requires special attention. An example would be detours further away than
+/// 2GB on x64. A relative jump is not enough, so the `relay_builder`
+/// generates an absolute jump that the relative jump can reach. If it's
+/// needless, `None` can   be returned.
 ///
 /// - A `Patcher`, modifies a target in-memory.
 /// - A `Trampoline`, generates a callable address to the target.
-
 pub use self::detour::Detour;
 
 // TODO: flush instruction cache? __clear_cache
@@ -30,8 +29,8 @@ mod memory;
 
 /// Returns true if the displacement is within a certain range.
 pub fn is_within_range(displacement: isize) -> bool {
-    use util::RangeContains;
+  use util::RangeContains;
 
-    let range = meta::DETOUR_RANGE as isize;
-    (-range..range).contains_(displacement)
+  let range = meta::DETOUR_RANGE as isize;
+  (-range..range).contains_(displacement)
 }

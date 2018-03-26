@@ -91,10 +91,14 @@
 //! Beyond what is shown here, a trampoline is also generated so the original
 //! function can be called regardless whether the function is hooked or not.
 
-#[macro_use] extern crate cfg_if;
-#[macro_use] extern crate failure;
-#[macro_use] extern crate lazy_static;
-#[macro_use] extern crate matches;
+#[macro_use]
+extern crate cfg_if;
+#[macro_use]
+extern crate failure;
+#[macro_use]
+extern crate lazy_static;
+#[macro_use]
+extern crate matches;
 extern crate boolinator;
 extern crate generic_array;
 extern crate mmap_fixed;
@@ -112,53 +116,57 @@ pub use traits::*;
 mod macros;
 
 // Modules
-mod error;
 mod alloc;
 mod arch;
 mod detour;
+mod error;
 mod pic;
 mod traits;
 mod util;
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+  use super::*;
 
-    #[test]
-    fn detours_share_target() {
-        #[inline(never)]
-        extern "C" fn add(x: i32, y: i32) -> i32 {
-            unsafe { std::ptr::read_volatile(&x as *const i32) + y }
-        }
-
-        let mut hook1 = unsafe {
-            extern "C" fn sub(x: i32, y: i32) -> i32 { x - y }
-            GenericDetour::<extern "C" fn (i32, i32) -> i32>::new(add, sub).unwrap()
-        };
-
-        unsafe { hook1.enable().unwrap() };
-        assert_eq!(add(5, 5), 0);
-
-        let mut hook2 = unsafe {
-            extern "C" fn div(x: i32, y: i32) -> i32 { x / y }
-            GenericDetour::<extern "C" fn (i32, i32) -> i32>::new(add, div).unwrap()
-        };
-
-        unsafe { hook2.enable().unwrap() };
-
-        // This will call the previous hook's detour
-        assert_eq!(hook2.call(5, 5), 0);
-        assert_eq!(add(10, 5), 2);
+  #[test]
+  fn detours_share_target() {
+    #[inline(never)]
+    extern "C" fn add(x: i32, y: i32) -> i32 {
+      unsafe { std::ptr::read_volatile(&x as *const i32) + y }
     }
 
-    #[test]
-    fn same_detour_and_target() {
-        #[inline(never)]
-        extern "C" fn add(x: i32, y: i32) -> i32 {
-            unsafe { std::ptr::read_volatile(&x as *const i32) + y }
-        }
+    let mut hook1 = unsafe {
+      extern "C" fn sub(x: i32, y: i32) -> i32 {
+        x - y
+      }
+      GenericDetour::<extern "C" fn(i32, i32) -> i32>::new(add, sub).unwrap()
+    };
 
-        let err = unsafe { RawDetour::new(add as *const (), add as *const()).unwrap_err() };
-        assert_matches!(err.downcast(), Ok(Error::SameAddress));
+    unsafe { hook1.enable().unwrap() };
+    assert_eq!(add(5, 5), 0);
+
+    let mut hook2 = unsafe {
+      extern "C" fn div(x: i32, y: i32) -> i32 {
+        x / y
+      }
+      GenericDetour::<extern "C" fn(i32, i32) -> i32>::new(add, div).unwrap()
+    };
+
+    unsafe { hook2.enable().unwrap() };
+
+    // This will call the previous hook's detour
+    assert_eq!(hook2.call(5, 5), 0);
+    assert_eq!(add(10, 5), 2);
+  }
+
+  #[test]
+  fn same_detour_and_target() {
+    #[inline(never)]
+    extern "C" fn add(x: i32, y: i32) -> i32 {
+      unsafe { std::ptr::read_volatile(&x as *const i32) + y }
     }
+
+    let err = unsafe { RawDetour::new(add as *const (), add as *const ()).unwrap_err() };
+    assert_matches!(err.downcast(), Ok(Error::SameAddress));
+  }
 }

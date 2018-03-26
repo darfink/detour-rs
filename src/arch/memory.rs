@@ -1,6 +1,6 @@
+use error::Result;
 use std::sync::Mutex;
 use tap::TapResultOps;
-use error::Result;
 use {alloc, arch, pic};
 
 lazy_static! {
@@ -13,13 +13,14 @@ lazy_static! {
 
 /// Allocates PIC code at the specified address.
 pub fn allocate_pic(
-        pool: &mut alloc::ThreadAllocator,
-        emitter: &pic::CodeEmitter,
-        origin: *const ()) -> Result<alloc::ExecutableMemory> {
-    // Allocate memory close to the origin
-    pool.allocate(origin, emitter.len()).tap_ok(|memory| {
-        // Generate code for the obtained address
-        let code = emitter.emit(memory.as_ptr() as *const _);
-        memory.copy_from_slice(code.as_slice());
-    })
+  pool: &mut alloc::ThreadAllocator,
+  emitter: &pic::CodeEmitter,
+  origin: *const (),
+) -> Result<alloc::ExecutableMemory> {
+  // Allocate memory close to the origin
+  pool.allocate(origin, emitter.len()).tap_ok(|memory| {
+    // Generate code for the obtained address
+    let code = emitter.emit(memory.as_ptr() as *const _);
+    memory.copy_from_slice(code.as_slice());
+  })
 }

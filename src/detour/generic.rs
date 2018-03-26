@@ -1,6 +1,6 @@
-use std::ops::{Deref, DerefMut};
-use std::marker::PhantomData;
 use error::*;
+use std::marker::PhantomData;
+use std::ops::{Deref, DerefMut};
 use {arch, Function, HookableWith};
 
 /// A type-safe wrapper around [Detour](./struct.Detour.html).
@@ -19,12 +19,14 @@ use {arch, Function, HookableWith};
 /// ```rust
 /// use detour::GenericDetour;
 ///
-/// fn add5(val: i32) -> i32 { val + 5 }
-/// fn add10(val: i32) -> i32 { val + 10 }
+/// fn add5(val: i32) -> i32 {
+///   val + 5
+/// }
+/// fn add10(val: i32) -> i32 {
+///   val + 10
+/// }
 ///
-/// let mut hook = unsafe {
-///     GenericDetour::<fn(i32) -> i32>::new(add5, add10).unwrap()
-/// };
+/// let mut hook = unsafe { GenericDetour::<fn(i32) -> i32>::new(add5, add10).unwrap() };
 ///
 /// assert_eq!(add5(5), 10);
 /// assert_eq!(hook.call(5), 10);
@@ -40,37 +42,38 @@ use {arch, Function, HookableWith};
 /// ```
 #[derive(Debug)]
 pub struct GenericDetour<T: Function> {
-    phantom: PhantomData<T>,
-    detour: arch::Detour,
+  phantom: PhantomData<T>,
+  detour: arch::Detour,
 }
 
 impl<T: Function> GenericDetour<T> {
-    /// Create a new hook given a target function and a compatible detour
-    /// function.
-    pub unsafe fn new<D>(target: T, detour: D) -> Result<Self>
-            where T: HookableWith<D>,
-                  D: Function {
-        arch::Detour::new(target.to_ptr(), detour.to_ptr())
-            .map(|detour| GenericDetour {
-                phantom: PhantomData,
-                detour,
-            })
-    }
+  /// Create a new hook given a target function and a compatible detour
+  /// function.
+  pub unsafe fn new<D>(target: T, detour: D) -> Result<Self>
+  where
+    T: HookableWith<D>,
+    D: Function,
+  {
+    arch::Detour::new(target.to_ptr(), detour.to_ptr()).map(|detour| GenericDetour {
+      phantom: PhantomData,
+      detour,
+    })
+  }
 }
 
 impl<T: Function> Deref for GenericDetour<T> {
-    type Target = arch::Detour;
+  type Target = arch::Detour;
 
-    fn deref(&self) -> &Self::Target {
-        &self.detour
-    }
+  fn deref(&self) -> &Self::Target {
+    &self.detour
+  }
 }
 
 impl<T: Function> DerefMut for GenericDetour<T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.detour
-    }
+  fn deref_mut(&mut self) -> &mut Self::Target {
+    &mut self.detour
+  }
 }
 
-unsafe impl<T: Function> Send for GenericDetour<T> { }
-unsafe impl<T: Function> Sync for GenericDetour<T> { }
+unsafe impl<T: Function> Send for GenericDetour<T> {}
+unsafe impl<T: Function> Sync for GenericDetour<T> {}

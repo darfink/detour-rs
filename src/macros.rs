@@ -1,9 +1,9 @@
 /// A macro for defining type-safe detours.
 ///
 /// This macro defines a
-/// [StaticDetourController](./struct.StaticDetourController.html), which returns
-/// a [StaticDetour](./struct.StaticDetour.html) upon initialization. It can
-/// accept both functions and closures as its second argument. Due to the
+/// [StaticDetourController](./struct.StaticDetourController.html), which
+/// returns a [StaticDetour](./struct.StaticDetour.html) upon initialization.
+/// It can accept both functions and closures as its second argument. Due to the
 /// requirements of the implementation, *const_fn* is needed if the macro is to
 /// be used.
 ///
@@ -22,30 +22,36 @@
 ///     struct Test: /* extern "X" */ fn(i32) -> i32;
 /// }
 ///
-/// fn add5(val: i32) -> i32 { val + 5 }
-/// fn add10(val: i32) -> i32 { val + 10 }
+/// fn add5(val: i32) -> i32 {
+///   val + 5
+/// }
+/// fn add10(val: i32) -> i32 {
+///   val + 10
+/// }
 ///
 /// fn main() {
-///     let mut hook = unsafe { Test.initialize(add5, add10).unwrap() };
+///   let mut hook = unsafe { Test.initialize(add5, add10).unwrap() };
 ///
-///     assert_eq!(add5(1), 6);
-///     assert_eq!(hook.call(1), 6);
+///   assert_eq!(add5(1), 6);
+///   assert_eq!(hook.call(1), 6);
 ///
-///     unsafe { hook.enable().unwrap(); }
+///   unsafe {
+///     hook.enable().unwrap();
+///   }
 ///
-///     assert_eq!(add5(1), 11);
-///     assert_eq!(hook.call(1), 6);
+///   assert_eq!(add5(1), 11);
+///   assert_eq!(hook.call(1), 6);
 ///
-///     // You can also call using the static object
-///     assert_eq!(unsafe { Test.get().unwrap().call(1) }, 6);
+///   // You can also call using the static object
+///   assert_eq!(unsafe { Test.get().unwrap().call(1) }, 6);
 ///
-///     // ... and change the detour whilst hooked
-///     hook.set_detour(|val| val - 5);
-///     assert_eq!(add5(5), 0);
+///   // ... and change the detour whilst hooked
+///   hook.set_detour(|val| val - 5);
+///   assert_eq!(add5(5), 0);
 ///
-///     unsafe { hook.disable().unwrap() };
+///   unsafe { hook.disable().unwrap() };
 ///
-///     assert_eq!(add5(1), 6);
+///   assert_eq!(add5(1), 6);
 /// }
 /// ```
 ///
@@ -84,10 +90,12 @@ macro_rules! static_detours {
     };
 
     // 5 — calling convention (extern "XXX"/extern/-)
-    (@parse_calling_convention ($($input:tt)*) ($($modifier:tt)*) | extern $cc:tt fn $($rest:tt)*) => {
+    (@parse_calling_convention
+        ($($input:tt)*) ($($modifier:tt)*) | extern $cc:tt fn $($rest:tt)*) => {
         static_detours!(@parse_prototype ($($input)* ($($modifier)* extern $cc)) | $($rest)*);
     };
-    (@parse_calling_convention ($($input:tt)*) ($($modifier:tt)*) | extern fn $($rest:tt)*) => {
+    (@parse_calling_convention
+        ($($input:tt)*) ($($modifier:tt)*) | extern fn $($rest:tt)*) => {
         static_detours!(@parse_prototype ($($input)* ($($modifier)* extern)) | $($rest)*);
     };
     (@parse_calling_convention ($($input:tt)*) ($($modifier:tt)*) | fn $($rest:tt)*) => {
@@ -95,8 +103,10 @@ macro_rules! static_detours {
     };
 
     // 6 — argument and return type (return/void)
-    (@parse_prototype ($($input:tt)*) | ($($argument_type:ty),*) -> $return_type:ty ; $($rest:tt)*) => {
-        static_detours!(@parse_terminator ($($input)* ($($argument_type)*) ($return_type)) | ; $($rest)*);
+    (@parse_prototype
+        ($($input:tt)*) | ($($argument_type:ty),*) -> $return_type:ty ; $($rest:tt)*) => {
+        static_detours!(
+            @parse_terminator ($($input)* ($($argument_type)*) ($return_type)) | ; $($rest)*);
     };
     (@parse_prototype ($($input:tt)*) | ($($argument_type:ty),*) $($rest:tt)*) => {
         static_detours!(@parse_terminator ($($input)* ($($argument_type)*) (())) | $($rest)*);
@@ -142,7 +152,8 @@ macro_rules! static_detours {
 
                 #[inline(never)]
                 #[allow(unused_unsafe)]
-                $($modifier) * fn __ffi_detour($($argument_name: $argument_type),*) -> $return_type {
+                $($modifier) * fn __ffi_detour(
+                        $($argument_name: $argument_type),*) -> $return_type {
                     #[allow(unused_unsafe)]
                     let data = unsafe { DATA.load(Ordering::SeqCst).as_ref().unwrap() };
                     (data.closure)($($argument_name),*)
@@ -160,8 +171,13 @@ macro_rules! static_detours {
             __arg_7  __arg_8  __arg_9  __arg_10 __arg_11 __arg_12 __arg_13
         )($($token)*)());
     };
-    (@argument_names ($label:ident) ($($input:tt)*) ($hd_name:tt $($tl_name:tt)*) ($hd:tt $($tl:tt)*) ($($acc:tt)*) ) => {
-        static_detours!(@argument_names ($label) ($($input)*) ($($tl_name)*) ($($tl)*) ($($acc)* $hd_name));
+    (@argument_names
+            ($label:ident)
+            ($($input:tt)*)
+            ($hd_name:tt $($tl_name:tt)*)
+            ($hd:tt $($tl:tt)*) ($($acc:tt)*)) => {
+        static_detours!(
+            @argument_names ($label) ($($input)*) ($($tl_name)*) ($($tl)*) ($($acc)* $hd_name));
     };
     (@argument_names ($label:ident) ($($input:tt)*) ($($name:tt)*) () ($($acc:tt)*)) => {
         static_detours!(@$label ($($acc)*) $($input)*);
@@ -179,7 +195,9 @@ macro_rules! impl_hookable {
     (@recurse () ($($nm:ident : $ty:ident),*)) => {
         impl_hookable!(@impl_all ($($nm : $ty),*));
     };
-    (@recurse ($hd_nm:ident : $hd_ty:ident $(, $tl_nm:ident : $tl_ty:ident)*) ($($nm:ident : $ty:ident),*)) => {
+    (@recurse
+        ($hd_nm:ident : $hd_ty:ident $(, $tl_nm:ident : $tl_ty:ident)*)
+        ($($nm:ident : $ty:ident),*)) => {
         impl_hookable!(@impl_all ($($nm : $ty),*));
         impl_hookable!(@recurse ($($tl_nm : $tl_ty),*) ($($nm : $ty,)* $hd_nm : $hd_ty));
     };

@@ -89,7 +89,7 @@ mod statik {
     }
 
     static_detours! {
-        #[allow(unused)]
+        #[doc="Test with attributes"]
         pub struct DetourAdd: unsafe extern "C" fn(i32, i32) -> i32;
     }
 

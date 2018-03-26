@@ -55,10 +55,6 @@
 // Inspired by: https://github.com/Jascha-N/minhook-rs
 macro_rules! static_detours {
     // 1 — meta attributes
-    // // See: https://github.com/rust-lang/rust/issues/24189
-    // (@parse_attributes ($($input:tt)*) | $(#[$attribute:meta])* $next:tt $($rest:tt)*) => {
-    //     static_detours!(@parse_access_modifier ($($input)* ($($attribute)*)) | $next $($rest)*);
-    // };
     (@parse_attributes ($($input:tt)*) | #[$attribute:meta] $($rest:tt)*) => {
         static_detours!(@parse_attributes ($($input)* $attribute) | $($rest)*);
     };

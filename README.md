@@ -109,15 +109,15 @@ derivative code of his work.
   trailing `NOP` instructions will be replaced, to make room for the detour.*
 
 <!-- Links -->
-[travis-shield]: https://img.shields.io/travis/darfink/detour-rs.svg?style=flat-square
+[travis-shield]: https://img.shields.io/travis/darfink/detour-rs.svg?style=flat-square&label=travis
 [travis]: https://travis-ci.org/darfink/detour-rs
-[appveyor-shield]: https://img.shields.io/appveyor/ci/darfink/detour-rs/master.svg?style=flat-square
+[appveyor-shield]: https://img.shields.io/appveyor/ci/darfink/detour-rs/master.svg?style=flat-square&label=appveyor
 [appveyor]: https://ci.appveyor.com/project/darfink/detour-rs
 [crate-shield]: https://img.shields.io/crates/v/detour.svg?style=flat-square
 [crate]: https://crates.io/crates/detour
 [rust-shield]: https://img.shields.io/badge/powered%20by-rust-blue.svg?style=flat-square
 [rust]: https://www.rust-lang.org
-[docs-shield]: https://img.shields.io/badge/docs-github-green.svg?style=flat-square
-[docs]: https://darfink.github.io/detour-rs/detour/index.html
+[docs-shield]: https://img.shields.io/badge/docs-crates-green.svg?style=flat-square
+[docs]: https://docs.rs/detour/
 [minhook-author]: https://github.com/Jascha-N
 [minhook]: https://github.com/Jascha-N/minhook-rs/

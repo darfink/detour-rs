@@ -61,7 +61,10 @@ impl Detour {
             return Ok(());
         }
 
-        let mut region = region::View::new(self.patcher.area().as_ptr(), self.patcher.area().len())?;
+        let mut region = {
+            let area = self.patcher.area();
+            region::View::new(area.as_ptr(), area.len())?
+        };
 
         // Runtime code is by default only read-execute
         region.exec_with_prot(region::Protection::ReadWriteExecute, || {

@@ -1,26 +1,24 @@
-#![cfg_attr(feature = "static", feature(const_fn, const_atomic_ptr_new, const_ptr_null_mut))]
-#[cfg_attr(feature = "static", macro_use)]
+#![cfg_attr(feature = "nightly", feature(const_fn))]
+#[cfg_attr(feature = "nightly", macro_use)]
 extern crate detour;
-extern crate volatile_cell;
 
 use std::mem;
-use volatile_cell::VolatileCell;
 type FnAdd = extern "C" fn(i32, i32) -> i32;
 
 #[inline(never)]
 extern "C" fn sub_detour(x: i32, y: i32) -> i32 {
-    VolatileCell::new(x).get() - y
+    unsafe { std::ptr::read_volatile(&x as *const i32) - y }
 }
 
 mod raw {
-    use detour::{Detour, RawDetour};
+    use detour::RawDetour;
     use super::*;
 
     #[test]
     fn test() {
         #[inline(never)]
         extern "C" fn add(x: i32, y: i32) -> i32 {
-            VolatileCell::new(x).get() + y
+            unsafe { std::ptr::read_volatile(&x as *const i32) + y }
         }
 
         unsafe {
@@ -53,14 +51,14 @@ mod raw {
 }
 
 mod generic {
-    use detour::{Detour, GenericDetour};
+    use detour::GenericDetour;
     use super::*;
 
     #[test]
     fn test() {
         #[inline(never)]
         extern "C" fn add(x: i32, y: i32) -> i32 {
-            VolatileCell::new(x).get() + y
+            unsafe { std::ptr::read_volatile(&x as *const i32) + y }
         }
 
         unsafe {
@@ -81,19 +79,18 @@ mod generic {
     }
 }
 
-#[cfg(feature = "static")]
+#[cfg(feature = "nightly")]
 mod statik {
-    use detour::Detour;
     use super::*;
 
     #[inline(never)]
-    extern "C" fn add(x: i32, y: i32) -> i32 {
-        VolatileCell::new(x).get() + y
+    unsafe extern "C" fn add(x: i32, y: i32) -> i32 {
+        std::ptr::read_volatile(&x as *const i32) + y
     }
 
     static_detours! {
         #[allow(unused)]
-        pub struct DetourAdd: extern "C" fn(i32, i32) -> i32;
+        pub struct DetourAdd: unsafe extern "C" fn(i32, i32) -> i32;
     }
 
     #[test]

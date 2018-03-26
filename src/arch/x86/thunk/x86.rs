@@ -1,6 +1,6 @@
 use std::mem;
 use generic_array::{GenericArray, typenum};
-use pic::{Thunkable, StaticThunk};
+use pic::{Thunkable, FixedThunk};
 
 #[repr(packed)]
 pub struct JumpRel {
@@ -13,7 +13,7 @@ fn relative32(destination: usize, is_jump: bool) -> Box<Thunkable> {
     const CALL: u8 = 0xE8;
     const JMP: u8 = 0xE9;
 
-    Box::new(StaticThunk::<typenum::U5>::new(move |source| {
+    Box::new(FixedThunk::<typenum::U5>::new(move |source| {
         let code = JumpRel {
             opcode: if is_jump { JMP } else { CALL },
             operand: calculate_displacement(source, destination, mem::size_of::<JumpRel>()),
@@ -22,6 +22,11 @@ fn relative32(destination: usize, is_jump: bool) -> Box<Thunkable> {
         let slice: [u8; 5] = unsafe { mem::transmute(code) };
         GenericArray::clone_from_slice(&slice)
     }))
+}
+
+/// Returns a no-op instruction.
+pub fn nop() -> Box<Thunkable> {
+    Box::new([0x90].to_vec())
 }
 
 /// Constructs a relative call operation.
@@ -35,7 +40,7 @@ pub fn jmp_rel32(destination: usize) -> Box<Thunkable> {
 }
 
 #[repr(packed)]
-pub struct JccRel {
+struct JccRel {
     opcode0: u8,
     opcode1: u8,
     operand: u32,
@@ -43,7 +48,7 @@ pub struct JccRel {
 
 /// Constructs a conditional relative jump operation.
 pub fn jcc_rel32(destination: usize, condition: u8) -> Box<Thunkable> {
-    Box::new(StaticThunk::<typenum::U6>::new(move |source| {
+    Box::new(FixedThunk::<typenum::U6>::new(move |source| {
         let code = JccRel {
             opcode0: 0x0F,
             opcode1: 0x80 | condition,
@@ -63,7 +68,7 @@ pub struct JumpShort {
 
 /// Constructs a relative short jump.
 pub fn jmp_rel8(displacement: i8) -> Box<Thunkable> {
-    Box::new(StaticThunk::<typenum::U2>::new(move |_| {
+    Box::new(FixedThunk::<typenum::U2>::new(move |_| {
         let code = JumpShort {
             opcode: 0xEB,
             operand: displacement - mem::size_of::<JumpShort>() as i8,
@@ -83,7 +88,7 @@ fn calculate_displacement(source: usize,
     // Ensure that the detour can be reached with a relative jump (+/- 2GB).
     // This only needs to be asserted on x64, since it wraps around on x86.
     #[cfg(target_arch = "x86_64")]
-    assert!(::arch::x86::is_within_2gb(displacement));
+    assert!(::arch::is_within_range(displacement));
 
     displacement as u32
 }

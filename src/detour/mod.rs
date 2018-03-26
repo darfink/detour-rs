@@ -5,7 +5,7 @@ pub use self::generic::*;
 pub use self::raw::*;
 
 cfg_if! {
-    if #[cfg(feature = "static")] {
+    if #[cfg(feature = "nightly")] {
         mod statik;
         pub use self::statik::*;
     } else {

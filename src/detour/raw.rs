@@ -1,24 +1,14 @@
-use std::fmt;
-use std::sync::Mutex;
-
+use std::ops::{Deref, DerefMut};
+use arch;
 use error::*;
-use {pic, util, arch, alloc, Detour};
 
-lazy_static! {
-    /// Shared allocator for all detours.
-    static ref POOL: Mutex<alloc::Allocator> = {
-        // Use a range of +/- 2 GB for seeking a memory block
-        Mutex::new(alloc::Allocator::new(0x80000000))
-    };
-}
-
-/// A type-less detour.
+/// A type-less wrapper around [Detour](./struct.Detour.html).
 ///
 /// # Example
 ///
 /// ```rust
 /// use std::mem;
-/// use detour::{Detour, RawDetour};
+/// use detour::RawDetour;
 ///
 /// fn add5(val: i32) -> i32 { val + 5 }
 /// fn add10(val: i32) -> i32 { val + 10 }
@@ -43,12 +33,8 @@ lazy_static! {
 /// }
 /// assert_eq!(add5(5), 10);
 /// ```
-pub struct RawDetour {
-    patcher: arch::Patcher,
-    trampoline: alloc::Slice,
-    #[allow(dead_code)]
-    relay: Option<alloc::Slice>,
-}
+#[derive(Debug)]
+pub struct RawDetour(arch::Detour);
 
 // TODO: stop all threads in target during patch?
 impl RawDetour {
@@ -60,84 +46,20 @@ impl RawDetour {
     /// function might for example get inlined in which case it is impossible to
     /// hook at runtime.
     pub unsafe fn new(target: *const (), detour: *const ()) -> Result<Self> {
-        let mut pool = POOL.lock().unwrap();
-
-        if target == detour {
-            bail!(ErrorKind::SameAddress);
-        }
-
-        if !util::is_executable_address(target)? || !util::is_executable_address(detour)? {
-            bail!(ErrorKind::NotExecutable);
-        }
-
-        // Create a trampoline generator for the target function
-        let margin = arch::Patcher::prolog_margin(target);
-        let trampoline = arch::Trampoline::new(target, margin)?;
-
-        // A relay is used in case a normal branch cannot reach the destination
-        let relay = if let Some(emitter) = arch::relay_builder(target, detour)? {
-            Some(Self::allocate_code(&mut pool, &emitter, target)?)
-        } else {
-            None
-        };
-
-        // If a relay is supplied, use it instead of the detour address
-        let detour = relay.as_ref().map(|code| code.as_ptr() as *const ()).unwrap_or(detour);
-
-        Ok(RawDetour {
-            patcher: arch::Patcher::new(target, detour, trampoline.prolog_size())?,
-            trampoline: Self::allocate_code(&mut pool, trampoline.emitter(), target)?,
-            relay,
-        })
-    }
-
-    /// Allocates PIC code at the specified address.
-    fn allocate_code(pool: &mut alloc::Allocator,
-                     emitter: &pic::CodeEmitter,
-                     origin: *const ()) -> Result<alloc::Slice> {
-        // Allocate memory close to the origin
-        let mut memory = pool.allocate(origin, emitter.len())?;
-
-        // Generate code for the obtained address
-        let code = emitter.emit(memory.as_ptr() as *const _);
-        memory.copy_from_slice(code.as_slice());
-        Ok(memory)
+        arch::Detour::new(target, detour).map(RawDetour)
     }
 }
 
-unsafe impl Detour for RawDetour {
-    unsafe fn toggle(&mut self, enabled: bool) -> Result<()> {
-        let _guard = POOL.lock().unwrap();
-        self.patcher.toggle(enabled)
-    }
+impl Deref for RawDetour {
+    type Target = arch::Detour;
 
-    fn is_enabled(&self) -> bool {
-        self.patcher.is_patched()
-    }
-
-    fn trampoline(&self) -> &() {
-        unsafe {
-            (self.trampoline.as_ptr() as *const ())
-                .as_ref()
-                .expect("trampoline should not be null")
-        }
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
-impl Drop for RawDetour {
-    /// Disables the detour, if enabled.
-    fn drop(&mut self) {
-        unsafe { self.disable().unwrap() };
+impl DerefMut for RawDetour {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }
-
-impl fmt::Debug for RawDetour {
-    /// Output whether the detour is enabled or not.
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Detour {{ enabled: {}, trampoline: {:?} }}",
-               self.is_enabled(), self.trampoline())
-    }
-}
-
-unsafe impl Send for RawDetour { }
-unsafe impl Sync for RawDetour { }

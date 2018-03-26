@@ -1,8 +1,9 @@
-//! The underlying disassembler should be opaque outside.
+//! The underlying disassembler should be opaque to the outside.
 extern crate libudis86_sys as udis;
 extern crate libc;
 
 use std::slice;
+use boolinator::Boolinator;
 
 /// A x86/x64 disassembler.
 pub struct Disassembler(udis::ud);
@@ -20,7 +21,7 @@ impl Disassembler {
         }
     }
 
-    /// Reads one byte from a pointer an advances it.
+    /// Reads one byte from a pointer and advances it.
     unsafe extern "C" fn udis_read_address(ud: *mut udis::ud) -> libc::c_int {
         let pointer = udis::ud_get_user_opaque_data(ud) as *mut u8;
         let result = *pointer;
@@ -41,16 +42,12 @@ impl Instruction {
     /// Disassembles a new instruction at the specified address.
     pub unsafe fn new(disasm: &mut Disassembler, address: *const ()) -> Option<Self> {
         let instruction_bytes = udis::ud_disassemble(&mut disasm.0) as usize;
-        if instruction_bytes == 0 {
-            None
-        } else {
-            Some(Instruction {
-                address: address as usize,
-                mnemonic: udis::ud_insn_mnemonic(&disasm.0),
-                operands: disasm.0.operand.to_vec(),
-                bytes: slice::from_raw_parts(address as *const _, instruction_bytes),
-            })
-        }
+        (instruction_bytes > 0).as_some_from(|| Instruction {
+            address: address as usize,
+            mnemonic: udis::ud_insn_mnemonic(&disasm.0),
+            operands: disasm.0.operand.to_vec(),
+            bytes: slice::from_raw_parts(address as *const _, instruction_bytes),
+        })
     }
 
     /// Returns the instruction's address.

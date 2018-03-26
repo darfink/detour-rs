@@ -16,12 +16,11 @@ maintain this feature, not all desired functionality can be supported due to
 lack of cross-platform APIs. Therefore [EIP relocation](#appendix) is not
 supported.
 
-**NOTE**: Nightly is currently required, mostly due to *untagged_union*.
+**NOTE**: Nightly is currently required for `static_detours!`.
 
 ## Platforms
 
-- `x86`: Windows, Linux, macOS
-- `x64`: Windows, Linux, macOS
+- `x86/x64`: Windows, Linux & macOS.
 - `ARM`: Not implemented, but foundation exists.
 
 ## Installation
@@ -30,7 +29,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-detour = "0.3.0"
+detour = "0.4.0"
 ```
 
 ... and this to your crate root:

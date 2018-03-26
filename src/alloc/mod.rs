@@ -6,52 +6,51 @@ mod proximity;
 mod search;
 
 /// A thread-safe memory pool for allocating chunks close to addresses.
-pub struct Allocator(Arc<Mutex<proximity::ProximityAllocator>>);
+pub struct ThreadAllocator(Arc<Mutex<proximity::ProximityAllocator>>);
 
 // TODO: Decrease use of mutexes
-impl Allocator {
+impl ThreadAllocator {
     /// Creates a new proximity memory allocator.
     pub fn new(max_distance: usize) -> Self {
-        Allocator(Arc::new(Mutex::new(proximity::ProximityAllocator {
+        ThreadAllocator(Arc::new(Mutex::new(proximity::ProximityAllocator {
             max_distance: max_distance,
             pools: Vec::new(),
         })))
     }
 
     /// Allocates read-, write- & executable memory close to `origin`.
-    pub fn allocate(&mut self, origin: *const (), size: usize) -> Result<Slice> {
+    pub fn allocate(&self, origin: *const (), size: usize) -> Result<ExecutableMemory> {
         let mut allocator = self.0.lock().unwrap();
-        allocator.allocate(origin, size).map(|value| Slice {
+        allocator.allocate(origin, size).map(|data| ExecutableMemory {
             allocator: self.0.clone(),
-            value: value,
+            data,
         })
     }
 }
 
-// TODO: Come up with a better name
 /// A handle for allocated proximity memory.
-pub struct Slice {
+pub struct ExecutableMemory {
     allocator: Arc<Mutex<proximity::ProximityAllocator>>,
-    value: proximity::Allocation,
+    data: proximity::Allocation,
 }
 
-impl Drop for Slice {
+impl Drop for ExecutableMemory {
     fn drop(&mut self) {
         // Release the associated memory map (if unique)
-        self.allocator.lock().unwrap().release(&self.value);
+        self.allocator.lock().unwrap().release(&self.data);
     }
 }
 
-impl Deref for Slice {
+impl Deref for ExecutableMemory {
     type Target = [u8];
 
     fn deref(&self) -> &Self::Target {
-        self.value.deref()
+        self.data.deref()
     }
 }
 
-impl DerefMut for Slice {
+impl DerefMut for ExecutableMemory {
     fn deref_mut(&mut self) -> &mut [u8] {
-        self.value.deref_mut()
+        self.data.deref_mut()
     }
 }

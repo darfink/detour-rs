@@ -1,5 +1,6 @@
 use std::ops::Range;
 use region;
+use util::RangeContains;
 use error::*;
 
 /// Returns an iterator for free before the specified address.
@@ -43,7 +44,7 @@ impl Iterator for RegionIter {
     fn next(&mut self) -> Option<Self::Item> {
         let page_size = region::page::page_size();
 
-        while self.current > 0 && self.range.contains(self.current) {
+        while self.current > 0 && self.range.contains_(self.current) {
             match region::query(self.current as *const _) {
                 Ok(region) => self.current = match self.search {
                     SearchDirection::Before => region.lower().saturating_sub(page_size),
@@ -51,9 +52,9 @@ impl Iterator for RegionIter {
                 },
                 Err(error) => {
                     // Check whether the region is free, otherwise return the error
-                    let result = Some(match error.kind() {
-                        &region::error::ErrorKind::Free => Ok(self.current as *const _),
-                        _ => Err(error.into())
+                    let result = Some(match error.downcast().expect("downcasting region error") {
+                        region::Error::Free => Ok(self.current as *const _),
+                        inner @ _ => Err(Error::RegionFailure(inner).into()),
                     });
 
                     // Adjust the offset for repeated calls.

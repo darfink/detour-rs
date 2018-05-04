@@ -18,7 +18,7 @@ pub fn call_abs(destination: usize) -> Box<Thunkable> {
     let code = CallAbs {
         opcode0: 0xFF,
         opcode1: 0x15,
-        dummy0: 0x000000002,
+        dummy0: 0x0_0000_0002,
         dummy1: 0xEB,
         dummy2: 0x08,
         address: destination,
@@ -42,7 +42,7 @@ pub fn jmp_abs(destination: usize) -> Box<Thunkable> {
     let code = JumpAbs {
         opcode0: 0xFF,
         opcode1: 0x25,
-        dummy0: 0x000000000,
+        dummy0: 0x0_0000_0000,
         address: destination,
     };
 
@@ -69,7 +69,7 @@ pub fn jcc_abs(destination: usize, condition: u8) -> Box<Thunkable> {
         dummy0: 0x0E,
         dummy1: 0xFF,
         dummy2: 0x25,
-        dummy3: 0x00000000,
+        dummy3: 0x0000_0000,
         address: destination,
     };
 

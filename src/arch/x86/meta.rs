@@ -4,7 +4,7 @@ use pic;
 use super::thunk;
 
 /// The furthest distance between a target and its detour (2 GiB).
-pub const DETOUR_RANGE: usize = 0x80000000;
+pub const DETOUR_RANGE: usize = 0x8000_0000;
 
 /// Returns the preferred prolog size for the target.
 pub fn prolog_margin(_target: *const ()) -> usize {

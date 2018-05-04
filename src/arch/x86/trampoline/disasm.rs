@@ -26,7 +26,7 @@ impl Disassembler {
         let pointer = udis::ud_get_user_opaque_data(ud) as *mut u8;
         let result = *pointer;
         udis::ud_set_user_opaque_data(ud, pointer.offset(1) as *mut _);
-        result as _
+        libc::c_int::from(result)
     }
 }
 

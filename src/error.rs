@@ -1,9 +1,9 @@
 //! Error types and utilities.
 
-use {failure, region};
+use region;
 
 /// The result of a detour operation.
-pub type Result<T> = ::std::result::Result<T, failure::Error>;
+pub type Result<T> = ::std::result::Result<T, Error>;
 
 #[derive(Fail, Debug)]
 pub enum Error {
@@ -31,4 +31,10 @@ pub enum Error {
   // A memory operation failed.
   #[fail(display = "{}", _0)]
   RegionFailure(#[cause] region::Error),
+}
+
+impl From<region::Error> for Error {
+  fn from(error: region::Error) -> Self {
+    Error::RegionFailure(error)
+  }
 }

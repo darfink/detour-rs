@@ -71,7 +71,7 @@ impl Patcher {
                 let patch_size = jump_rel32_size + jump_rel08_size;
                 Ok(slice::from_raw_parts_mut(hot_patch as *mut u8, patch_size))
             } else {
-                Err(Error::NoPatchArea.into())
+                Err(Error::NoPatchArea)
             }
         } else {
             // The range is from the start of the function to the end of the jump

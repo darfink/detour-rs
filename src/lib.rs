@@ -167,6 +167,6 @@ mod tests {
     }
 
     let err = unsafe { RawDetour::new(add as *const (), add as *const ()).unwrap_err() };
-    assert_matches!(err.downcast(), Ok(Error::SameAddress));
+    assert_matches!(err, Error::SameAddress);
   }
 }

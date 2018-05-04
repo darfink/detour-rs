@@ -195,7 +195,7 @@ impl Builder {
             Ok(Box::new(instruction.as_slice().to_vec()))
         } else if instruction.is_loop() {
             // Loops (e.g 'loopnz', 'jecxz') to the outside are not supported
-            Err(Error::UnsupportedInstruction.into())
+            Err(Error::UnsupportedInstruction)
         } else if instruction.is_unconditional_jump() {
             // If the function is not in a branch, and it unconditionally jumps
             // a distance larger than the prolog, it's the same as if it terminates.

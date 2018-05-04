@@ -42,7 +42,7 @@ impl Iterator for RegionIter {
 
   /// Returns the closest free region for the current address.
   fn next(&mut self) -> Option<Self::Item> {
-    let page_size = region::page::page_size();
+    let page_size = region::page::size();
 
     while self.current > 0 && self.range.contains_(self.current) {
       match region::query(self.current as *const _) {
@@ -54,9 +54,9 @@ impl Iterator for RegionIter {
         },
         Err(error) => {
           // Check whether the region is free, otherwise return the error
-          let result = Some(match error.downcast().expect("downcasting region error") {
+          let result = Some(match error {
             region::Error::Free => Ok(self.current as *const _),
-            inner @ _ => Err(Error::RegionFailure(inner).into()),
+            inner => Err(Error::RegionFailure(inner)),
           });
 
           // Adjust the offset for repeated calls.

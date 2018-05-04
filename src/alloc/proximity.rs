@@ -72,7 +72,7 @@ impl ProximityAllocator {
       .iter_mut()
       .filter_map(|pool| is_pool_in_range(pool).and_option_from(|| pool.allocate(size)))
       .next()
-      .ok_or(Error::OutOfMemory.into())
+      .ok_or(Error::OutOfMemory)
   }
 
   /// Allocates a new pool close to `origin`.
@@ -95,7 +95,7 @@ impl ProximityAllocator {
         Err(error) => Some(Err(error)),
       })
       .next()
-      .unwrap_or(Err(Error::OutOfMemory.into()))
+      .unwrap_or(Err(Error::OutOfMemory))
   }
 
   /// Tries to allocate fixed memory at the specified address.

@@ -54,7 +54,7 @@ mod tests {
                 funcs::external_loop as *const (),
                 funcs::ret10 as *const ())
         }.unwrap_err();
-        assert_matches!(error.downcast(), Ok(Error::UnsupportedInstruction));
+        assert_matches!(error, Error::UnsupportedInstruction);
     }
 
     #[test]

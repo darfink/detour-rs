@@ -29,7 +29,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-detour = "0.4.1"
+detour = "0.5.0"
 ```
 
 ... and this to your crate root:

@@ -4,7 +4,7 @@
 environment:
   global:
     RUST_VERSION: nightly
-    CRATE_NAME: region
+    CRATE_NAME: detour
   matrix:
     # MinGW
     - TARGET: i686-pc-windows-gnu
@@ -17,9 +17,9 @@ environment:
 install:
   - ps: >-
       If ($Env:TARGET -eq 'x86_64-pc-windows-gnu') {
-        $Env:PATH += ';C:\msys64\mingw64\bin'
+        $Env:PATH += ';C:\mingw-w64\i686-5.3.0-posix-dwarf-rt_v4-rev0\bin'
       } ElseIf ($Env:TARGET -eq 'i686-pc-windows-gnu') {
-        $Env:PATH += ';C:\msys64\mingw32\bin'
+        $Env:PATH += ';C:\MinGW\bin'
       }
   - curl -sSf -o rustup-init.exe https://win.rustup.rs/
   - rustup-init.exe -y --default-host %TARGET% --default-toolchain %RUST_VERSION%

@@ -30,6 +30,12 @@ matrix:
       os: osx
       rust: nightly
 
+    # Windows
+    - env: TARGET=i686-pc-windows-gnu
+      rust: nightly
+    - env: TARGET=x86_64-pc-windows-gnu
+      rust: nightly
+
 before_install: set -e
 
 install:

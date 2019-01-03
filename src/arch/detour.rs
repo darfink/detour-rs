@@ -61,19 +61,20 @@ impl Detour {
       return Ok(());
     }
 
-    let mut region = {
-      let area = self.patcher.area();
-      region::View::new(area.as_ptr(), area.len())?
-    };
-
     // Runtime code is by default only read-execute
-    region
-      .exec_with_prot(region::Protection::ReadWriteExecute, || {
-        // Copy either the detour or the original bytes of the function
-        self.patcher.toggle(enabled);
-        self.enabled = enabled;
-      })
-      .map_err(|error| error.into())
+    let _handle = {
+      let area = self.patcher.area();
+      region::protect_with_handle(
+        area.as_ptr(),
+        area.len(),
+        region::Protection::ReadWriteExecute,
+      )
+    }?;
+
+    // Copy either the detour or the original bytes of the function
+    self.patcher.toggle(enabled);
+    self.enabled = enabled;
+    Ok(())
   }
 
   /// Enables the detour.

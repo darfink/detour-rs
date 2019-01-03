@@ -48,8 +48,7 @@ impl ProximityAllocator {
 
         // Determine if this is the associated memory pool
         (lower..upper).contains_(value.as_ptr() as usize)
-      })
-      .expect("retrieving associated memory pool");
+      }).expect("retrieving associated memory pool");
 
     // Release the pool if the associated allocation is unique
     if self.pools[index].allocations() == 1 {
@@ -93,8 +92,7 @@ impl ProximityAllocator {
       .filter_map(|result| match result {
         Ok(address) => Self::allocate_fixed_pool(address, size).map(Ok),
         Err(error) => Some(Err(error)),
-      })
-      .next()
+      }).next()
       .unwrap_or(Err(Error::OutOfMemory))
   }
 
@@ -109,8 +107,7 @@ impl ProximityAllocator {
         mmap::MapOption::MapExecutable,
         mmap::MapOption::MapAddr(address as *const _),
       ],
-    )
-    .ok()
+    ).ok()
     .map(SliceableMemoryMap)
     .map(SlicePool::new)
   }

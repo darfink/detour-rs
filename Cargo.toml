@@ -21,14 +21,14 @@ repository = "darfink/detour-rs"
 [dependencies]
 boolinator = "2.4.0"
 cfg-if = "0.1.1"
-generic-array = "0.12"
-lazy_static = "1.0"
-libc = "0.2"
-matches = "0.1.6"
+generic-array = "0.12.0"
+lazy_static = "1.2"
+libc = "0.2.45"
+matches = "0.1.8"
 mmap-fixed = "0.1"
-region = "0.3"
+region = "2.0.0"
 slice-pool = "0.3.4"
-tap = "0.3"
+tap = "0.3.0"
 
 [features]
 default = ["nightly"]

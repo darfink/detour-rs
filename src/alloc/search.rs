@@ -55,7 +55,7 @@ impl Iterator for RegionIter {
         Err(error) => {
           // Check whether the region is free, otherwise return the error
           let result = Some(match error {
-            region::Error::Free => Ok(self.current as *const _),
+            region::Error::FreeMemory => Ok(self.current as *const _),
             inner => Err(Error::RegionFailure(inner)),
           });
 

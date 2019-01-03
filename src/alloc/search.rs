@@ -51,7 +51,7 @@ impl Iterator for RegionIter {
             SearchDirection::Before => region.lower().saturating_sub(page_size),
             SearchDirection::After => region.upper(),
           }
-        },
+        }
         Err(error) => {
           // Check whether the region is free, otherwise return the error
           let result = Some(match error {
@@ -63,12 +63,12 @@ impl Iterator for RegionIter {
           match self.search {
             SearchDirection::Before => {
               self.current.saturating_sub(page_size);
-            },
+            }
             SearchDirection::After => self.current += page_size,
           }
 
           return result;
-        },
+        }
       }
     }
 

@@ -109,9 +109,10 @@ impl ProximityAllocator {
         mmap::MapOption::MapExecutable,
         mmap::MapOption::MapAddr(address as *const _),
       ],
-    ).ok()
-      .map(SliceableMemoryMap)
-      .map(SlicePool::new)
+    )
+    .ok()
+    .map(SliceableMemoryMap)
+    .map(SlicePool::new)
   }
 }
 

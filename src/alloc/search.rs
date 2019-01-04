@@ -3,14 +3,14 @@ use region;
 use std::ops::Range;
 use util::RangeContains;
 
-/// Returns an iterator for free before the specified address.
-pub fn before(origin: *const (), range: Option<Range<usize>>) -> RegionIter {
-  RegionIter::new(origin, range, SearchDirection::Before)
+/// Returns an iterator for free after the specified address.
+pub fn after(origin: *const (), range: Option<Range<usize>>) -> FreeRegionIter {
+  FreeRegionIter::new(origin, range, SearchDirection::After)
 }
 
-/// Returns an iterator for free after the specified address.
-pub fn after(origin: *const (), range: Option<Range<usize>>) -> RegionIter {
-  RegionIter::new(origin, range, SearchDirection::After)
+/// Returns an iterator for free before the specified address.
+pub fn before(origin: *const (), range: Option<Range<usize>>) -> FreeRegionIter {
+  FreeRegionIter::new(origin, range, SearchDirection::Before)
 }
 
 /// Direction for the region search.
@@ -20,16 +20,16 @@ enum SearchDirection {
 }
 
 /// An iterator searching for free regions.
-pub struct RegionIter {
+pub struct FreeRegionIter {
   range: Range<usize>,
   search: SearchDirection,
   current: usize,
 }
 
-impl RegionIter {
+impl FreeRegionIter {
   /// Creates a new iterator for free regions.
   fn new(origin: *const (), range: Option<Range<usize>>, search: SearchDirection) -> Self {
-    RegionIter {
+    FreeRegionIter {
       range: range.unwrap_or(0..usize::max_value()),
       current: origin as usize,
       search,
@@ -37,7 +37,7 @@ impl RegionIter {
   }
 }
 
-impl Iterator for RegionIter {
+impl Iterator for FreeRegionIter {
   type Item = Result<*const ()>;
 
   /// Returns the closest free region for the current address.
@@ -60,12 +60,10 @@ impl Iterator for RegionIter {
           });
 
           // Adjust the offset for repeated calls.
-          match self.search {
-            SearchDirection::Before => {
-              self.current.saturating_sub(page_size);
-            }
-            SearchDirection::After => self.current += page_size,
-          }
+          self.current = match self.search {
+            SearchDirection::Before => self.current.saturating_sub(page_size),
+            SearchDirection::After => self.current + page_size,
+          };
 
           return result;
         }
@@ -75,6 +73,3 @@ impl Iterator for RegionIter {
     None
   }
 }
-
-#[cfg(test)]
-mod tests {}

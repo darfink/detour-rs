@@ -97,12 +97,14 @@
 //! Beyond what is shown here, a trampoline is also generated so the original
 //! function can be called regardless whether the function is hooked or not.
 
+#[cfg(test)]
+#[cfg_attr(test, macro_use)]
+extern crate matches;
+
 #[macro_use]
 extern crate cfg_if;
 #[macro_use]
 extern crate lazy_static;
-#[macro_use]
-extern crate matches;
 extern crate boolinator;
 extern crate generic_array;
 extern crate mmap_fixed;

@@ -4,11 +4,11 @@ use tap::TapResultOps;
 use {alloc, arch, pic};
 
 lazy_static! {
-    /// Shared allocator for all detours.
-    pub static ref POOL: Mutex<alloc::ThreadAllocator> = {
-        // Use a range of +/- 2 GB for seeking a memory block
-        Mutex::new(alloc::ThreadAllocator::new(arch::meta::DETOUR_RANGE))
-    };
+  /// Shared allocator for all detours.
+  pub static ref POOL: Mutex<alloc::ThreadAllocator> = {
+    // Use a range of +/- 2 GB for seeking a memory block
+    Mutex::new(alloc::ThreadAllocator::new(arch::meta::DETOUR_RANGE))
+  };
 }
 
 /// Allocates PIC code at the specified address.

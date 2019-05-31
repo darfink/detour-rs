@@ -1,6 +1,7 @@
 //! Error types and utilities.
 
 use region;
+use std::error::Error as StdError;
 use std::fmt;
 
 /// The result of a detour operation.
@@ -24,6 +25,16 @@ pub enum Error {
   UnsupportedInstruction,
   // A memory operation failed.
   RegionFailure(region::Error),
+}
+
+impl StdError for Error {
+  fn source(&self) -> Option<&(dyn StdError + 'static)> {
+    if let Error::RegionFailure(error) = self {
+      Some(error)
+    } else {
+      None
+    }
+  }
 }
 
 impl fmt::Display for Error {

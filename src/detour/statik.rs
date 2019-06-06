@@ -13,7 +13,7 @@ pub struct __StaticDetourInner<T: Function> {
 
 /// An instantiator for [StaticDetour](./struct.StaticDetour.html).
 ///
-/// This is the type used by the [static_detours!](./macro.static_detours.html)
+/// This is the type used by the [static_detour!](./macro.static_detour.html)
 /// macro, it cannot be created without it.
 pub struct StaticDetourController<T: Function> {
   inner: &'static AtomicPtr<__StaticDetourInner<T>>,
@@ -83,7 +83,7 @@ impl<T: Function> StaticDetourController<T> {
 /// Beyond this it also provides a `set_detour` method, enabling the detour to be
 /// changed whilst hooked.
 ///
-/// To see an example view the [macro's page](macro.static_detours.html).
+/// To see an example view the [macro's page](macro.static_detour.html).
 pub struct StaticDetour<T: Function>(&'static AtomicPtr<__StaticDetourInner<T>>);
 
 impl<T: Function> StaticDetour<T> {

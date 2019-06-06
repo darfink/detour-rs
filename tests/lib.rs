@@ -88,9 +88,9 @@ mod statik {
     std::ptr::read_volatile(&x as *const i32) + y
   }
 
-  static_detours! {
+  static_detour! {
     #[doc="Test with attributes"]
-    pub struct DetourAdd: unsafe extern "C" fn(i32, i32) -> i32;
+    pub static ref DetourAdd: unsafe extern "C" fn(i32, i32) -> i32;
   }
 
   #[test]

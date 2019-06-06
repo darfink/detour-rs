@@ -18,8 +18,8 @@
 /// #[macro_use]
 /// extern crate detour;
 ///
-/// static_detours! {
-///   struct Test: /* extern "X" */ fn(i32) -> i32;
+/// static_detour! {
+///   static ref Test: /* extern "X" */ fn(i32) -> i32;
 /// }
 ///
 /// fn add5(val: i32) -> i32 {
@@ -59,77 +59,77 @@
 #[cfg(feature = "nightly")]
 #[macro_export]
 // Inspired by: https://github.com/Jascha-N/minhook-rs
-macro_rules! static_detours {
+macro_rules! static_detour {
   // 1 — meta attributes
   (@parse_attributes ($($input:tt)*) | #[$attribute:meta] $($rest:tt)*) => {
-    static_detours!(@parse_attributes ($($input)* $attribute) | $($rest)*);
+    static_detour!(@parse_attributes ($($input)* $attribute) | $($rest)*);
   };
   (@parse_attributes ($($input:tt)*) | $($rest:tt)+) => {
-    static_detours!(@parse_access_modifier (($($input)*)) | $($rest)*);
+    static_detour!(@parse_access_modifier (($($input)*)) | $($rest)*);
   };
 
   // 2 — pub modifier (yes/no)
-  (@parse_access_modifier ($($input:tt)*) | pub struct $($rest:tt)*) => {
-    static_detours!(@parse_name ($($input)* (pub)) | $($rest)*);
+  (@parse_access_modifier ($($input:tt)*) | pub static ref $($rest:tt)*) => {
+    static_detour!(@parse_name ($($input)* (pub)) | $($rest)*);
   };
-  (@parse_access_modifier ($($input:tt)*) | struct $($rest:tt)*) => {
-    static_detours!(@parse_name ($($input)* ()) | $($rest)*);
+  (@parse_access_modifier ($($input:tt)*) | static ref $($rest:tt)*) => {
+    static_detour!(@parse_name ($($input)* ()) | $($rest)*);
   };
 
   // 3 — detour name
   (@parse_name ($($input:tt)*) | $name:ident : $($rest:tt)*) => {
-    static_detours!(@parse_unsafe ($($input)* ($name)) | $($rest)*);
+    static_detour!(@parse_unsafe ($($input)* ($name)) | $($rest)*);
   };
 
   // 4 — unsafe modifier (yes/no)
   (@parse_unsafe ($($input:tt)*) | unsafe $($rest:tt)*) => {
-    static_detours!(@parse_calling_convention ($($input)*) (unsafe) | $($rest)*);
+    static_detour!(@parse_calling_convention ($($input)*) (unsafe) | $($rest)*);
   };
   (@parse_unsafe ($($input:tt)*) | $($rest:tt)*) => {
-    static_detours!(@parse_calling_convention ($($input)*) () | $($rest)*);
+    static_detour!(@parse_calling_convention ($($input)*) () | $($rest)*);
   };
 
   // 5 — calling convention (extern "XXX"/extern/-)
   (@parse_calling_convention
       ($($input:tt)*) ($($modifier:tt)*) | extern $cc:tt fn $($rest:tt)*) => {
-    static_detours!(@parse_prototype ($($input)* ($($modifier)* extern $cc)) | $($rest)*);
+    static_detour!(@parse_prototype ($($input)* ($($modifier)* extern $cc)) | $($rest)*);
   };
   (@parse_calling_convention
       ($($input:tt)*) ($($modifier:tt)*) | extern fn $($rest:tt)*) => {
-    static_detours!(@parse_prototype ($($input)* ($($modifier)* extern)) | $($rest)*);
+    static_detour!(@parse_prototype ($($input)* ($($modifier)* extern)) | $($rest)*);
   };
   (@parse_calling_convention ($($input:tt)*) ($($modifier:tt)*) | fn $($rest:tt)*) => {
-    static_detours!(@parse_prototype ($($input)* ($($modifier)*)) | $($rest)*);
+    static_detour!(@parse_prototype ($($input)* ($($modifier)*)) | $($rest)*);
   };
 
   // 6 — argument and return type (return/void)
   (@parse_prototype
       ($($input:tt)*) | ($($argument_type:ty),*) -> $return_type:ty ; $($rest:tt)*) => {
-    static_detours!(
+    static_detour!(
       @parse_terminator ($($input)* ($($argument_type)*) ($return_type)) | ; $($rest)*);
   };
   (@parse_prototype ($($input:tt)*) | ($($argument_type:ty),*) $($rest:tt)*) => {
-    static_detours!(@parse_terminator ($($input)* ($($argument_type)*) (())) | $($rest)*);
+    static_detour!(@parse_terminator ($($input)* ($($argument_type)*) (())) | $($rest)*);
   };
 
   // 7 — semicolon terminator
   (@parse_terminator ($($input:tt)*) | ; $($rest:tt)*) => {
-    static_detours!(@parse_entries ($($input)*) | $($rest)*);
+    static_detour!(@parse_entries ($($input)*) | $($rest)*);
   };
 
   // 8 - additional detours (multiple/single)
   (@parse_entries ($($input:tt)*) | $($rest:tt)+) => {
-    static_detours!(@aggregate $($input)*);
-    static_detours!($($rest)*);
+    static_detour!(@aggregate $($input)*);
+    static_detour!($($rest)*);
   };
   (@parse_entries ($($input:tt)*) | ) => {
-    static_detours!(@aggregate $($input)*);
+    static_detour!(@aggregate $($input)*);
   };
 
   // 9 - aggregate data for the generate function
   (@aggregate ($($attribute:meta)*) ($($visibility:tt)*) ($name:ident)
               ($($modifier:tt)*) ($($argument_type:ty)*) ($return_type:ty)) => {
-    static_detours!(@argument_names (create_detour)(
+    static_detour!(@argument_names (create_detour)(
       ($($attribute)*) ($($visibility)*) ($name)
       ($($modifier)*) ($($argument_type)*) ($return_type)
       ($($modifier)* fn ($($argument_type),*) -> $return_type)
@@ -140,7 +140,7 @@ macro_rules! static_detours {
   (@create_detour ($($argument_name:ident)*) ($($attribute:meta)*) ($($visibility:tt)*)
                   ($name:ident) ($($modifier:tt)*) ($($argument_type:ty)*)
                   ($return_type:ty) ($fn_type:ty)) => {
-    static_detours!(@generate
+    static_detour!(@generate
       #[allow(non_upper_case_globals)]
       $(#[$attribute])*
       $($visibility)* static $name: $crate::StaticDetourController<$fn_type> = {
@@ -166,7 +166,7 @@ macro_rules! static_detours {
 
   // Associates each argument type with a dummy name.
   (@argument_names ($label:ident) ($($input:tt)*) ($($token:tt)*)) => {
-    static_detours!(@argument_names ($label) ($($input)*)(
+    static_detour!(@argument_names ($label) ($($input)*)(
       __arg_0  __arg_1  __arg_2  __arg_3  __arg_4  __arg_5  __arg_6
       __arg_7  __arg_8  __arg_9  __arg_10 __arg_11 __arg_12 __arg_13
     )($($token)*)());
@@ -176,18 +176,18 @@ macro_rules! static_detours {
       ($($input:tt)*)
       ($hd_name:tt $($tl_name:tt)*)
       ($hd:tt $($tl:tt)*) ($($acc:tt)*)) => {
-    static_detours!(
+    static_detour!(
       @argument_names ($label) ($($input)*) ($($tl_name)*) ($($tl)*) ($($acc)* $hd_name));
   };
   (@argument_names ($label:ident) ($($input:tt)*) ($($name:tt)*) () ($($acc:tt)*)) => {
-    static_detours!(@$label ($($acc)*) $($input)*);
+    static_detour!(@$label ($($acc)*) $($input)*);
   };
 
   (@generate $item:item) => { $item };
 
   // Bootstrapper
   ($($t:tt)+) => {
-    static_detours!(@parse_attributes () | $($t)+);
+    static_detour!(@parse_attributes () | $($t)+);
   };
 }
 

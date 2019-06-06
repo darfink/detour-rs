@@ -16,7 +16,7 @@ maintain this feature, not all desired functionality can be supported due to
 lack of cross-platform APIs. Therefore [EIP relocation](#appendix) is not
 supported.
 
-**NOTE**: Nightly is currently required for `static_detours!`.
+**NOTE**: Nightly is currently required for `static_detour!`.
 
 ## Platforms
 
@@ -50,7 +50,7 @@ extern "C" fn add(x: i32, y: i32) -> i32 {
     x + y
 }
 
-static_detours! {
+static_detour! {
     struct DetourAdd: extern "C" fn(i32, i32) -> i32;
 }
 

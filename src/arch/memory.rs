@@ -1,6 +1,5 @@
 use error::Result;
 use std::sync::Mutex;
-use tap::TapResultOps;
 use {alloc, arch, pic};
 
 lazy_static! {
@@ -18,9 +17,10 @@ pub fn allocate_pic(
   origin: *const (),
 ) -> Result<alloc::ExecutableMemory> {
   // Allocate memory close to the origin
-  pool.allocate(origin, emitter.len()).tap_ok(|memory| {
+  pool.allocate(origin, emitter.len()).map(|mut memory| {
     // Generate code for the obtained address
     let code = emitter.emit(memory.as_ptr() as *const _);
     memory.copy_from_slice(code.as_slice());
+    memory
   })
 }

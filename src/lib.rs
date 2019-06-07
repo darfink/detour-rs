@@ -109,7 +109,6 @@ extern crate generic_array;
 extern crate mmap_fixed;
 extern crate region;
 extern crate slice_pool;
-extern crate tap;
 
 // Re-exports
 pub use detour::*;

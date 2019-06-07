@@ -1,6 +1,5 @@
 use error::*;
 use std::marker::PhantomData;
-use std::ops::{Deref, DerefMut};
 use {arch, Function, HookableWith};
 
 /// A type-safe wrapper around [Detour](./struct.Detour.html).
@@ -59,19 +58,25 @@ impl<T: Function> GenericDetour<T> {
       detour,
     })
   }
-}
 
-impl<T: Function> Deref for GenericDetour<T> {
-  type Target = arch::Detour;
-
-  fn deref(&self) -> &Self::Target {
-    &self.detour
+  /// Enables the detour.
+  pub unsafe fn enable(&self) -> Result<()> {
+    self.detour.enable()
   }
-}
 
-impl<T: Function> DerefMut for GenericDetour<T> {
-  fn deref_mut(&mut self) -> &mut Self::Target {
-    &mut self.detour
+  /// Disables the detour.
+  pub unsafe fn disable(&self) -> Result<()> {
+    self.detour.disable()
+  }
+
+  /// Returns whether the detour is enabled or not.
+  pub fn is_enabled(&self) -> bool {
+    self.detour.is_enabled()
+  }
+
+  /// Returns a reference to the generated trampoline.
+  pub(crate) fn trampoline(&self) -> &() {
+    self.detour.trampoline()
   }
 }
 

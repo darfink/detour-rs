@@ -113,7 +113,6 @@ extern crate slice_pool;
 extern crate tap;
 
 // Re-exports
-pub use arch::Detour;
 pub use detour::*;
 pub use error::Error;
 pub use traits::*;
@@ -141,7 +140,7 @@ mod tests {
       unsafe { std::ptr::read_volatile(&x as *const i32) + y }
     }
 
-    let mut hook1 = unsafe {
+    let hook1 = unsafe {
       extern "C" fn sub(x: i32, y: i32) -> i32 {
         x - y
       }
@@ -151,7 +150,7 @@ mod tests {
     unsafe { hook1.enable().unwrap() };
     assert_eq!(add(5, 5), 0);
 
-    let mut hook2 = unsafe {
+    let hook2 = unsafe {
       extern "C" fn div(x: i32, y: i32) -> i32 {
         x / y
       }

@@ -30,26 +30,23 @@
 /// }
 ///
 /// fn main() {
-///   let mut hook = unsafe { Test.initialize(add5, add10).unwrap() };
+///   unsafe { Test.initialize(add5, add10).unwrap() };
 ///
 ///   assert_eq!(add5(1), 6);
-///   assert_eq!(hook.call(1), 6);
+///   assert_eq!(Test.call(1), 6);
 ///
 ///   unsafe {
-///     hook.enable().unwrap();
+///     Test.enable().unwrap();
 ///   }
 ///
 ///   assert_eq!(add5(1), 11);
-///   assert_eq!(hook.call(1), 6);
-///
-///   // You can also call using the static object
-///   assert_eq!(unsafe { Test.get().unwrap().call(1) }, 6);
+///   assert_eq!(Test.call(1), 6);
 ///
 ///   // ... and change the detour whilst hooked
-///   hook.set_detour(|val| val - 5);
+///   Test.set_detour(|val| val - 5);
 ///   assert_eq!(add5(5), 0);
 ///
-///   unsafe { hook.disable().unwrap() };
+///   unsafe { Test.disable().unwrap() };
 ///
 ///   assert_eq!(add5(1), 6);
 /// }
@@ -143,23 +140,16 @@ macro_rules! static_detour {
     static_detour!(@generate
       #[allow(non_upper_case_globals)]
       $(#[$attribute])*
-      $($visibility)* static $name: $crate::StaticDetourController<$fn_type> = {
-        use std::sync::atomic::{AtomicPtr, Ordering};
-        use std::ptr;
-
-        static DATA: AtomicPtr<$crate::__StaticDetourInner<$fn_type>> =
-          AtomicPtr::new(ptr::null_mut());
-
+      $($visibility)* static $name: $crate::StaticDetour<$fn_type> = {
         #[inline(never)]
         #[allow(unused_unsafe)]
         $($modifier) * fn __ffi_detour(
             $($argument_name: $argument_type),*) -> $return_type {
           #[allow(unused_unsafe)]
-          let data = unsafe { DATA.load(Ordering::SeqCst).as_ref().unwrap() };
-          (data.closure)($($argument_name),*)
+          ($name.__detour())($($argument_name),*)
         }
 
-        $crate::StaticDetourController::__new(&DATA, __ffi_detour)
+        $crate::StaticDetour::__new(__ffi_detour)
       };
     );
   };
@@ -230,6 +220,15 @@ macro_rules! impl_hookable {
   (@impl_unsafe ($($nm:ident : $ty:ident),*) ($target:ty) ($detour:ty)) => {
     unsafe impl<Ret: 'static, $($ty: 'static),*> HookableWith<$detour> for $target {}
 
+    #[cfg(feature = "nightly")]
+    impl<Ret: 'static, $($ty: 'static),*> $crate::StaticDetour<$target> {
+      #[doc(hidden)]
+      pub unsafe fn call(&self, $($nm : $ty),*) -> Ret {
+        let original: $target = ::std::mem::transmute(self.trampoline().expect("calling static detour trampoline"));
+        original($($nm),*)
+      }
+    }
+
     impl<Ret: 'static, $($ty: 'static),*> $crate::GenericDetour<$target> {
       #[doc(hidden)]
       pub unsafe fn call(&self, $($nm : $ty),*) -> Ret {
@@ -240,6 +239,17 @@ macro_rules! impl_hookable {
   };
 
   (@impl_safe ($($nm:ident : $ty:ident),*) ($fn_type:ty)) => {
+    #[cfg(feature = "nightly")]
+    impl<Ret: 'static, $($ty: 'static),*> $crate::StaticDetour<$fn_type> {
+      #[doc(hidden)]
+      pub fn call(&self, $($nm : $ty),*) -> Ret {
+        unsafe {
+          let original: $fn_type = ::std::mem::transmute(self.trampoline().expect("calling static detour trampoline"));
+          original($($nm),*)
+        }
+      }
+    }
+
     impl<Ret: 'static, $($ty: 'static),*> $crate::GenericDetour<$fn_type> {
       #[doc(hidden)]
       pub fn call(&self, $($nm : $ty),*) -> Ret {

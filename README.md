@@ -51,29 +51,29 @@ extern "C" fn add(x: i32, y: i32) -> i32 {
 }
 
 static_detour! {
-    struct DetourAdd: extern "C" fn(i32, i32) -> i32;
+    static ref DetourAdd: extern "C" fn(i32, i32) -> i32;
 }
 
 fn main() {
     // Replaces the 'add' function with a closure that subtracts
-    let mut hook = unsafe { DetourAdd.initialize(add, |x, y| x - y).unwrap() };
+    unsafe { DetourAdd.initialize(add, |x, y| x - y).unwrap() };
 
     assert_eq!(add(1, 5), 6);
-    assert_eq!(hook.is_enabled(), false);
+    assert_eq!(DetourAdd.is_enabled(), false);
 
-    unsafe { hook.enable().unwrap(); }
+    unsafe { DetourAdd.enable().unwrap(); }
 
     assert_eq!(add(1, 5), -4);
-    assert_eq!(hook.call(1, 5), 6);
+    assert_eq!(DetourAdd.call(1, 5), 6);
 
     // Change the detour whilst hooked
-    hook.set_detour(|x, y| x * y);
+    DetourAdd.set_detour(|x, y| x * y);
     assert_eq!(add(5, 5), 25);
 
-    unsafe { hook.disable().unwrap(); }
+    unsafe { DetourAdd.disable().unwrap(); }
 
-    assert_eq!(hook.is_enabled(), false);
-    assert_eq!(hook.call(1, 5), 6);
+    assert_eq!(DetourAdd.is_enabled(), false);
+    assert_eq!(DetourAdd.call(1, 5), 6);
     assert_eq!(add(1, 5), 6);
 }
 ```

@@ -7,10 +7,10 @@
 ///
 /// ```ignore
 /// static_detour! {
-///   [pub] static ref NAME_1: [extern ["type"]] fn([arguments]...) -> [ret];
-///   [pub] static ref NAME_2: [extern ["type"]] fn([arguments]...) -> [ret];
+///   [pub] static NAME_1: [extern ["type"]] fn([arguments]...) -> [ret];
+///   [pub] static NAME_2: [extern ["type"]] fn([arguments]...) -> [ret];
 ///   ...
-///   [pub] static ref NAME_N: [extern ["type"]] fn([arguments]...) -> [ret];
+///   [pub] static NAME_N: [extern ["type"]] fn([arguments]...) -> [ret];
 /// }
 /// ```
 ///
@@ -20,8 +20,8 @@
 /// # #[macro_use]
 /// # extern crate detour;
 /// static_detour! {
-///   static ref Foo: fn();
-///   pub static ref PubFoo: extern "C" fn(i32) -> i32;
+///   static Foo: fn();
+///   pub static PubFoo: extern "C" fn(i32) -> i32;
 /// }
 /// # fn main() { }
 /// ```
@@ -38,10 +38,10 @@ macro_rules! static_detour {
   };
 
   // 2 — pub modifier (yes/no)
-  (@parse_access_modifier ($($input:tt)*) | pub static ref $($rest:tt)*) => {
+  (@parse_access_modifier ($($input:tt)*) | pub static $($rest:tt)*) => {
     static_detour!(@parse_name ($($input)* (pub)) | $($rest)*);
   };
-  (@parse_access_modifier ($($input:tt)*) | static ref $($rest:tt)*) => {
+  (@parse_access_modifier ($($input:tt)*) | static $($rest:tt)*) => {
     static_detour!(@parse_name ($($input)* ()) | $($rest)*);
   };
 

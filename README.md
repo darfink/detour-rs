@@ -51,7 +51,7 @@ extern "C" fn add(x: i32, y: i32) -> i32 {
 }
 
 static_detour! {
-    static ref DetourAdd: extern "C" fn(i32, i32) -> i32;
+    static DetourAdd: extern "C" fn(i32, i32) -> i32;
 }
 
 fn main() {

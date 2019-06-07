@@ -90,7 +90,7 @@ mod statik {
 
   static_detour! {
     #[doc="Test with attributes"]
-    pub static ref DetourAdd: unsafe extern "C" fn(i32, i32) -> i32;
+    pub static DetourAdd: unsafe extern "C" fn(i32, i32) -> i32;
   }
 
   #[test]

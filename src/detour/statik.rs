@@ -25,7 +25,7 @@ use {GenericDetour, Function};
 /// extern crate detour;
 ///
 /// static_detour! {
-///   static ref Test: /* extern "X" */ fn(i32) -> i32;
+///   static Test: /* extern "X" */ fn(i32) -> i32;
 /// }
 ///
 /// fn add5(val: i32) -> i32 {

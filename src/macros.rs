@@ -1,58 +1,30 @@
-/// A macro for defining type-safe detours.
+/// A macro for defining static, type-safe detours.
 ///
-/// This macro defines a
-/// [StaticDetourController](./struct.StaticDetourController.html), which
-/// returns a [StaticDetour](./struct.StaticDetour.html) upon initialization.
-/// It can accept both functions and closures as its second argument. Due to the
-/// requirements of the implementation, *const_fn* is needed if the macro is to
-/// be used.
+/// This macro defines one or more [StaticDetour](./struct.StaticDetour.html)s.  
+/// Functions with references are not supported.
 ///
-/// A static detour may only have one active detour at a time. Therefore another
-/// `initialize` call can only be done once the previous instance has been
-/// dropped. This is because the closures are being stored as static variables.
+/// # Syntax
+///
+/// ```ignore
+/// static_detour! {
+///   [pub] static ref NAME_1: [extern ["type"]] fn([arguments]...) -> [ret];
+///   [pub] static ref NAME_2: [extern ["type"]] fn([arguments]...) -> [ret];
+///   ...
+///   [pub] static ref NAME_N: [extern ["type"]] fn([arguments]...) -> [ret];
+/// }
+/// ```
 ///
 /// # Example
 ///
 /// ```rust
-/// #![feature(const_fn)]
-/// #[macro_use]
-/// extern crate detour;
-///
+/// # #[macro_use]
+/// # extern crate detour;
 /// static_detour! {
-///   static ref Test: /* extern "X" */ fn(i32) -> i32;
+///   static ref Foo: fn();
+///   pub static ref PubFoo: extern "C" fn(i32) -> i32;
 /// }
-///
-/// fn add5(val: i32) -> i32 {
-///   val + 5
-/// }
-/// fn add10(val: i32) -> i32 {
-///   val + 10
-/// }
-///
-/// fn main() {
-///   unsafe { Test.initialize(add5, add10).unwrap() };
-///
-///   assert_eq!(add5(1), 6);
-///   assert_eq!(Test.call(1), 6);
-///
-///   unsafe {
-///     Test.enable().unwrap();
-///   }
-///
-///   assert_eq!(add5(1), 11);
-///   assert_eq!(Test.call(1), 6);
-///
-///   // ... and change the detour whilst hooked
-///   Test.set_detour(|val| val - 5);
-///   assert_eq!(add5(5), 0);
-///
-///   unsafe { Test.disable().unwrap() };
-///
-///   assert_eq!(add5(1), 6);
-/// }
+/// # fn main() { }
 /// ```
-///
-/// Any type of function is supported, and *extern* is optional.
 #[cfg(feature = "nightly")]
 #[macro_export]
 // Inspired by: https://github.com/Jascha-N/minhook-rs

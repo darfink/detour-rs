@@ -31,9 +31,8 @@
 //! Three different types of detours are provided:
 //!
 //! - [Static](./struct.StaticDetour.html): A static & type-safe interface.
-//!   Thanks to its static nature it can accept a closure as its second
-//!   argument, but on the other hand, only one detour can be active at a
-//!   time.
+//!   Thanks to its static nature it can accept a closure as its detour, but is
+//!   limited to only one active detour at a time.
 //!
 //! - [Generic](./struct.GenericDetour.html): A type-safe interface — the same
 //!   prototype is enforced for both the target and the detour.

@@ -105,7 +105,6 @@ extern crate matches;
 extern crate cfg_if;
 #[macro_use]
 extern crate lazy_static;
-extern crate boolinator;
 extern crate generic_array;
 extern crate mmap_fixed;
 extern crate region;

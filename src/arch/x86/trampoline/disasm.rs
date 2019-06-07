@@ -2,7 +2,6 @@
 extern crate libc;
 extern crate libudis86_sys as udis;
 
-use boolinator::Boolinator;
 use std::slice;
 
 /// A x86/x64 disassembler.
@@ -42,12 +41,16 @@ impl Instruction {
   /// Disassembles a new instruction at the specified address.
   pub unsafe fn new(disasm: &mut Disassembler, address: *const ()) -> Option<Self> {
     let instruction_bytes = udis::ud_disassemble(&mut disasm.0) as usize;
-    (instruction_bytes > 0).as_some_from(|| Instruction {
-      address: address as usize,
-      mnemonic: udis::ud_insn_mnemonic(&disasm.0),
-      operands: disasm.0.operand.to_vec(),
-      bytes: slice::from_raw_parts(address as *const _, instruction_bytes),
-    })
+    if instruction_bytes > 0 {
+      Some(Instruction {
+        address: address as usize,
+        mnemonic: udis::ud_insn_mnemonic(&disasm.0),
+        operands: disasm.0.operand.to_vec(),
+        bytes: slice::from_raw_parts(address as *const _, instruction_bytes),
+      })
+    } else {
+      None
+    }
   }
 
   /// Returns the instruction's address.

@@ -1,6 +1,6 @@
 use super::memory;
 use error::{Error, Result};
-use std::fmt;
+use std::{cell::{UnsafeCell, Cell}, fmt};
 use {alloc, arch, region, util};
 
 /// An architecture-independent implementation of a base detour.
@@ -11,12 +11,12 @@ pub struct Detour {
   #[allow(dead_code)]
   relay: Option<alloc::ExecutableMemory>,
   trampoline: alloc::ExecutableMemory,
-  patcher: arch::Patcher,
-  enabled: bool,
+  patcher: UnsafeCell<arch::Patcher>,
+  enabled: Cell<bool>,
 }
 
 impl Detour {
-  pub(crate) unsafe fn new(target: *const (), detour: *const ()) -> Result<Self> {
+  pub unsafe fn new(target: *const (), detour: *const ()) -> Result<Self> {
     if target == detour {
       Err(Error::SameAddress)?;
     }
@@ -46,50 +46,26 @@ impl Detour {
       .unwrap_or(detour);
 
     Ok(Detour {
-      patcher: arch::Patcher::new(target, detour, trampoline.prolog_size())?,
+      patcher: UnsafeCell::new(arch::Patcher::new(target, detour, trampoline.prolog_size())?),
       trampoline: memory::allocate_pic(&mut pool, trampoline.emitter(), target)?,
-      enabled: false,
+      enabled: Cell::new(false),
       relay,
     })
   }
 
-  /// Enables or disables the detour.
-  pub unsafe fn toggle(&mut self, enabled: bool) -> Result<()> {
-    let _guard = memory::POOL.lock().unwrap();
-
-    if self.enabled == enabled {
-      return Ok(());
-    }
-
-    // Runtime code is by default only read-execute
-    let _handle = {
-      let area = self.patcher.area();
-      region::protect_with_handle(
-        area.as_ptr(),
-        area.len(),
-        region::Protection::ReadWriteExecute,
-      )
-    }?;
-
-    // Copy either the detour or the original bytes of the function
-    self.patcher.toggle(enabled);
-    self.enabled = enabled;
-    Ok(())
-  }
-
   /// Enables the detour.
-  pub unsafe fn enable(&mut self) -> Result<()> {
+  pub unsafe fn enable(&self) -> Result<()> {
     self.toggle(true)
   }
 
   /// Disables the detour.
-  pub unsafe fn disable(&mut self) -> Result<()> {
+  pub unsafe fn disable(&self) -> Result<()> {
     self.toggle(false)
   }
 
   /// Returns whether the detour is enabled or not.
   pub fn is_enabled(&self) -> bool {
-    self.enabled
+    self.enabled.get()
   }
 
   /// Returns a reference to the generated trampoline.
@@ -99,6 +75,30 @@ impl Detour {
         .as_ref()
         .expect("trampoline should not be null")
     }
+  }
+
+  /// Enables or disables the detour.
+  unsafe fn toggle(&self, enabled: bool) -> Result<()> {
+    let _guard = memory::POOL.lock().unwrap();
+
+    if self.enabled.get() == enabled {
+      return Ok(());
+    }
+
+    // Runtime code is by default only read-execute
+    let _handle = {
+      let area = (*self.patcher.get()).area();
+      region::protect_with_handle(
+        area.as_ptr(),
+        area.len(),
+        region::Protection::ReadWriteExecute,
+      )
+    }?;
+
+    // Copy either the detour or the original bytes of the function
+    (*self.patcher.get()).toggle(enabled);
+    self.enabled.set(enabled);
+    Ok(())
   }
 }
 

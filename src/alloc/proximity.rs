@@ -1,7 +1,6 @@
 use std::ops::Range;
 use std::slice;
 
-use boolinator::Boolinator;
 use mmap_fixed as mmap;
 use slice_pool::{PoolVal, SlicePool};
 
@@ -69,7 +68,13 @@ impl ProximityAllocator {
     self
       .pools
       .iter_mut()
-      .filter_map(|pool| is_pool_in_range(pool).and_option_from(|| pool.allocate(size)))
+      .filter_map(|pool| {
+        if is_pool_in_range(pool) {
+          pool.allocate(size)
+        } else {
+          None
+        }
+      })
       .next()
       .ok_or(Error::OutOfMemory)
   }

@@ -18,7 +18,7 @@ mod tests {
   /// Detours a C function returning an integer, and asserts its return value.
   #[inline(never)]
   unsafe fn detour_test(target: funcs::CRet, result: i32) {
-    let mut hook = RawDetour::new(target as *const (), funcs::ret10 as *const ()).unwrap();
+    let hook = RawDetour::new(target as *const (), funcs::ret10 as *const ()).unwrap();
 
     assert_eq!(target(), result);
     hook.enable().unwrap();

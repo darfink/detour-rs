@@ -1,4 +1,3 @@
-#![cfg_attr(feature = "nightly", feature(const_fn))]
 use detour::Result;
 use std::mem;
 

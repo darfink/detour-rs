@@ -37,7 +37,6 @@ detour = "0.6.0"
 - A static detour (one of *three* different detours):
 
 ```rust
-#![feature(const_fn)]
 use std::error::Error;
 use detour::static_detour;
 

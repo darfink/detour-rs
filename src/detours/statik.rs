@@ -20,7 +20,6 @@ use crate::{GenericDetour, Function};
 /// # Example
 ///
 /// ```rust
-/// #![feature(const_fn)]
 /// use std::error::Error;
 /// use detour::static_detour;
 ///

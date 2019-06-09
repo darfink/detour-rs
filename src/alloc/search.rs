@@ -1,6 +1,6 @@
-use std::ops::Range;
 use crate::error::{Error, Result};
 use crate::util::RangeContains;
+use std::ops::Range;
 
 /// Returns an iterator for free after the specified address.
 pub fn after(origin: *const (), range: Option<Range<usize>>) -> FreeRegionIter {
@@ -50,7 +50,7 @@ impl Iterator for FreeRegionIter {
             SearchDirection::Before => region.lower().saturating_sub(page_size),
             SearchDirection::After => region.upper(),
           }
-        }
+        },
         Err(error) => {
           // Check whether the region is free, otherwise return the error
           let result = Some(match error {
@@ -65,7 +65,7 @@ impl Iterator for FreeRegionIter {
           };
 
           return result;
-        }
+        },
       }
     }
 

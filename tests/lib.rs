@@ -1,6 +1,6 @@
 #![cfg_attr(feature = "nightly", feature(const_fn))]
-use std::mem;
 use detour::Result;
+use std::mem;
 
 type FnAdd = extern "C" fn(i32, i32) -> i32;
 

@@ -1,7 +1,8 @@
-use std::{cell::{UnsafeCell, Cell}, fmt};
+use super::memory;
 use crate::error::{Error, Result};
 use crate::{alloc, arch, util};
-use super::memory;
+use std::cell::{Cell, UnsafeCell};
+use std::fmt;
 
 /// An architecture-independent implementation of a base detour.
 ///
@@ -46,7 +47,11 @@ impl Detour {
       .unwrap_or(detour);
 
     Ok(Detour {
-      patcher: UnsafeCell::new(arch::Patcher::new(target, detour, trampoline.prolog_size())?),
+      patcher: UnsafeCell::new(arch::Patcher::new(
+        target,
+        detour,
+        trampoline.prolog_size(),
+      )?),
       trampoline: memory::allocate_pic(&mut pool, trampoline.emitter(), target)?,
       enabled: Cell::new(false),
       relay,

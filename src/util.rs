@@ -1,5 +1,5 @@
-use std::ops::Range;
 use crate::error::Result;
+use std::ops::Range;
 
 /// Returns true if an address is executable.
 pub fn is_executable_address(address: *const ()) -> Result<bool> {

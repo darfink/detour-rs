@@ -1,7 +1,7 @@
-use std::marker::PhantomData;
 use crate::arch::Detour;
 use crate::error::Result;
 use crate::{Function, HookableWith};
+use std::marker::PhantomData;
 
 /// A type-safe detour.
 ///

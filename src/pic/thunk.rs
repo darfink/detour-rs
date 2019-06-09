@@ -1,5 +1,5 @@
-use generic_array::{ArrayLength, GenericArray};
 use super::Thunkable;
+use generic_array::{ArrayLength, GenericArray};
 
 /// A closure that generates a thunk.
 pub struct FixedThunk<N: ArrayLength<u8>>(Box<Fn(usize) -> GenericArray<u8, N>>);

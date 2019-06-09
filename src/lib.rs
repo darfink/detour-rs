@@ -1,8 +1,5 @@
 #![recursion_limit = "1024"]
-#![cfg_attr(
-  feature = "nightly",
-  feature(const_fn, unboxed_closures, abi_thiscall)
-)]
+#![cfg_attr(feature = "nightly", feature(const_fn, unboxed_closures, abi_thiscall))]
 #![cfg_attr(
   all(feature = "nightly", test),
   feature(naked_functions, core_intrinsics, asm)
@@ -35,13 +32,13 @@
 //!   limited to only one active detour at a time.
 //!
 //! - [Generic](./struct.GenericDetour.html): A type-safe interface — the same
-//!   prototype is enforced for both the target and the detour.
-//!   It is also enforced when invoking the original target.
+//!   prototype is enforced for both the target and the detour. It is also
+//!   enforced when invoking the original target.
 //!
-//! - [Raw](./struct.RawDetour.html): The underlying building block that
-//!   the others types abstract upon. It has no type-safety and interacts with
-//!   raw pointers.  
-//!   It should be avoided unless the types used aren't known until runtime.
+//! - [Raw](./struct.RawDetour.html): The underlying building block that the
+//!   others types abstract upon. It has no type-safety and interacts with raw
+//!   pointers. It should be avoided unless the types used aren't known until
+//!   runtime.
 //!
 //! All detours dereferences to the [Detour](./struct.Detour.html) interface,
 //! which exposes several methods, and enforces `Send + Sync`.
@@ -49,8 +46,8 @@
 //! ## Features
 //!
 //! - **nightly**: Enabled by default. Required for the static detours, due to
-//!   usage of *const_fn* & *unboxed_closures*.
-//!   The feature also enables a more extensive test suite.
+//!   usage of *const_fn* & *unboxed_closures*. The feature also enables a more
+//!   extensive test suite.
 //!
 //! ## Platforms
 //!
@@ -98,7 +95,7 @@
 
 // Re-exports
 pub use detours::*;
-pub use error::{Result, Error};
+pub use error::{Error, Result};
 pub use traits::{Function, HookableWith};
 
 #[macro_use]
@@ -115,9 +112,9 @@ mod util;
 
 #[cfg(test)]
 mod tests {
-  use matches::assert_matches;
-  use crate::Result;
   use super::*;
+  use crate::Result;
+  use matches::assert_matches;
 
   #[test]
   fn detours_share_target() -> Result<()> {

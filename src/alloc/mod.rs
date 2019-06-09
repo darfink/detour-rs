@@ -1,6 +1,6 @@
+use crate::error::Result;
 use std::ops::{Deref, DerefMut};
 use std::sync::{Arc, Mutex};
-use crate::error::Result;
 
 mod proximity;
 mod search;

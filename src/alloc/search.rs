@@ -1,5 +1,4 @@
 use crate::error::{Error, Result};
-use crate::util::RangeContains;
 use std::ops::Range;
 
 /// Returns an iterator for free after the specified address.
@@ -43,7 +42,7 @@ impl Iterator for FreeRegionIter {
   fn next(&mut self) -> Option<Self::Item> {
     let page_size = region::page::size();
 
-    while self.current > 0 && self.range.contains_(self.current) {
+    while self.current > 0 && self.range.contains(&self.current) {
       match region::query(self.current as *const _) {
         Ok(region) => {
           self.current = match self.search {

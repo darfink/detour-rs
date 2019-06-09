@@ -1,7 +1,6 @@
 use std::mem;
 use crate::arch::x86::thunk;
 use crate::error::{Result, Error};
-use crate::util::RangeContains;
 use crate::pic;
 use self::disasm::*;
 
@@ -144,7 +143,7 @@ impl Builder {
     self.finished = instruction.is_unconditional_jump();
 
     // Nothing should be done if `displacement` is within the prolog.
-    if (-(self.total_bytes_disassembled as isize)..0).contains_(displacement) {
+    if (-(self.total_bytes_disassembled as isize)..0).contains(&displacement) {
       return Ok(Box::new(instruction.as_slice().to_vec()));
     }
 
@@ -197,7 +196,7 @@ impl Builder {
     // If the relative jump is internal, and short enough to
     // fit within the copied function prolog (i.e `margin`),
     // the jump instruction can be copied indiscriminately.
-    if prolog_range.contains_(destination_address_abs) {
+    if prolog_range.contains(&destination_address_abs) {
       // Keep track of the jump's destination address
       self.branch_address = Some(destination_address_abs);
       Ok(Box::new(instruction.as_slice().to_vec()))

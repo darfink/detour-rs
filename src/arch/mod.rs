@@ -31,8 +31,6 @@ mod memory;
 
 /// Returns true if the displacement is within a certain range.
 pub fn is_within_range(displacement: isize) -> bool {
-  use crate::util::RangeContains;
-
   let range = meta::DETOUR_RANGE as isize;
-  (-range..range).contains_(displacement)
+  (-range..range).contains(&displacement)
 }

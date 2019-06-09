@@ -1,5 +1,4 @@
 use crate::error::Result;
-use std::ops::Range;
 
 /// Returns true if an address is executable.
 pub fn is_executable_address(address: *const ()) -> Result<bool> {
@@ -8,15 +7,4 @@ pub fn is_executable_address(address: *const ()) -> Result<bool> {
       .protection
       .contains(region::Protection::Execute),
   )
-}
-
-/// Trait for ranges containing values.
-pub trait RangeContains<Idx: PartialOrd<Idx>> {
-  fn contains_(&self, item: Idx) -> bool;
-}
-
-impl<Idx: PartialOrd<Idx>> RangeContains<Idx> for Range<Idx> {
-  fn contains_(&self, item: Idx) -> bool {
-    self.start <= item && self.end > item
-  }
 }

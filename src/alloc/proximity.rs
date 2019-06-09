@@ -5,7 +5,6 @@ use slice_pool::{PoolVal, SlicePool};
 
 use super::search as region_search;
 use crate::error::{Error, Result};
-use crate::util::RangeContains;
 
 /// Defines the allocation type.
 pub type Allocation = PoolVal<u8>;
@@ -45,7 +44,7 @@ impl ProximityAllocator {
         let upper = lower + pool.len();
 
         // Determine if this is the associated memory pool
-        (lower..upper).contains_(value.as_ptr() as usize)
+        (lower..upper).contains(&(value.as_ptr() as usize))
       })
       .expect("retrieving associated memory pool");
 
@@ -61,7 +60,7 @@ impl ProximityAllocator {
     let is_pool_in_range = |pool: &SlicePool<u8>| {
       let lower = pool.as_ptr() as usize;
       let upper = lower + pool.len();
-      range.contains_(lower) && range.contains_(upper - 1)
+      range.contains(&lower) && range.contains(&(upper - 1))
     };
 
     // Tries to allocate a slice within any eligible pool

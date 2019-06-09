@@ -33,8 +33,8 @@ struct Relay {
 let is_both_thumb = ;
 let is_both_arm = ;
 
-if is_both_thumb && (-252..258).contains(offset) {
-} else if is_both_arm && (-0x2000000..0x2000000).contains(offset) {
+if is_both_thumb && (-252..258).contains(&offset) {
+} else if is_both_arm && (-0x2000000..0x2000000).contains(&offset) {
 } else {
 }
 

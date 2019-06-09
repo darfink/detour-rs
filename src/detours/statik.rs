@@ -16,7 +16,7 @@ use crate::{GenericDetour, Function};
 /// ```
 ///
 /// To define a static detour, use the [static_detour](./macro.static_detour.html) macro.
-/// 
+///
 /// # Example
 ///
 /// ```rust
@@ -24,7 +24,7 @@ use crate::{GenericDetour, Function};
 /// use detour::static_detour;
 ///
 /// static_detour! {
-///   static Test: /* extern "X" */ fn(i32) -> i32;
+///   static Test: fn(i32) -> i32;
 /// }
 ///
 /// fn add5(val: i32) -> i32 {
@@ -111,7 +111,7 @@ impl<T: Function> StaticDetour<T> {
     unsafe { self.detour.load(Ordering::SeqCst).as_ref() }.map(|detour| detour.is_enabled()).unwrap_or(false)
   }
 
-  /// Changes the detour, regardless of whether the target is hooked or not.
+  /// Changes the detour, regardless of whether the hook is enabled or not.
   pub fn set_detour<C>(&self, closure: C)
   where
     C: Fn<T::Arguments, Output = T::Output> + Send + 'static,

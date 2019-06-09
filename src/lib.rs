@@ -20,7 +20,7 @@
 //! - Relative branches.
 //! - RIP relative operands.
 //! - Detects NOP-padding.
-//! - Relay for large offsets (>2GB)
+//! - Relay for large offsets (>2GB).
 //! - Supports hot patching.
 //!
 //! ## Detours
@@ -29,7 +29,7 @@
 //!
 //! - [Static](./struct.StaticDetour.html): A static & type-safe interface.
 //!   Thanks to its static nature it can accept a closure as its detour, but is
-//!   limited to only one active detour at a time.
+//!   required to be statically defined at compile time.
 //!
 //! - [Generic](./struct.GenericDetour.html): A type-safe interface — the same
 //!   prototype is enforced for both the target and the detour. It is also
@@ -37,17 +37,14 @@
 //!
 //! - [Raw](./struct.RawDetour.html): The underlying building block that the
 //!   others types abstract upon. It has no type-safety and interacts with raw
-//!   pointers. It should be avoided unless the types used aren't known until
-//!   runtime.
-//!
-//! All detours dereferences to the [Detour](./struct.Detour.html) interface,
-//! which exposes several methods, and enforces `Send + Sync`.
+//!   pointers. It should be avoided unless any types are references, or not
+//!   known until runtime.
 //!
 //! ## Features
 //!
-//! - **nightly**: Enabled by default. Required for the static detours, due to
-//!   usage of *const_fn* & *unboxed_closures*. The feature also enables a more
-//!   extensive test suite.
+//! - **nightly**: Enabled by default. Required for static detours, due to
+//!   usage of *const_fn* & *unboxed_closures*.  
+//!   The feature also enables a more extensive test suite.
 //!
 //! ## Platforms
 //!

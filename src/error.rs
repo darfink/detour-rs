@@ -6,6 +6,7 @@ use std::fmt;
 /// The result of a detour operation.
 pub type Result<T> = ::std::result::Result<T, Error>;
 
+/// A representation of all possible errors.
 #[derive(Debug)]
 pub enum Error {
   /// The address for the target and detour are identical

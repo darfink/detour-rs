@@ -1,7 +1,7 @@
 use crate::arch::Detour;
 use crate::error::Result;
 
-/// A type-less wrapper around [Detour](./struct.Detour.html).
+/// A raw detour.
 ///
 /// # Example
 ///

@@ -1,16 +1,15 @@
 /// A macro for defining static, type-safe detours.
 ///
 /// This macro defines one or more [StaticDetour](./struct.StaticDetour.html)s.  
-/// Functions with references are not supported.
 ///
 /// # Syntax
 ///
 /// ```ignore
 /// static_detour! {
-///   [pub] static NAME_1: [extern ["type"]] fn([argument]...) -> [ret];
-///   [pub] static NAME_2: [extern ["type"]] fn([argument]...) -> [ret];
+///   [pub] static NAME_1: [unsafe] [extern ["cc"]] fn([argument]...) [-> ret];
+///   [pub] static NAME_2: [unsafe] [extern ["cc"]] fn([argument]...) [-> ret];
 ///   ...
-///   [pub] static NAME_N: [extern ["type"]] fn([argument]...) -> [ret];
+///   [pub] static NAME_N: [unsafe] [extern ["cc"]] fn([argument]...) [-> ret];
 /// }
 /// ```
 ///
@@ -19,8 +18,11 @@
 /// ```rust
 /// # use detour::static_detour;
 /// static_detour! {
+///   // The simplest detour
 ///   static Foo: fn();
-///   pub static PubFoo: extern "C" fn(i32) -> i32;
+///
+///   // An unsafe public detour with a different calling convention
+///   pub static PubFoo: unsafe extern "C" fn(i32) -> i32;
 /// }
 /// # fn main() { }
 /// ```

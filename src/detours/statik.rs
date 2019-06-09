@@ -82,7 +82,25 @@ impl<T: Function> StaticDetour<T> {
   ///
   /// This method can only be called once per static instance. Multiple calls
   /// will error with `AlreadyExisting`.
-  pub unsafe fn initialize<D>(&self, target: T, closure: D) -> Result<()>
+  ///
+  /// It returns `&self` to allow chaining initialization and enabling:
+  ///
+  /// ```rust
+  /// # use detour::{Result, static_detour};
+  /// # static_detour! {
+  /// #   static Test: fn(i32) -> i32;
+  /// # }
+  /// #
+  /// # fn add5(val: i32) -> i32 {
+  /// #   val + 5
+  /// # }
+  /// #
+  /// # fn main() -> Result<()> {
+  /// unsafe { Test.initialize(add5, |x| x - 5)?.enable()? };
+  /// # Ok(())
+  /// # }
+  /// ```
+  pub unsafe fn initialize<D>(&self, target: T, closure: D) -> Result<&Self>
   where
     D: Fn<T::Arguments, Output = T::Output> + Send + 'static
   {
@@ -93,7 +111,7 @@ impl<T: Function> StaticDetour<T> {
 
     self.set_detour(closure);
     mem::forget(detour);
-    Ok(())
+    Ok(self)
   }
 
   /// Enables the detour.

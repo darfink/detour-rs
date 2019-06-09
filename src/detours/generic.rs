@@ -1,6 +1,7 @@
-use error::*;
 use std::marker::PhantomData;
-use {arch, Function, HookableWith};
+use crate::arch::Detour;
+use crate::error::Result;
+use crate::{Function, HookableWith};
 
 /// A type-safe detour.
 ///
@@ -16,6 +17,7 @@ use {arch, Function, HookableWith};
 /// # Example
 ///
 /// ```rust
+/// # use detour::Result;
 /// use detour::GenericDetour;
 ///
 /// fn add5(val: i32) -> i32 {
@@ -25,24 +27,27 @@ use {arch, Function, HookableWith};
 ///   val + 10
 /// }
 ///
-/// let mut hook = unsafe { GenericDetour::<fn(i32) -> i32>::new(add5, add10).unwrap() };
+/// # fn main() -> Result<()> {
+/// let mut hook = unsafe { GenericDetour::<fn(i32) -> i32>::new(add5, add10)? };
 ///
 /// assert_eq!(add5(5), 10);
 /// assert_eq!(hook.call(5), 10);
 ///
-/// unsafe { hook.enable().unwrap() };
+/// unsafe { hook.enable()? };
 ///
 /// assert_eq!(add5(5), 15);
 /// assert_eq!(hook.call(5), 10);
 ///
-/// unsafe { hook.disable().unwrap() };
+/// unsafe { hook.disable()? };
 ///
 /// assert_eq!(add5(5), 10);
+/// # Ok(())
+/// # }
 /// ```
 #[derive(Debug)]
 pub struct GenericDetour<T: Function> {
   phantom: PhantomData<T>,
-  detour: arch::Detour,
+  detour: Detour,
 }
 
 impl<T: Function> GenericDetour<T> {
@@ -53,7 +58,7 @@ impl<T: Function> GenericDetour<T> {
     T: HookableWith<D>,
     D: Function,
   {
-    arch::Detour::new(target.to_ptr(), detour.to_ptr()).map(|detour| GenericDetour {
+    Detour::new(target.to_ptr(), detour.to_ptr()).map(|detour| GenericDetour {
       phantom: PhantomData,
       detour,
     })

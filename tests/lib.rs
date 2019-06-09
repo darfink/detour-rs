@@ -1,8 +1,7 @@
 #![cfg_attr(feature = "nightly", feature(const_fn))]
-#[cfg_attr(feature = "nightly", macro_use)]
-extern crate detour;
-
 use std::mem;
+use detour::Result;
+
 type FnAdd = extern "C" fn(i32, i32) -> i32;
 
 #[inline(never)]
@@ -15,7 +14,7 @@ mod raw {
   use detour::RawDetour;
 
   #[test]
-  fn test() {
+  fn test() -> Result<()> {
     #[inline(never)]
     extern "C" fn add(x: i32, y: i32) -> i32 {
       unsafe { std::ptr::read_volatile(&x as *const i32) + y }
@@ -28,7 +27,7 @@ mod raw {
       assert_eq!(add(10, 5), 15);
       assert_eq!(hook.is_enabled(), false);
 
-      hook.enable().unwrap();
+      hook.enable()?;
       {
         assert!(hook.is_enabled());
 
@@ -41,12 +40,13 @@ mod raw {
         // Call the hooked function (i.e `add → sub_detour`)
         assert_eq!(add(10, 5), 5);
       }
-      hook.disable().unwrap();
+      hook.disable()?;
 
       // With the hook disabled, the function is restored
       assert_eq!(hook.is_enabled(), false);
       assert_eq!(add(10, 5), 15);
     }
+    Ok(())
   }
 }
 
@@ -55,7 +55,7 @@ mod generic {
   use detour::GenericDetour;
 
   #[test]
-  fn test() {
+  fn test() -> Result<()> {
     #[inline(never)]
     extern "C" fn add(x: i32, y: i32) -> i32 {
       unsafe { std::ptr::read_volatile(&x as *const i32) + y }
@@ -67,21 +67,23 @@ mod generic {
 
       assert_eq!(add(10, 5), 15);
       assert_eq!(hook.call(10, 5), 15);
-      hook.enable().unwrap();
+      hook.enable()?;
       {
         assert_eq!(hook.call(10, 5), 15);
         assert_eq!(add(10, 5), 5);
       }
-      hook.disable().unwrap();
+      hook.disable()?;
       assert_eq!(hook.call(10, 5), 15);
       assert_eq!(add(10, 5), 15);
     }
+    Ok(())
   }
 }
 
 #[cfg(feature = "nightly")]
 mod statik {
   use super::*;
+  use detour::static_detour;
 
   #[inline(never)]
   unsafe extern "C" fn add(x: i32, y: i32) -> i32 {
@@ -94,24 +96,25 @@ mod statik {
   }
 
   #[test]
-  fn test() {
+  fn test() -> Result<()> {
     unsafe {
-      DetourAdd.initialize(add, |x, y| x - y).unwrap();
+      DetourAdd.initialize(add, |x, y| x - y)?;
 
       assert_eq!(add(10, 5), 15);
       assert_eq!(DetourAdd.is_enabled(), false);
 
-      DetourAdd.enable().unwrap();
+      DetourAdd.enable()?;
       {
         assert!(DetourAdd.is_enabled());
         assert_eq!(DetourAdd.call(10, 5), 15);
         assert_eq!(add(10, 5), 5);
       }
-      DetourAdd.disable().unwrap();
+      DetourAdd.disable()?;
 
       assert_eq!(DetourAdd.is_enabled(), false);
       assert_eq!(DetourAdd.call(10, 5), 15);
       assert_eq!(add(10, 5), 15);
     }
+    Ok(())
   }
 }

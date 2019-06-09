@@ -1,7 +1,6 @@
-use super::thunk;
-use error::Result;
-use pic;
 use std::mem;
+use crate::{error::Result, pic};
+use super::thunk;
 
 /// The furthest distance between a target and its detour (2 GiB).
 pub const DETOUR_RANGE: usize = 0x8000_0000;
@@ -15,7 +14,7 @@ pub fn prolog_margin(_target: *const ()) -> usize {
 pub fn relay_builder(target: *const (), detour: *const ()) -> Result<Option<pic::CodeEmitter>> {
   let displacement = (target as isize).wrapping_sub(detour as isize);
 
-  if cfg!(target_arch = "x86_64") && !::arch::is_within_range(displacement) {
+  if cfg!(target_arch = "x86_64") && !crate::arch::is_within_range(displacement) {
     let mut emitter = pic::CodeEmitter::new();
     emitter.add_thunk(thunk::jmp(detour as usize));
     Ok(Some(emitter))

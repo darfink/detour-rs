@@ -1,6 +1,6 @@
-use error::Result;
 use std::sync::Mutex;
-use {alloc, arch, pic};
+use lazy_static::lazy_static;
+use crate::{alloc, arch, pic, error::Result};
 
 lazy_static! {
   /// Shared allocator for all detours.

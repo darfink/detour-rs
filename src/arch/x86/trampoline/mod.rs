@@ -1,9 +1,9 @@
-use self::disasm::*;
-use arch::x86::thunk;
-use error::*;
-use pic;
 use std::mem;
-use util::RangeContains;
+use crate::arch::x86::thunk;
+use crate::error::{Result, Error};
+use crate::util::RangeContains;
+use crate::pic;
+use self::disasm::*;
 
 mod disasm;
 
@@ -162,7 +162,7 @@ impl Builder {
         let adjusted_displacement = instruction_address
           .wrapping_sub(offset as isize)
           .wrapping_add(displacement);
-        assert!(::arch::is_within_range(adjusted_displacement));
+        assert!(crate::arch::is_within_range(adjusted_displacement));
 
         // The displacement value is placed at (instruction - disp32)
         let index = instruction_bytes.len() - mem::size_of::<u32>();

@@ -1,7 +1,7 @@
-use error::*;
 use std::{mem, ptr};
 use std::sync::atomic::{AtomicPtr, Ordering};
-use {GenericDetour, Function};
+use crate::error::{Error, Result};
+use crate::{GenericDetour, Function};
 
 /// A type-safe static detour.
 ///
@@ -21,8 +21,8 @@ use {GenericDetour, Function};
 ///
 /// ```rust
 /// #![feature(const_fn)]
-/// #[macro_use]
-/// extern crate detour;
+/// use std::error::Error;
+/// use detour::static_detour;
 ///
 /// static_detour! {
 ///   static Test: /* extern "X" */ fn(i32) -> i32;
@@ -36,25 +36,29 @@ use {GenericDetour, Function};
 ///   val + 10
 /// }
 ///
-/// fn main() {
-///   unsafe { Test.initialize(add5, add10).unwrap() };
+/// fn main() -> Result<(), Box<Error>> {
+///   // Replace the 'add5' function with 'add10' (can also be a closure)
+///   unsafe { Test.initialize(add5, add10)? };
 ///
 ///   assert_eq!(add5(1), 6);
 ///   assert_eq!(Test.call(1), 6);
 ///
-///   unsafe { Test.enable().unwrap(); }
+///   unsafe { Test.enable()? };
 ///
-///   // The original function is detoured to 'add10', unless 'call' is used
+///   // The original function is detoured to 'add10'
 ///   assert_eq!(add5(1), 11);
+///
+///  // The original function can still be invoked using 'call'
 ///   assert_eq!(Test.call(1), 6);
 ///
 ///   // It is also possible to change the detour whilst hooked
 ///   Test.set_detour(|val| val - 5);
 ///   assert_eq!(add5(5), 0);
 ///
-///   unsafe { Test.disable().unwrap() };
+///   unsafe { Test.disable()? };
 ///
 ///   assert_eq!(add5(1), 6);
+///   Ok(())
 /// }
 /// ```
 pub struct StaticDetour<T: Function> {
@@ -126,7 +130,7 @@ impl<T: Function> StaticDetour<T> {
 
   /// Returns a transient reference to the active detour.
   #[doc(hidden)]
-  pub fn __detour(&self) -> &Box<Fn<T::Arguments, Output = T::Output>> {
+  pub fn __detour(&self) -> &Fn<T::Arguments, Output = T::Output> {
     // TODO: This is not 100% thread-safe in case the thread is stopped
     unsafe { self.closure.load(Ordering::SeqCst).as_ref() }
       .ok_or(Error::NotInitialized)

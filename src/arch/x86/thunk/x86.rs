@@ -1,6 +1,6 @@
-use generic_array::{typenum, GenericArray};
-use pic::{FixedThunk, Thunkable};
 use std::mem;
+use generic_array::{typenum, GenericArray};
+use crate::pic::{FixedThunk, Thunkable};
 
 #[repr(packed)]
 pub struct JumpRel {
@@ -87,7 +87,7 @@ fn calculate_displacement(source: usize, destination: usize, instruction_size: u
   // Ensure that the detour can be reached with a relative jump (+/- 2GB).
   // This only needs to be asserted on x64, since it wraps around on x86.
   #[cfg(target_arch = "x86_64")]
-  assert!(::arch::is_within_range(displacement));
+  assert!(crate::arch::is_within_range(displacement));
 
   displacement as u32
 }

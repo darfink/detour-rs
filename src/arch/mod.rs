@@ -13,6 +13,8 @@
 /// - A `Trampoline`, generates a callable address to the target.
 pub use self::detour::Detour;
 
+use cfg_if::cfg_if;
+
 // TODO: flush instruction cache? __clear_cache
 // See: https://github.com/llvm-mirror/compiler-rt/blob/master/lib/builtins/clear_cache.c
 cfg_if! {
@@ -29,7 +31,7 @@ mod memory;
 
 /// Returns true if the displacement is within a certain range.
 pub fn is_within_range(displacement: isize) -> bool {
-  use util::RangeContains;
+  use crate::util::RangeContains;
 
   let range = meta::DETOUR_RANGE as isize;
   (-range..range).contains_(displacement)

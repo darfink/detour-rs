@@ -1,7 +1,7 @@
-use super::thunk;
-use error::*;
 use std::{mem, slice};
-use {pic, util};
+use crate::error::{Error, Result};
+use crate::{pic, util};
+use super::thunk;
 
 pub struct Patcher {
   patch_area: &'static mut [u8],

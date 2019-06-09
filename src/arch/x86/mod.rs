@@ -11,45 +11,47 @@ mod trampoline;
 // TODO: Add test for negative branch displacements
 #[cfg(all(feature = "nightly", test))]
 mod tests {
-  use error::*;
   use std::mem;
-  use RawDetour;
+  use matches::assert_matches;
+  use crate::error::{Error, Result};
+  use crate::RawDetour;
 
   /// Detours a C function returning an integer, and asserts its return value.
   #[inline(never)]
-  unsafe fn detour_test(target: funcs::CRet, result: i32) {
-    let hook = RawDetour::new(target as *const (), funcs::ret10 as *const ()).unwrap();
+  unsafe fn detour_test(target: funcs::CRet, result: i32) -> Result<()> {
+    let hook = RawDetour::new(target as *const (), funcs::ret10 as *const ())?;
 
     assert_eq!(target(), result);
-    hook.enable().unwrap();
+    hook.enable()?;
     {
       assert_eq!(target(), 10);
 
       let original: funcs::CRet = mem::transmute(hook.trampoline());
       assert_eq!(original(), result);
     }
-    hook.disable().unwrap();
+    hook.disable()?;
     assert_eq!(target(), result);
+    Ok(())
   }
 
   #[test]
-  fn detour_relative_branch() {
+  fn detour_relative_branch() -> Result<()> {
     unsafe {
-      detour_test(mem::transmute(funcs::branch_ret5 as usize), 5);
+      detour_test(mem::transmute(funcs::branch_ret5 as usize), 5)
     }
   }
 
   #[test]
-  fn detour_hotpatch() {
+  fn detour_hotpatch() -> Result<()> {
     unsafe {
-      detour_test(mem::transmute(funcs::hotpatch_ret0 as usize + 5), 0);
+      detour_test(mem::transmute(funcs::hotpatch_ret0 as usize + 5), 0)
     }
   }
 
   #[test]
-  fn detour_padding_after() {
+  fn detour_padding_after() -> Result<()> {
     unsafe {
-      detour_test(mem::transmute(funcs::padding_after_ret0 as usize + 2), 0);
+      detour_test(mem::transmute(funcs::padding_after_ret0 as usize + 2), 0)
     }
   }
 
@@ -63,17 +65,17 @@ mod tests {
 
   #[test]
   #[cfg(target_arch = "x86_64")]
-  fn detour_rip_relative_pos() {
+  fn detour_rip_relative_pos() -> Result<()> {
     unsafe {
-      detour_test(funcs::rip_relative_ret195, 195);
+      detour_test(funcs::rip_relative_ret195, 195)
     }
   }
 
   #[test]
   #[cfg(target_arch = "x86_64")]
-  fn detour_rip_relative_neg() {
+  fn detour_rip_relative_neg() -> Result<()> {
     unsafe {
-      detour_test(funcs::rip_relative_prolog_ret49, 49);
+      detour_test(funcs::rip_relative_prolog_ret49, 49)
     }
   }
 

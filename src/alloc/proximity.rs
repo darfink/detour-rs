@@ -4,9 +4,9 @@ use std::slice;
 use mmap_fixed as mmap;
 use slice_pool::{PoolVal, SlicePool};
 
+use crate::error::{Result, Error};
+use crate::util::RangeContains;
 use super::search as region_search;
-use error::*;
-use util::RangeContains;
 
 /// Defines the allocation type.
 pub type Allocation = PoolVal<u8>;

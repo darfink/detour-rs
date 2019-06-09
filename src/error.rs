@@ -1,6 +1,5 @@
 //! Error types and utilities.
 
-use region;
 use std::error::Error as StdError;
 use std::fmt;
 

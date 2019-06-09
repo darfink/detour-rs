@@ -17,8 +17,7 @@
 /// # Example
 ///
 /// ```rust
-/// # #[macro_use]
-/// # extern crate detour;
+/// # use detour::static_detour;
 /// static_detour! {
 ///   static Foo: fn();
 ///   pub static PubFoo: extern "C" fn(i32) -> i32;

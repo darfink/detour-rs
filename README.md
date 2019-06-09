@@ -32,49 +32,51 @@ Add this to your `Cargo.toml`:
 detour = "0.6.0"
 ```
 
-... and this to your crate root:
-
-```rust
-#[macro_use]
-extern crate detour;
-```
-
 ## Example
 
 - A static detour (one of *three* different detours):
 
 ```rust
-#[macro_use] extern crate detour;
-
-extern "C" fn add(x: i32, y: i32) -> i32 {
-    x + y
-}
+#![feature(const_fn)]
+use std::error::Error;
+use detour::static_detour;
 
 static_detour! {
-    static DetourAdd: extern "C" fn(i32, i32) -> i32;
+  static Test: /* extern "X" */ fn(i32) -> i32;
 }
 
-fn main() {
-    // Replaces the 'add' function with a closure that subtracts
-    unsafe { DetourAdd.initialize(add, |x, y| x - y).unwrap() };
+fn add5(val: i32) -> i32 {
+  val + 5
+}
 
-    assert_eq!(add(1, 5), 6);
-    assert_eq!(DetourAdd.is_enabled(), false);
+fn add10(val: i32) -> i32 {
+  val + 10
+}
 
-    unsafe { DetourAdd.enable().unwrap(); }
+fn main() -> Result<(), Box<Error>> {
+  // Reroute the 'add5' function to 'add10' (can also be a closure)
+  unsafe { Test.initialize(add5, add10)? };
 
-    assert_eq!(add(1, 5), -4);
-    assert_eq!(DetourAdd.call(1, 5), 6);
+  assert_eq!(add5(1), 6);
+  assert_eq!(Test.call(1), 6);
 
-    // Change the detour whilst hooked
-    DetourAdd.set_detour(|x, y| x * y);
-    assert_eq!(add(5, 5), 25);
+  // Hooks must be enabled to take effect
+  unsafe { Test.enable()? };
 
-    unsafe { DetourAdd.disable().unwrap(); }
+  // The original function is detoured to 'add10'
+  assert_eq!(add5(1), 11);
 
-    assert_eq!(DetourAdd.is_enabled(), false);
-    assert_eq!(DetourAdd.call(1, 5), 6);
-    assert_eq!(add(1, 5), 6);
+  // The original function can still be invoked using 'call'
+  assert_eq!(Test.call(1), 6);
+
+  // It is also possible to change the detour whilst hooked
+  Test.set_detour(|val| val - 5);
+  assert_eq!(add5(5), 0);
+
+  unsafe { Test.disable()? };
+
+  assert_eq!(add5(1), 6);
+  Ok(())
 }
 ```
 

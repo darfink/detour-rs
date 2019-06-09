@@ -1,7 +1,6 @@
-use error::*;
-use region;
 use std::ops::Range;
-use util::RangeContains;
+use crate::error::{Error, Result};
+use crate::util::RangeContains;
 
 /// Returns an iterator for free after the specified address.
 pub fn after(origin: *const (), range: Option<Range<usize>>) -> FreeRegionIter {

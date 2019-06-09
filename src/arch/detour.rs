@@ -1,7 +1,7 @@
-use super::memory;
-use error::{Error, Result};
 use std::{cell::{UnsafeCell, Cell}, fmt};
-use {alloc, arch, region, util};
+use crate::error::{Error, Result};
+use crate::{alloc, arch, util};
+use super::memory;
 
 /// An architecture-independent implementation of a base detour.
 ///

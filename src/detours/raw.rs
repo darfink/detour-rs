@@ -1,11 +1,12 @@
-use arch;
-use error::*;
+use crate::arch::Detour;
+use crate::error::Result;
 
 /// A type-less wrapper around [Detour](./struct.Detour.html).
 ///
 /// # Example
 ///
 /// ```rust
+/// # use detour::Result;
 /// use detour::RawDetour;
 /// use std::mem;
 ///
@@ -16,13 +17,14 @@ use error::*;
 ///   val + 10
 /// }
 ///
-/// let mut hook = unsafe { RawDetour::new(add5 as *const (), add10 as *const ()).unwrap() };
+/// # fn main() -> Result<()> {
+/// let mut hook = unsafe { RawDetour::new(add5 as *const (), add10 as *const ())? };
 ///
 /// assert_eq!(add5(5), 10);
 /// assert_eq!(hook.is_enabled(), false);
 ///
 /// unsafe {
-///   hook.enable().unwrap();
+///   hook.enable()?;
 ///   assert!(hook.is_enabled());
 ///
 ///   let original: fn(i32) -> i32 = mem::transmute(hook.trampoline());
@@ -30,12 +32,14 @@ use error::*;
 ///   assert_eq!(add5(5), 15);
 ///   assert_eq!(original(5), 10);
 ///
-///   hook.disable().unwrap();
+///   hook.disable()?;
 /// }
 /// assert_eq!(add5(5), 10);
+/// # Ok(())
+/// # }
 /// ```
 #[derive(Debug)]
-pub struct RawDetour(arch::Detour);
+pub struct RawDetour(Detour);
 
 // TODO: stop all threads in target during patch?
 impl RawDetour {
@@ -47,7 +51,7 @@ impl RawDetour {
   /// function might for example get inlined in which case it is impossible to
   /// hook at runtime.
   pub unsafe fn new(target: *const (), detour: *const ()) -> Result<Self> {
-    arch::Detour::new(target, detour).map(RawDetour)
+    Detour::new(target, detour).map(RawDetour)
   }
 
   /// Enables the detour.

@@ -1,7 +1,4 @@
 //! The underlying disassembler should be opaque to the outside.
-extern crate libc;
-extern crate libudis86_sys as udis;
-
 use std::slice;
 
 /// A x86/x64 disassembler.

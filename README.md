@@ -90,7 +90,7 @@ derivative code of his work.
 
   *Should be performed whenever a function's prolog instructions
   are being executed, simultaneously as the function itself is being
-  detoured. This is done by halting all affected threads, copying the related
+  detoured. This is done by halting all affected threads, copying the affected
   instructions and appending a `JMP` to return to the function. This is
   barely ever an issue, and never in single-threaded environments, but YMMV.*
 

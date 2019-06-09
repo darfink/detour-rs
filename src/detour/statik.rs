@@ -128,7 +128,9 @@ impl<T: Function> StaticDetour<T> {
   #[doc(hidden)]
   pub fn __detour(&self) -> &Box<Fn<T::Arguments, Output = T::Output>> {
     // TODO: This is not 100% thread-safe in case the thread is stopped
-    unsafe { self.closure.load(Ordering::SeqCst).as_ref() }.ok_or(Error::NotInitialized).unwrap()
+    unsafe { self.closure.load(Ordering::SeqCst).as_ref() }
+      .ok_or(Error::NotInitialized)
+      .expect("retrieving detour closure")
   }
 }
 

@@ -216,7 +216,7 @@ impl Builder {
         .as_slice()
         .iter()
         .find(|op| **op != 0x0F)
-        .unwrap();
+        .expect("retrieving conditional jump primary op code");
 
       // Extract the condition (i.e 0x74 is [jz rel8] ⟶ 0x74 & 0x0F == 4)
       let condition = primary_opcode & 0x0F;

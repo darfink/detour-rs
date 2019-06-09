@@ -7,10 +7,10 @@
 ///
 /// ```ignore
 /// static_detour! {
-///   [pub] static NAME_1: [extern ["type"]] fn([arguments]...) -> [ret];
-///   [pub] static NAME_2: [extern ["type"]] fn([arguments]...) -> [ret];
+///   [pub] static NAME_1: [extern ["type"]] fn([argument]...) -> [ret];
+///   [pub] static NAME_2: [extern ["type"]] fn([argument]...) -> [ret];
 ///   ...
-///   [pub] static NAME_N: [extern ["type"]] fn([arguments]...) -> [ret];
+///   [pub] static NAME_N: [extern ["type"]] fn([argument]...) -> [ret];
 /// }
 /// ```
 ///

@@ -2,7 +2,7 @@ use super::Thunkable;
 use generic_array::{ArrayLength, GenericArray};
 
 /// A closure that generates a thunk.
-pub struct FixedThunk<N: ArrayLength<u8>>(Box<Fn(usize) -> GenericArray<u8, N>>);
+pub struct FixedThunk<N: ArrayLength<u8>>(Box<dyn Fn(usize) -> GenericArray<u8, N>>);
 
 impl<N: ArrayLength<u8>> FixedThunk<N> {
   /// Constructs a new thunk with a specific closure.
@@ -24,7 +24,7 @@ impl<N: ArrayLength<u8>> Thunkable for FixedThunk<N> {
 
 /// A closure that generates an unsafe thunk.
 pub struct UnsafeThunk {
-  callback: Box<Fn(usize) -> Vec<u8>>,
+  callback: Box<dyn Fn(usize) -> Vec<u8>>,
   size: usize,
 }
 

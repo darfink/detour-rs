@@ -9,7 +9,7 @@ pub struct JumpRel {
 }
 
 /// Constructs either a relative jump or call.
-fn relative32(destination: usize, is_jump: bool) -> Box<Thunkable> {
+fn relative32(destination: usize, is_jump: bool) -> Box<dyn Thunkable> {
   const CALL: u8 = 0xE8;
   const JMP: u8 = 0xE9;
 
@@ -25,17 +25,17 @@ fn relative32(destination: usize, is_jump: bool) -> Box<Thunkable> {
 }
 
 /// Returns a no-op instruction.
-pub fn nop() -> Box<Thunkable> {
+pub fn nop() -> Box<dyn Thunkable> {
   Box::new([0x90].to_vec())
 }
 
 /// Constructs a relative call operation.
-pub fn call_rel32(destination: usize) -> Box<Thunkable> {
+pub fn call_rel32(destination: usize) -> Box<dyn Thunkable> {
   relative32(destination, false)
 }
 
 /// Constructs a relative jump operation.
-pub fn jmp_rel32(destination: usize) -> Box<Thunkable> {
+pub fn jmp_rel32(destination: usize) -> Box<dyn Thunkable> {
   relative32(destination, true)
 }
 
@@ -47,7 +47,7 @@ struct JccRel {
 }
 
 /// Constructs a conditional relative jump operation.
-pub fn jcc_rel32(destination: usize, condition: u8) -> Box<Thunkable> {
+pub fn jcc_rel32(destination: usize, condition: u8) -> Box<dyn Thunkable> {
   Box::new(FixedThunk::<typenum::U6>::new(move |source| {
     let code = JccRel {
       opcode0: 0x0F,
@@ -67,7 +67,7 @@ pub struct JumpShort {
 }
 
 /// Constructs a relative short jump.
-pub fn jmp_rel8(displacement: i8) -> Box<Thunkable> {
+pub fn jmp_rel8(displacement: i8) -> Box<dyn Thunkable> {
   Box::new(FixedThunk::<typenum::U2>::new(move |_| {
     let code = JumpShort {
       opcode: 0xEB,

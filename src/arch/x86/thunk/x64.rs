@@ -14,7 +14,7 @@ struct CallAbs {
   address: usize,
 }
 
-pub fn call_abs(destination: usize) -> Box<Thunkable> {
+pub fn call_abs(destination: usize) -> Box<dyn Thunkable> {
   let code = CallAbs {
     opcode0: 0xFF,
     opcode1: 0x15,
@@ -38,7 +38,7 @@ struct JumpAbs {
   address: usize,
 }
 
-pub fn jmp_abs(destination: usize) -> Box<Thunkable> {
+pub fn jmp_abs(destination: usize) -> Box<dyn Thunkable> {
   let code = JumpAbs {
     opcode0: 0xFF,
     opcode1: 0x25,
@@ -62,7 +62,7 @@ struct JccAbs {
   address: usize,
 }
 
-pub fn jcc_abs(destination: usize, condition: u8) -> Box<Thunkable> {
+pub fn jcc_abs(destination: usize, condition: u8) -> Box<dyn Thunkable> {
   let code = JccAbs {
     // Invert the condition in x64 mode to simplify the conditional jump logic
     opcode: 0x71 ^ condition,

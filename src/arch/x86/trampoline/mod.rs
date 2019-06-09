@@ -110,7 +110,7 @@ impl Builder {
   unsafe fn process_instruction(
     &mut self,
     instruction: &Instruction,
-  ) -> Result<Box<pic::Thunkable>> {
+  ) -> Result<Box<dyn pic::Thunkable>> {
     if let Some(displacement) = instruction.rip_operand_displacement() {
       return self.handle_rip_relative_instruction(instruction, displacement);
     } else if let Some(displacement) = instruction.relative_branch_displacement() {
@@ -138,7 +138,7 @@ impl Builder {
     &mut self,
     instruction: &Instruction,
     displacement: isize,
-  ) -> Result<Box<pic::Thunkable>> {
+  ) -> Result<Box<dyn pic::Thunkable>> {
     // If the instruction is an unconditional jump, processing stops here
     self.finished = instruction.is_unconditional_jump();
 
@@ -180,7 +180,7 @@ impl Builder {
     &mut self,
     instruction: &Instruction,
     displacement: isize,
-  ) -> Result<Box<pic::Thunkable>> {
+  ) -> Result<Box<dyn pic::Thunkable>> {
     // Calculate the absolute address of the target destination
     let destination_address_abs = instruction
       .next_instruction_address()

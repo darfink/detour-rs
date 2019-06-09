@@ -2,7 +2,7 @@ use super::Thunkable;
 
 /// An interface for generating PIC.
 pub struct CodeEmitter {
-  thunks: Vec<Box<Thunkable>>,
+  thunks: Vec<Box<dyn Thunkable>>,
 }
 
 /// Used for combining PIC segments.
@@ -31,7 +31,7 @@ impl CodeEmitter {
   }
 
   /// Adds a position-independant code segment.
-  pub fn add_thunk(&mut self, thunk: Box<Thunkable>) {
+  pub fn add_thunk(&mut self, thunk: Box<dyn Thunkable>) {
     self.thunks.push(thunk);
   }
 

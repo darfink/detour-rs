@@ -35,9 +35,13 @@ matches = "0.1.8"
 default = ["nightly"]
 nightly = []
 
-[target]
-
-[target."cfg(any(target_arch = \"x86\", target_arch = \"x86_64\"))"]
+[[example]]
+name = "messageboxw_detour"
+crate-type = ["cdylib"]
 
 [target."cfg(any(target_arch = \"x86\", target_arch = \"x86_64\"))".dependencies]
 udis = { package = "libudis86-sys", version = "0.2.0" }
+
+[target."cfg(windows)".dev-dependencies]
+winapi = { version = "0.3.7", features = ["minwindef", "windef", "winnt"] }
+kernel32-sys = "0.2.2"

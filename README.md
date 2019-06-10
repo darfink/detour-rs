@@ -79,6 +79,11 @@ fn main() -> Result<(), Box<Error>> {
 }
 ```
 
+- A Windows API hooking example is available [here](./examples/messageboxw_detour.rs); build it by running:
+```
+$ cargo build --example messageboxw_detour
+```
+
 ## Mentions
 
 Part of the library's external user interface was inspired by

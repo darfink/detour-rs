@@ -1,13 +1,13 @@
 use std::ops::Range;
 use std::slice;
 
-use slice_pool::{PoolVal, SlicePool};
+use slice_pool::sync::{SliceBox, SlicePool};
 
 use super::search as region_search;
 use crate::error::{Error, Result};
 
 /// Defines the allocation type.
-pub type Allocation = PoolVal<u8>;
+pub type Allocation = SliceBox<u8>;
 
 /// Shared instance containing all pools
 pub struct ProximityAllocator {
@@ -26,7 +26,7 @@ impl ProximityAllocator {
       // ... otherwise allocate a pool within the memory range
       self.allocate_pool(&memory_range, origin, size).map(|pool| {
         // Use the newly allocated pool for the request
-        let allocation = pool.allocate(size).unwrap();
+        let allocation = pool.alloc(size).unwrap();
         self.pools.push(pool);
         allocation
       })
@@ -49,7 +49,7 @@ impl ProximityAllocator {
       .expect("retrieving associated memory pool");
 
     // Release the pool if the associated allocation is unique
-    if self.pools[index].allocations() == 1 {
+    if self.pools[index].len() == 1 {
       self.pools.remove(index);
     }
   }
@@ -69,7 +69,7 @@ impl ProximityAllocator {
       .iter_mut()
       .filter_map(|pool| {
         if is_pool_in_range(pool) {
-          pool.allocate(size)
+          pool.alloc(size)
         } else {
           None
         }
@@ -146,3 +146,4 @@ impl AsMut<[u8]> for SliceableMemoryMap {
 }
 
 unsafe impl Send for SliceableMemoryMap {}
+unsafe impl Sync for SliceableMemoryMap {}

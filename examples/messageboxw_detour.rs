@@ -23,8 +23,8 @@ unsafe fn main() -> Result<(), Box<dyn Error>> {
   // Retrieve an absolute address of `MessageBoxW`. This is required for
   // libraries due to the import address table. If `MessageBoxW` would be
   // provided directly as the target, it would only hook this DLL's
-  // `MessageBoxW`. Using this method an absolute address is retrieved instead,
-  // detouring all invocations of `MessageBoxW` in the active process.
+  // `MessageBoxW`. Using the method below an absolute address is retrieved
+  // instead, detouring all invocations of `MessageBoxW` in the active process.
   let address = get_module_symbol_address("user32.dll", "MessageBoxW")
     .expect("could not find 'MessageBoxW' address");
   let target: FnMessageBoxW = mem::transmute(address);

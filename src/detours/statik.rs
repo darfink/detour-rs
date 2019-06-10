@@ -35,7 +35,7 @@ use crate::{GenericDetour, Function};
 ///   val + 10
 /// }
 ///
-/// fn main() -> Result<(), Box<Error>> {
+/// fn main() -> Result<(), Box<dyn Error>> {
 ///   // Replace the 'add5' function with 'add10' (can also be a closure)
 ///   unsafe { Test.initialize(add5, add10)? };
 ///

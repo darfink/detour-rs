@@ -52,7 +52,7 @@ fn add10(val: i32) -> i32 {
   val + 10
 }
 
-fn main() -> Result<(), Box<Error>> {
+fn main() -> Result<(), Box<dyn Error>> {
   // Reroute the 'add5' function to 'add10' (can also be a closure)
   unsafe { Test.initialize(add5, add10)? };
 

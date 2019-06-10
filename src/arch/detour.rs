@@ -1,8 +1,9 @@
 use super::memory;
 use crate::error::{Error, Result};
 use crate::{alloc, arch, util};
-use std::cell::{Cell, UnsafeCell};
+use std::cell::UnsafeCell;
 use std::fmt;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 /// An architecture-independent implementation of a base detour.
 ///
@@ -13,7 +14,7 @@ pub struct Detour {
   relay: Option<alloc::ExecutableMemory>,
   trampoline: alloc::ExecutableMemory,
   patcher: UnsafeCell<arch::Patcher>,
-  enabled: Cell<bool>,
+  enabled: AtomicBool,
 }
 
 impl Detour {
@@ -53,7 +54,7 @@ impl Detour {
         trampoline.prolog_size(),
       )?),
       trampoline: memory::allocate_pic(&mut pool, trampoline.emitter(), target)?,
-      enabled: Cell::new(false),
+      enabled: AtomicBool::default(),
       relay,
     })
   }
@@ -70,7 +71,7 @@ impl Detour {
 
   /// Returns whether the detour is enabled or not.
   pub fn is_enabled(&self) -> bool {
-    self.enabled.get()
+    self.enabled.load(Ordering::SeqCst)
   }
 
   /// Returns a reference to the generated trampoline.
@@ -86,7 +87,7 @@ impl Detour {
   unsafe fn toggle(&self, enabled: bool) -> Result<()> {
     let _guard = memory::POOL.lock().unwrap();
 
-    if self.enabled.get() == enabled {
+    if self.enabled.load(Ordering::SeqCst) == enabled {
       return Ok(());
     }
 
@@ -102,7 +103,7 @@ impl Detour {
 
     // Copy either the detour or the original bytes of the function
     (*self.patcher.get()).toggle(enabled);
-    self.enabled.set(enabled);
+    self.enabled.store(enabled, Ordering::SeqCst);
     Ok(())
   }
 }

@@ -83,7 +83,7 @@ impl<T: Function> StaticDetour<T> {
   /// This method can only be called once per static instance. Multiple calls
   /// will error with `AlreadyExisting`.
   ///
-  /// It returns `&self` to allow chaining initialization and enabling:
+  /// It returns `&self` to allow chaining initialization and activation:
   ///
   /// ```rust
   /// # use detour::{Result, static_detour};
@@ -157,12 +157,12 @@ impl<T: Function> StaticDetour<T> {
 
 impl<T: Function> Drop for StaticDetour<T> {
   fn drop(&mut self) {
-    let previous = self.closure.swap(::std::ptr::null_mut(), Ordering::Relaxed);
+    let previous = self.closure.swap(ptr::null_mut(), Ordering::Relaxed);
     if !previous.is_null() {
       unsafe { Box::from_raw(previous) };
     }
 
-    let previous = self.detour.swap(::std::ptr::null_mut(), Ordering::Relaxed);
+    let previous = self.detour.swap(ptr::null_mut(), Ordering::Relaxed);
     if !previous.is_null() {
       unsafe { Box::from_raw(previous) };
     }

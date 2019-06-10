@@ -13,6 +13,7 @@ use crate::error::Result;
 /// fn add5(val: i32) -> i32 {
 ///   val + 5
 /// }
+///
 /// fn add10(val: i32) -> i32 {
 ///   val + 10
 /// }
@@ -23,17 +24,15 @@ use crate::error::Result;
 /// assert_eq!(add5(5), 10);
 /// assert_eq!(hook.is_enabled(), false);
 ///
-/// unsafe {
-///   hook.enable()?;
-///   assert!(hook.is_enabled());
+/// unsafe { hook.enable()? };
+/// assert!(hook.is_enabled());
 ///
-///   let original: fn(i32) -> i32 = mem::transmute(hook.trampoline());
+/// let original: fn(i32) -> i32 = unsafe { mem::transmute(hook.trampoline()) };
 ///
-///   assert_eq!(add5(5), 15);
-///   assert_eq!(original(5), 10);
+/// assert_eq!(add5(5), 15);
+/// assert_eq!(original(5), 10);
 ///
-///   hook.disable()?;
-/// }
+/// unsafe { hook.disable()? };
 /// assert_eq!(add5(5), 10);
 /// # Ok(())
 /// # }

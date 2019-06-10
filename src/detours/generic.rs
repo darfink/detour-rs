@@ -23,6 +23,7 @@ use std::marker::PhantomData;
 /// fn add5(val: i32) -> i32 {
 ///   val + 5
 /// }
+///
 /// fn add10(val: i32) -> i32 {
 ///   val + 10
 /// }

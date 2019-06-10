@@ -16,7 +16,8 @@ maintain this feature, not all desired functionality can be supported due to
 lack of cross-platform APIs. Therefore [EIP relocation](#appendix) is not
 supported.
 
-**NOTE**: Nightly is currently required for `static_detour!`.
+**NOTE**: Nightly is currently required for `static_detour!` and is enabled by
+default.
 
 ## Platforms
 
@@ -29,7 +30,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-detour = "0.6.0"
+detour = "0.7.0"
 ```
 
 ## Example

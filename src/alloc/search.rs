@@ -2,12 +2,12 @@ use crate::error::{Error, Result};
 use std::ops::Range;
 
 /// Returns an iterator for free after the specified address.
-pub fn after(origin: *const (), range: Option<Range<usize>>) -> FreeRegionIter {
+pub fn after(origin: *const (), range: Option<Range<usize>>) -> impl Iterator<Item = Result<*const ()>> {
   FreeRegionIter::new(origin, range, SearchDirection::After)
 }
 
 /// Returns an iterator for free before the specified address.
-pub fn before(origin: *const (), range: Option<Range<usize>>) -> FreeRegionIter {
+pub fn before(origin: *const (), range: Option<Range<usize>>) -> impl Iterator<Item = Result<*const ()>> {
   FreeRegionIter::new(origin, range, SearchDirection::Before)
 }
 
@@ -18,7 +18,7 @@ enum SearchDirection {
 }
 
 /// An iterator searching for free regions.
-pub struct FreeRegionIter {
+struct FreeRegionIter {
   range: Range<usize>,
   search: SearchDirection,
   current: usize,

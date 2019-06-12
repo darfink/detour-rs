@@ -6,10 +6,10 @@
 ///
 /// ```ignore
 /// static_detour! {
-///   [pub] static NAME_1: [unsafe] [extern ["cc"]] fn([argument]...) [-> ret];
-///   [pub] static NAME_2: [unsafe] [extern ["cc"]] fn([argument]...) [-> ret];
+///   [pub] static NAME_1: [unsafe] [extern "cc"] fn([argument]...) [-> ret];
+///   [pub] static NAME_2: [unsafe] [extern "cc"] fn([argument]...) [-> ret];
 ///   ...
-///   [pub] static NAME_N: [unsafe] [extern ["cc"]] fn([argument]...) [-> ret];
+///   [pub] static NAME_N: [unsafe] [extern "cc"] fn([argument]...) [-> ret];
 /// }
 /// ```
 ///
@@ -197,7 +197,7 @@ macro_rules! impl_hookable {
     impl<Ret: 'static, $($ty: 'static),*> $crate::StaticDetour<$target> {
       #[doc(hidden)]
       pub unsafe fn call(&self, $($nm : $ty),*) -> Ret {
-        let original: $target = ::std::mem::transmute(self.trampoline().expect("calling static detour trampoline"));
+        let original: $target = ::std::mem::transmute(self.trampoline().expect("calling detour trampoline"));
         original($($nm),*)
       }
     }
@@ -217,7 +217,7 @@ macro_rules! impl_hookable {
       #[doc(hidden)]
       pub fn call(&self, $($nm : $ty),*) -> Ret {
         unsafe {
-          let original: $fn_type = ::std::mem::transmute(self.trampoline().expect("calling static detour trampoline"));
+          let original: $fn_type = ::std::mem::transmute(self.trampoline().expect("calling detour trampoline"));
           original($($nm),*)
         }
       }

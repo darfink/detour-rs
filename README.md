@@ -1,7 +1,6 @@
 detour-rs
 =========
-[![Travis build status][travis-shield]][travis]
-[![Appveyor build status][appveyor-shield]][appveyor]
+[![Azure build Status][azure-shield]][azure]
 [![crates.io version][crate-shield]][crate]
 [![Documentation][docs-shield]][docs]
 [![Language (Rust)][rust-shield]][rust]
@@ -116,10 +115,8 @@ derivative code of his work.
   trailing `NOP` instructions will be replaced, to make room for the detour.*
 
 <!-- Links -->
-[travis-shield]: https://img.shields.io/travis/darfink/detour-rs.svg?style=flat-square&label=travis
-[travis]: https://travis-ci.org/darfink/detour-rs
-[appveyor-shield]: https://img.shields.io/appveyor/ci/darfink/detour-rs/master.svg?style=flat-square&label=appveyor
-[appveyor]: https://ci.appveyor.com/project/darfink/detour-rs
+[azure-shield]: https://dev.azure.com/darfink/detour-rs/_apis/build/status/darfink.detour-rs?branchName=master
+[azure]: https://dev.azure.com/darfink/detour-rs/_build/latest?definitionId=1&branchName=master
 [crate-shield]: https://img.shields.io/crates/v/detour.svg?style=flat-square
 [crate]: https://crates.io/crates/detour
 [rust-shield]: https://img.shields.io/badge/powered%20by-rust-blue.svg?style=flat-square

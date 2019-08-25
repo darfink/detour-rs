@@ -12,12 +12,7 @@ version = "0.7.0"
 edition = "2018"
 
 [badges]
-
-[badges.appveyor]
-repository = "darfink/detour-rs"
-
-[badges.travis-ci]
-repository = "darfink/detour-rs"
+azure-devops = { project = "darfink/detour-rs", pipeline = "darfink.detour-rs" }
 
 [dependencies]
 cfg-if = "0.1.1"

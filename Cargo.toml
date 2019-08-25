@@ -35,7 +35,7 @@ name = "messageboxw_detour"
 crate-type = ["cdylib"]
 
 [target."cfg(any(target_arch = \"x86\", target_arch = \"x86_64\"))".dependencies]
-udis = { git = "https://github.com/darfink/libudis86-sys", package = "libudis86-sys", version = "0.2.0" }
+udis = { package = "libudis86-sys", version = "0.2.1" }
 
 [target."cfg(windows)".dev-dependencies]
 winapi = { version = "0.3.7", features = ["minwindef", "windef", "winnt"] }

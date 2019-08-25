@@ -29,7 +29,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-detour = "0.7.0"
+detour = "0.7.1"
 ```
 
 ## Example

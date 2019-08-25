@@ -136,7 +136,7 @@ impl<T: Function> StaticDetour<T> {
   {
     let previous = self.closure.swap(Box::into_raw(Box::new(Box::new(closure))), Ordering::SeqCst);
     if !previous.is_null() {
-      unsafe { Box::from_raw(previous) };
+      mem::drop(unsafe { Box::from_raw(previous) });
     }
   }
 
@@ -159,7 +159,7 @@ impl<T: Function> Drop for StaticDetour<T> {
   fn drop(&mut self) {
     let previous = self.closure.swap(ptr::null_mut(), Ordering::Relaxed);
     if !previous.is_null() {
-      unsafe { Box::from_raw(previous) };
+      mem::drop(unsafe { Box::from_raw(previous) });
     }
 
     let previous = self.detour.swap(ptr::null_mut(), Ordering::Relaxed);

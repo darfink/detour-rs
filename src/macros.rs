@@ -23,6 +23,9 @@
 ///
 ///   // An unsafe public detour with a different calling convention
 ///   pub static PubFoo: unsafe extern "C" fn(i32) -> i32;
+///
+///   // A specific public modifier
+///   pub(crate) static PubSelf: unsafe extern "C" fn();
 /// }
 /// # fn main() { }
 /// ```
@@ -38,7 +41,13 @@ macro_rules! static_detour {
     static_detour!(@parse_access_modifier (($($input)*)) | $($rest)*);
   };
 
-  // 2 — pub modifier (yes/no)
+  // 2 — pub modifier (path/yes/no)
+  (@parse_access_modifier ($($input:tt)*) | pub(in $vis:path) static $($rest:tt)*) => {
+    static_detour!(@parse_name ($($input)* (pub(in $vis))) | $($rest)*);
+  };
+  (@parse_access_modifier ($($input:tt)*) | pub($vis:tt) static $($rest:tt)*) => {
+    static_detour!(@parse_name ($($input)* (pub($vis))) | $($rest)*);
+  };
   (@parse_access_modifier ($($input:tt)*) | pub static $($rest:tt)*) => {
     static_detour!(@parse_name ($($input)* (pub)) | $($rest)*);
   };

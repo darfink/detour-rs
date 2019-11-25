@@ -11,10 +11,10 @@ mod trampoline;
 // TODO: Add test for negative branch displacements
 #[cfg(all(feature = "nightly", test))]
 mod tests {
-  use std::mem;
-  use matches::assert_matches;
   use crate::error::{Error, Result};
   use crate::RawDetour;
+  use matches::assert_matches;
+  use std::mem;
 
   /// Default test case function definition.
   type CRet = unsafe extern "C" fn() -> i32;
@@ -103,7 +103,8 @@ mod tests {
       ::std::intrinsics::unreachable();
     }
 
-    let error = unsafe { RawDetour::new(external_loop as *const (), ret10 as *const ()) }.unwrap_err();
+    let error =
+      unsafe { RawDetour::new(external_loop as *const (), ret10 as *const ()) }.unwrap_err();
     assert_matches!(error, Error::UnsupportedInstruction);
   }
 

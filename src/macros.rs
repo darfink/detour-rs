@@ -1,6 +1,7 @@
 /// A macro for defining static, type-safe detours.
 ///
-/// This macro defines one or more [StaticDetour](./struct.StaticDetour.html)s.  
+/// This macro defines one or more [StaticDetour](./struct.StaticDetour.html)s.
+///
 ///
 /// # Syntax
 ///

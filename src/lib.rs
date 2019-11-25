@@ -42,9 +42,9 @@
 //!
 //! ## Features
 //!
-//! - **nightly**: Enabled by default. Required for static detours, due to
-//!   usage of *const_fn* & *unboxed_closures*.  
-//!   The feature also enables a more extensive test suite.
+//! - **nightly**: Enabled by default. Required for static detours, due to usage
+//!   of *const_fn* & *unboxed_closures*.   The feature also enables a more
+//!   extensive test suite.
 //!
 //! ## Platforms
 //!

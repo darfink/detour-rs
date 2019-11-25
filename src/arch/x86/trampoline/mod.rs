@@ -1,8 +1,8 @@
-use std::mem;
-use crate::arch::x86::thunk;
-use crate::error::{Result, Error};
-use crate::pic;
 use self::disasm::*;
+use crate::arch::x86::thunk;
+use crate::error::{Error, Result};
+use crate::pic;
+use std::mem;
 
 mod disasm;
 
@@ -102,7 +102,7 @@ impl Builder {
         // Keep track of the total amount of bytes
         self.total_bytes_disassembled += instruction.len();
         Ok(instruction)
-      }
+      },
     }
   }
 
@@ -208,7 +208,9 @@ impl Builder {
       // a distance larger than the prolog, it's the same as if it terminates.
       self.finished = !self.is_instruction_in_branch(instruction);
       Ok(thunk::jmp(destination_address_abs))
-    } else /* Conditional jumps (Jcc) */ {
+    } else
+    // Conditional jumps (Jcc)
+    {
       // To extract the condition, the primary opcode is required. Short
       // jumps are only one byte, but long jccs are prefixed with 0x0F.
       let primary_opcode = instruction

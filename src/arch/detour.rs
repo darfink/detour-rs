@@ -97,7 +97,7 @@ impl Detour {
       region::protect_with_handle(
         area.as_ptr(),
         area.len(),
-        region::Protection::ReadWriteExecute,
+        region::Protection::READ_WRITE_EXECUTE,
       )
     }?;
 

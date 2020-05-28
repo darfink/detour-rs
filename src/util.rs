@@ -5,6 +5,6 @@ pub fn is_executable_address(address: *const ()) -> Result<bool> {
   Ok(
     region::query(address as *const _)?
       .protection
-      .contains(region::Protection::Execute),
+      .contains(region::Protection::EXECUTE),
   )
 }

@@ -115,7 +115,7 @@ derivative code of his work.
   trailing `NOP` instructions will be replaced, to make room for the detour.*
 
 <!-- Links -->
-[azure-shield]: https://dev.azure.com/darfink/detour-rs/_apis/build/status/darfink.detour-rs?branchName=master
+[azure-shield]: https://img.shields.io/azure-devops/build/darfink/detour-rs/1/master?label=Azure%20Pipelines&logo=azure-pipelines&style=flat-square
 [azure]: https://dev.azure.com/darfink/detour-rs/_build/latest?definitionId=1&branchName=master
 [crate-shield]: https://img.shields.io/crates/v/detour.svg?style=flat-square
 [crate]: https://crates.io/crates/detour

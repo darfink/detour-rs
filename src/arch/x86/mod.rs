@@ -40,7 +40,8 @@ mod tests {
   fn detour_relative_branch() -> Result<()> {
     #[naked]
     unsafe extern "C" fn branch_ret5() -> i32 {
-      asm!("xor eax, eax
+      llvm_asm!("
+            xor eax, eax
             je ret5
             mov eax, 2
             jmp done
@@ -59,7 +60,8 @@ mod tests {
   fn detour_hotpatch() -> Result<()> {
     #[naked]
     unsafe extern "C" fn hotpatch_ret0() -> i32 {
-      asm!("nop
+      llvm_asm!("
+            nop
             nop
             nop
             nop
@@ -78,7 +80,8 @@ mod tests {
   fn detour_padding_after() -> Result<()> {
     #[naked]
     unsafe extern "C" fn padding_after_ret0() -> i32 {
-      asm!("mov edi, edi
+      llvm_asm!("
+            mov edi, edi
             xor eax, eax
             ret
             nop
@@ -94,7 +97,8 @@ mod tests {
   fn detour_external_loop() {
     #[naked]
     unsafe extern "C" fn external_loop() -> i32 {
-      asm!("loop dest
+      llvm_asm!("
+            loop dest
             nop
             nop
             nop
@@ -112,7 +116,8 @@ mod tests {
   fn detour_rip_relative_pos() -> Result<()> {
     #[naked]
     unsafe extern "C" fn rip_relative_ret195() -> i32 {
-      asm!("xor eax, eax
+      llvm_asm!("
+            xor eax, eax
             mov al, [rip+0x3]
             nop
             nop
@@ -130,7 +135,8 @@ mod tests {
   fn detour_rip_relative_neg() -> Result<()> {
     #[naked]
     unsafe extern "C" fn rip_relative_prolog_ret49() -> i32 {
-      asm!("xor eax, eax
+      llvm_asm!("
+            xor eax, eax
             mov al, [rip-0x8]
             ret"
             :::: "intel");

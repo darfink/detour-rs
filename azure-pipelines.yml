@@ -1,6 +1,3 @@
-trigger:
-- master
-
 stages:
   - stage: test
     displayName: Test
@@ -9,17 +6,13 @@ stages:
       parameters:
         channels: [nightly]
         targets:
-          # Targets are specified as arrays (due to missing 'split' function in
-          # azure) so 'join' can be used for defining alpha numeric job names,
-          # whilst also being used for specifying the rust target triple.
-          #- target: [i686, pc, windows, gnu]
-          - target: [i686, pc, windows, msvc]
-          - target: [x86_64, pc, windows, msvc]
-          #- target: [x86_64, pc, windows, gnu]
-          - target: [i686, apple, darwin]
-          - target: [x86_64, apple, darwin]
-          - target: [i686, unknown, linux, gnu]
+          - target: 'i686-pc-windows-msvc'
+          - target: 'x86_64-pc-windows-msvc'
+          - target: 'x86_64-pc-windows-gnu'
+          - target: 'i686-apple-darwin'
+          - target: 'x86_64-apple-darwin'
+          - target: 'i686-unknown-linux-gnu'
             preSteps:
             - script: sudo apt-get update && sudo apt-get install gcc-multilib
               displayName: Install GCC 32-bit libs
-          - target: [x86_64, unknown, linux, gnu]
+          - target: 'x86_64-unknown-linux-gnu'

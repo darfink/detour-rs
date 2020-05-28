@@ -12,7 +12,7 @@ jobs:
     - ${{ each channel in target.channels }}:
       - template: cargo-job.yml
         parameters:
-          identifier: ${{ format('rust_{0}_{1}', channel, join('_', target.target)) }}
+          identifier: ${{ format('rust_{0}_{1}', channel, replace(target.target, '-', '_')) }}
           channel: ${{ channel }}
           ${{ insert }}: ${{ target }}
 
@@ -20,6 +20,6 @@ jobs:
     - ${{ each channel in parameters.channels }}:
       - template: cargo-job.yml
         parameters:
-          identifier: ${{ format('rust_{0}_{1}', channel, join('_', target.target)) }}
+          identifier: ${{ format('rust_{0}_{1}', channel, replace(target.target, '-', '_')) }}
           channel: ${{ channel }}
           ${{ insert }}: ${{ target }}

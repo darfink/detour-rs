@@ -20,31 +20,31 @@ parameters:
     displayName: Cargo test
 
 jobs:
-- job: ${{ coalesce(parameters.identifier, format('rust_{0}_{1}', parameters.channel, join('_', parameters.target))) }}
-  displayName: ${{ coalesce(parameters.displayName, format('{0}-{1}', parameters.channel, join('-', parameters.target))) }}
+- job: ${{ coalesce(parameters.identifier, format('rust_{0}_{1}', parameters.channel, replace(parameters.target, '-', '_'))) }}
+  displayName: ${{ coalesce(parameters.displayName, format('{0}-{1}', parameters.channel, parameters.target)) }}
   variables:
     ${{ if eq(parameters.cross, 'true') }}:
       toolchain: ${{ parameters.channel }}
       cargo: cross
     ${{ if not(eq(parameters.cross, 'true')) }}:
-      toolchain: ${{ format('{0}-{1}', parameters.channel, join('-', parameters.target)) }}
+      toolchain: ${{ format('{0}-{1}', parameters.channel, parameters.target) }}
       cargo: cargo
   pool:
-    ${{ if containsValue(parameters.target, 'windows') }}:
+    ${{ if contains(parameters.target, 'windows') }}:
       vmImage: 'vs2017-win2016'
-    ${{ if containsValue(parameters.target, 'apple') }}:
-      vmImage: 'macos-10.13'
-    ${{ if containsValue(parameters.target, 'linux') }}:
+    ${{ if contains(parameters.target, 'apple') }}:
+      vmImage: 'macos-10.14'
+    ${{ if contains(parameters.target, 'linux') }}:
       vmImage: 'ubuntu-16.04'
   steps:
-  - ${{ if containsValue(parameters.target, 'windows') }}:
+  - ${{ if contains(parameters.target, 'windows') }}:
     - script: |
         curl -sSf -o rustup-init.exe https://win.rustup.rs
         rustup-init.exe -y --default-toolchain=none
         rustup default $(toolchain)
         echo "##vso[task.setvariable variable=PATH;]%PATH%;%USERPROFILE%\.cargo\bin"
       displayName: Install rust
-  - ${{ if not(containsValue(parameters.target, 'windows')) }}:
+  - ${{ if not(contains(parameters.target, 'windows')) }}:
     - script: |
         curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain=none
         PATH="$PATH:$HOME/.cargo/bin" rustup default $(toolchain)
@@ -52,15 +52,7 @@ jobs:
       displayName: Install rust
   - ${{ if eq(parameters.cross, 'true') }}:
     - script: |
-        git config --global user.email "foo@bar"
-        git config --global user.name "Placeholder"
-        git clone https://github.com/rust-embedded/cross
-        cd cross
-        git remote add pitkley https://github.com/pitkley/cross
-        git fetch pitkley
-        git checkout 718a19c
-        git merge -m "No pseudo tty" pitkley/docker-no-pseudo-tty
-        cargo install --force --path .
+        cargo install cross
       displayName: Install cross
   - ${{ parameters.preSteps }}
   - script: |
@@ -72,6 +64,6 @@ jobs:
     - ${{ each pair in step }}:
         ${{ pair.key }}: ${{ pair.value }}
       env:
-        TARGET: ${{ join('-', parameters.target) }}
+        TARGET: ${{ parameters.target }}
         CARGO: $(cargo)
   - ${{ parameters.postSteps }}

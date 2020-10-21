@@ -16,7 +16,7 @@ parameters:
   postSteps: []
   # List of cargo steps ($CARGO and $TARGET is injected via 'env')
   cargoSteps:
-  - bash: $CARGO test --target $TARGET --all
+  - bash: $CARGO test --target $TARGET
     displayName: Cargo test
 
 jobs:

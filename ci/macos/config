@@ -1,0 +1,11 @@
+[target.x86_64-apple-darwin]
+rustflags = [
+  "-C", "link-arg=-fuse-ld=/Users/runner/.cargo/ld-fix",
+  "-C", "link-arg=-Wl,-segprot,__TEXT,rwx,rx",
+]
+
+[build]
+rustdocflags = [
+  "-C", "link-arg=-fuse-ld=/Users/runner/.cargo/ld-fix",
+  "-C", "link-arg=-Wl,-segprot,__TEXT,rwx,rx",
+]

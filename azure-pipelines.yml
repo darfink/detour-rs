@@ -15,7 +15,10 @@ stages:
           - target: 'x86_64-pc-windows-msvc'
           - target: 'x86_64-pc-windows-gnu'
           # - target: 'i686-apple-darwin'
-          # - target: 'x86_64-apple-darwin'
+          - target: 'x86_64-apple-darwin'
+            preSteps:
+            - script: cp ./ci/macos/* ~/.cargo
+              displayName: Configure custom linker
           - target: 'i686-unknown-linux-gnu'
             preSteps:
             - script: sudo apt-get update && sudo apt-get install gcc-multilib

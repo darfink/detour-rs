@@ -1,0 +1,45 @@
+#!/usr/bin/python2
+import argparse
+import sys
+import subprocess
+from itertools import takewhile
+from macholib import MachO, ptypes
+
+def parse_rwx(text):
+    return ('r' in text and 1) | ('w' in text and 2) | ('x' in text and 4)
+
+
+def apply_maxprots(path, maxprots):
+    mach = MachO.MachO(path)
+    header = mach.headers[0]
+    offset = ptypes.sizeof(header.mach_header)
+
+    for cload, ccmd, cdata in header.commands:
+        if not hasattr(ccmd, 'segname'): break
+
+        segname = ccmd.segname.to_str().strip(chr(0))
+
+        if segname in maxprots and ccmd.maxprot != maxprots[segname]:
+            fields = takewhile(lambda (n, _): n != 'maxprot', cload._fields_ + ccmd._fields_)
+            index = offset + sum(ptypes.sizeof(typ) for _, typ in fields)
+
+            with open(path, 'r+b') as fh:
+                fh.seek(index)
+                fh.write(chr(maxprots[segname]))
+
+        offset += cload.cmdsize
+
+
+try:
+    subprocess.check_call(['/usr/bin/ld'] + sys.argv[1:])
+except subprocess.CalledProcessError as ex:
+    sys.exit(ex.returncode)
+
+parser = argparse.ArgumentParser()
+parser.add_argument('-o', default='a.out')
+parser.add_argument('-segprot', nargs=3, action='append')
+args, _ = parser.parse_known_args()
+
+if args.segprot:
+    segprots = {segment: parse_rwx(maxprot) for segment, maxprot, _ in args.segprot}
+    apply_maxprots(args.o, segprots)

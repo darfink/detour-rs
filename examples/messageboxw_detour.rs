@@ -3,12 +3,12 @@
 //!
 //! Ensure the crate is compiled as a 'cdylib' library to allow C interop.
 use detour::static_detour;
-use kernel32::{GetModuleHandleW, GetProcAddress};
 use std::error::Error;
 use std::{ffi::CString, iter, mem};
 use winapi::ctypes::c_int;
 use winapi::shared::minwindef::{BOOL, DWORD, HINSTANCE, LPVOID, TRUE, UINT};
 use winapi::shared::windef::HWND;
+use winapi::um::libloaderapi::{GetModuleHandleW, GetProcAddress};
 use winapi::um::winnt::{DLL_PROCESS_ATTACH, LPCWSTR};
 
 static_detour! {

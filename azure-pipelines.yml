@@ -13,6 +13,7 @@ stages:
             - bash: $CARGO test --target $TARGET --all --no-default-features
               displayName: Cargo test
           - target: 'x86_64-pc-windows-msvc'
+          # - target: 'i686-pc-windows-gnu'
           - target: 'x86_64-pc-windows-gnu'
           # - target: 'i686-apple-darwin'
           - target: 'x86_64-apple-darwin'
@@ -24,3 +25,10 @@ stages:
             - script: sudo apt-get update && sudo apt-get install gcc-multilib
               displayName: Install GCC 32-bit libs
           - target: 'x86_64-unknown-linux-gnu'
+          - target: 'x86_64-unknown-linux-gnu'
+            channels: [stable]
+            cargoSteps:
+            - bash: $CARGO test --target $TARGET --all --no-default-features
+              displayName: Cargo test
+          - target: 'x86_64-unknown-linux-musl'
+            cross: true

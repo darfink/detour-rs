@@ -20,8 +20,20 @@ default.
 
 ## Platforms
 
-- `x86/x64`: Windows, Linux & macOS.
-- `ARM`: Not implemented, but foundation exists.
+This library provides CI for these targets:
+
+- Linux
+  * `i686-unknown-linux-gnu`
+  * `x86_64-unknown-linux-gnu`
+  * `x86_64-unknown-linux-musl`
+- Windows
+  * `i686-pc-windows-gnu`
+  * `i686-pc-windows-msvc`
+  * `x86_64-pc-windows-gnu`
+  * `x86_64-pc-windows-msvc`
+- macOS
+  * ~~`i686-apple-darwin`~~
+  * `x86_64-apple-darwin`
 
 ## Installation
 

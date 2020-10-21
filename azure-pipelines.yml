@@ -9,7 +9,7 @@ stages:
           - target: 'i686-pc-windows-msvc'
           - target: 'x86_64-pc-windows-msvc'
           - target: 'x86_64-pc-windows-gnu'
-          - target: 'i686-apple-darwin'
+          # - target: 'i686-apple-darwin'
           - target: 'x86_64-apple-darwin'
           - target: 'i686-unknown-linux-gnu'
             preSteps:

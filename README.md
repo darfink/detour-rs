@@ -1,9 +1,13 @@
-detour-rs
-=========
+<div align="center">
+
+# `detour-rs`
+
 [![Azure build Status][azure-shield]][azure]
 [![crates.io version][crate-shield]][crate]
 [![Documentation][docs-shield]][docs]
 [![Language (Rust)][rust-shield]][rust]
+
+</div>
 
 This is a cross-platform detour library developed in Rust. Beyond the basic
 functionality, this library handles branch redirects, RIP-relative

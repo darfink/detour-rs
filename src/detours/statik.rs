@@ -105,7 +105,7 @@ impl<T: Function> StaticDetour<T> {
     D: Fn<T::Arguments, Output = T::Output> + Send + 'static
   {
     let mut detour = Box::new(GenericDetour::new(target, self.ffi)?);
-    if !self.detour.compare_and_swap(ptr::null_mut(), &mut *detour, Ordering::SeqCst).is_null() {
+    if self.detour.compare_exchange(ptr::null_mut(), &mut *detour, Ordering::SeqCst, Ordering::SeqCst).is_err() {
       Err(Error::AlreadyInitialized)?;
     }
 

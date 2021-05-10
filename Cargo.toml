@@ -8,7 +8,7 @@ license = "BSD-2-Clause"
 name = "detour"
 readme = "README.md"
 repository = "https://github.com/darfink/detour-rs"
-version = "0.7.1"
+version = "0.8.0"
 edition = "2018"
 
 [badges]

@@ -11,10 +11,10 @@ mod trampoline;
 // TODO: Add test for negative branch displacements
 #[cfg(all(feature = "nightly", test))]
 mod tests {
-  use std::mem;
-  use matches::assert_matches;
   use crate::error::{Error, Result};
   use crate::RawDetour;
+  use matches::assert_matches;
+  use std::mem;
 
   /// Default test case function definition.
   type CRet = unsafe extern "C" fn() -> i32;
@@ -40,7 +40,8 @@ mod tests {
   fn detour_relative_branch() -> Result<()> {
     #[naked]
     unsafe extern "C" fn branch_ret5() -> i32 {
-      asm!("
+      asm!(
+        "
             xor eax, eax
             je ret5
             mov eax, 2
@@ -48,7 +49,9 @@ mod tests {
           ret5:
             mov eax, 5
           done:
-            ret", options(noreturn));
+            ret",
+        options(noreturn)
+      );
     }
 
     unsafe { detour_test(mem::transmute(branch_ret5 as usize), 5) }
@@ -58,7 +61,8 @@ mod tests {
   fn detour_hotpatch() -> Result<()> {
     #[naked]
     unsafe extern "C" fn hotpatch_ret0() -> i32 {
-      asm!("
+      asm!(
+        "
             nop
             nop
             nop
@@ -66,7 +70,9 @@ mod tests {
             nop
             xor eax, eax
             ret
-            mov eax, 5", options(noreturn));
+            mov eax, 5",
+        options(noreturn)
+      );
     }
 
     unsafe { detour_test(mem::transmute(hotpatch_ret0 as usize + 5), 0) }
@@ -76,12 +82,15 @@ mod tests {
   fn detour_padding_after() -> Result<()> {
     #[naked]
     unsafe extern "C" fn padding_after_ret0() -> i32 {
-      asm!("
+      asm!(
+        "
             mov edi, edi
             xor eax, eax
             ret
             nop
-            nop", options(noreturn));
+            nop",
+        options(noreturn)
+      );
     }
 
     unsafe { detour_test(mem::transmute(padding_after_ret0 as usize + 2), 0) }
@@ -91,15 +100,19 @@ mod tests {
   fn detour_external_loop() {
     #[naked]
     unsafe extern "C" fn external_loop() -> i32 {
-      asm!("
+      asm!(
+        "
             loop dest
             nop
             nop
             nop
-            dest:", options(noreturn));
+            dest:",
+        options(noreturn)
+      );
     }
 
-    let error = unsafe { RawDetour::new(external_loop as *const (), ret10 as *const ()) }.unwrap_err();
+    let error =
+      unsafe { RawDetour::new(external_loop as *const (), ret10 as *const ()) }.unwrap_err();
     assert_matches!(error, Error::UnsupportedInstruction);
   }
 
@@ -108,13 +121,16 @@ mod tests {
   fn detour_rip_relative_pos() -> Result<()> {
     #[naked]
     unsafe extern "C" fn rip_relative_ret195() -> i32 {
-      asm!("
+      asm!(
+        "
             xor eax, eax
             mov al, [rip+0x3]
             nop
             nop
             nop
-            ret", options(noreturn));
+            ret",
+        options(noreturn)
+      );
     }
 
     unsafe { detour_test(rip_relative_ret195, 195) }
@@ -125,10 +141,13 @@ mod tests {
   fn detour_rip_relative_neg() -> Result<()> {
     #[naked]
     unsafe extern "C" fn rip_relative_prolog_ret49() -> i32 {
-      asm!("
+      asm!(
+        "
             xor eax, eax
             mov al, [rip-0x8]
-            ret", options(noreturn));
+            ret",
+        options(noreturn)
+      );
     }
 
     unsafe { detour_test(rip_relative_prolog_ret49, 49) }

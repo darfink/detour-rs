@@ -1,7 +1,7 @@
-use std::{mem, slice};
+use super::thunk;
 use crate::error::{Error, Result};
 use crate::{pic, util};
-use super::thunk;
+use std::{mem, slice};
 
 pub struct Patcher {
   patch_area: &'static mut [u8],
@@ -47,7 +47,8 @@ impl Patcher {
     });
   }
 
-  /// Returns the patch area for a function, consisting of a long jump and possibly a short jump.
+  /// Returns the patch area for a function, consisting of a long jump and
+  /// possibly a short jump.
   unsafe fn patch_area(target: *const (), prolog_size: usize) -> Result<&'static mut [u8]> {
     let jump_rel08_size = mem::size_of::<thunk::x86::JumpShort>();
     let jump_rel32_size = mem::size_of::<thunk::x86::JumpRel>();

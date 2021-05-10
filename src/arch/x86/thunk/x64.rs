@@ -1,5 +1,5 @@
-use std::mem;
 use crate::pic::Thunkable;
+use std::mem;
 
 #[repr(packed)]
 struct CallAbs {

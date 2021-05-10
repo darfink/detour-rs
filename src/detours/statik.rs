@@ -1,7 +1,7 @@
-use std::{mem, ptr};
-use std::sync::atomic::{AtomicPtr, Ordering};
 use crate::error::{Error, Result};
-use crate::{GenericDetour, Function};
+use crate::{Function, GenericDetour};
+use std::sync::atomic::{AtomicPtr, Ordering};
+use std::{mem, ptr};
 
 /// A type-safe static detour.
 ///
@@ -15,7 +15,8 @@ use crate::{GenericDetour, Function};
 /// fn call(&self, T::Arguments) -> T::Output
 /// ```
 ///
-/// To define a static detour, use the [static_detour](./macro.static_detour.html) macro.
+/// To define a static detour, use the
+/// [static_detour](./macro.static_detour.html) macro.
 ///
 /// # Example
 ///
@@ -102,10 +103,19 @@ impl<T: Function> StaticDetour<T> {
   /// ```
   pub unsafe fn initialize<D>(&self, target: T, closure: D) -> Result<&Self>
   where
-    D: Fn<T::Arguments, Output = T::Output> + Send + 'static
+    D: Fn<T::Arguments, Output = T::Output> + Send + 'static,
   {
     let mut detour = Box::new(GenericDetour::new(target, self.ffi)?);
-    if self.detour.compare_exchange(ptr::null_mut(), &mut *detour, Ordering::SeqCst, Ordering::SeqCst).is_err() {
+    if self
+      .detour
+      .compare_exchange(
+        ptr::null_mut(),
+        &mut *detour,
+        Ordering::SeqCst,
+        Ordering::SeqCst,
+      )
+      .is_err()
+    {
       Err(Error::AlreadyInitialized)?;
     }
 
@@ -116,17 +126,29 @@ impl<T: Function> StaticDetour<T> {
 
   /// Enables the detour.
   pub unsafe fn enable(&self) -> Result<()> {
-    self.detour.load(Ordering::SeqCst).as_ref().ok_or(Error::NotInitialized)?.enable()
+    self
+      .detour
+      .load(Ordering::SeqCst)
+      .as_ref()
+      .ok_or(Error::NotInitialized)?
+      .enable()
   }
 
   /// Disables the detour.
   pub unsafe fn disable(&self) -> Result<()> {
-    self.detour.load(Ordering::SeqCst).as_ref().ok_or(Error::NotInitialized)?.disable()
+    self
+      .detour
+      .load(Ordering::SeqCst)
+      .as_ref()
+      .ok_or(Error::NotInitialized)?
+      .disable()
   }
 
   /// Returns whether the detour is enabled or not.
   pub fn is_enabled(&self) -> bool {
-    unsafe { self.detour.load(Ordering::SeqCst).as_ref() }.map(|detour| detour.is_enabled()).unwrap_or(false)
+    unsafe { self.detour.load(Ordering::SeqCst).as_ref() }
+      .map(|detour| detour.is_enabled())
+      .unwrap_or(false)
   }
 
   /// Changes the detour, regardless of whether the hook is enabled or not.
@@ -134,7 +156,9 @@ impl<T: Function> StaticDetour<T> {
   where
     C: Fn<T::Arguments, Output = T::Output> + Send + 'static,
   {
-    let previous = self.closure.swap(Box::into_raw(Box::new(Box::new(closure))), Ordering::SeqCst);
+    let previous = self
+      .closure
+      .swap(Box::into_raw(Box::new(Box::new(closure))), Ordering::SeqCst);
     if !previous.is_null() {
       mem::drop(unsafe { Box::from_raw(previous) });
     }
@@ -142,7 +166,11 @@ impl<T: Function> StaticDetour<T> {
 
   /// Returns a reference to the generated trampoline.
   pub(crate) fn trampoline(&self) -> Result<&()> {
-    Ok(unsafe { self.detour.load(Ordering::SeqCst).as_ref() }.ok_or(Error::NotInitialized)?.trampoline())
+    Ok(
+      unsafe { self.detour.load(Ordering::SeqCst).as_ref() }
+        .ok_or(Error::NotInitialized)?
+        .trampoline(),
+    )
   }
 
   /// Returns a transient reference to the active detour.

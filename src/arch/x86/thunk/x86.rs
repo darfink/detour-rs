@@ -1,6 +1,6 @@
-use std::mem;
-use generic_array::{typenum, GenericArray};
 use crate::pic::{FixedThunk, Thunkable};
+use generic_array::{typenum, GenericArray};
+use std::mem;
 
 #[repr(packed)]
 pub struct JumpRel {

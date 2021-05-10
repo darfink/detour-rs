@@ -2,7 +2,7 @@
 ///
 /// The current implementation requires a module to expose some functionality:
 ///
-/// - A standalone `relay_builder` function.  
+/// - A standalone `relay_builder` function.
 /// This function creates a relay for targets with large displacement, that
 /// requires special attention. An example would be detours further away than
 /// 2GB on x64. A relative jump is not enough, so the `relay_builder`

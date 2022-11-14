@@ -1,5 +1,12 @@
 #![recursion_limit = "1024"]
-#![cfg_attr(feature = "nightly", feature(unboxed_closures, abi_thiscall))]
+#![cfg_attr(
+  feature = "nightly",
+<<<<<<< HEAD
+  feature(unboxed_closures, abi_thiscall, tuple_trait)
+=======
+  feature(const_fn, const_fn_trait_bound, unboxed_closures, abi_thiscall)
+>>>>>>> parent of 3b6f17a (Remove obsolete const_fn feature gate on nightly)
+)]
 #![cfg_attr(
   all(feature = "nightly", test),
   feature(naked_functions, core_intrinsics)

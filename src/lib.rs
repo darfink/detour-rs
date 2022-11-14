@@ -2,7 +2,7 @@
 #![cfg_attr(feature = "nightly", feature(unboxed_closures, abi_thiscall))]
 #![cfg_attr(
   all(feature = "nightly", test),
-  feature(naked_functions, core_intrinsics, asm)
+  feature(naked_functions, core_intrinsics)
 )]
 
 //! A cross-platform detour library written in Rust.

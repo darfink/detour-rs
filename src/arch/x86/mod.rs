@@ -46,10 +46,10 @@ mod tests {
             xor eax, eax
             je 5f
             mov eax, 2
-            jmp 1f
+            jmp 2f
           5:
             mov eax, 5
-          1:
+          2:
             ret",
         options(noreturn)
       );
@@ -103,11 +103,11 @@ mod tests {
     unsafe extern "C" fn external_loop() -> i32 {
       asm!(
         "
-            loop 1f
+            loop 2f
             nop
             nop
             nop
-            1:",
+            2:",
         options(noreturn)
       );
     }

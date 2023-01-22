@@ -49,17 +49,18 @@ impl Iterator for FreeRegionIter {
     let page_size = region::page::size();
 
     while self.current > 0 && self.range.contains(&self.current) {
-      match region::query(self.current as *const _) {
+      match region::query(self.current as *const usize) {
         Ok(region) => {
+          let range = region.as_range();
           self.current = match self.search {
-            SearchDirection::Before => region.lower().saturating_sub(page_size),
-            SearchDirection::After => region.upper(),
+            SearchDirection::Before => range.start.saturating_sub(page_size),
+            SearchDirection::After => range.end,
           }
         },
         Err(error) => {
           // Check whether the region is free, otherwise return the error
           let result = Some(match error {
-            region::Error::FreeMemory => Ok(self.current as *const _),
+            region::Error::UnmappedRegion => Ok(self.current as *const _),
             inner => Err(Error::RegionFailure(inner)),
           });
 

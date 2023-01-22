@@ -17,14 +17,14 @@ azure-devops = { project = "darfink/detour-rs", pipeline = "darfink.detour-rs" }
 [dependencies]
 cfg-if = "1.0.0"
 generic-array = "0.14.1"
-lazy_static = "1.2"
+lazy_static = "1.4"
 libc = "0.2.45"
-mmap = { package = "mmap-fixed", version = "0.1.0" }
-region = "2.0.0"
+mmap = { package = "mmap-fixed-fixed", version = "0.1.0" }
+region = "3.0.0"
 slice-pool = "0.4.1"
 
 [dev-dependencies]
-matches = "0.1.8"
+matches = "0.1.10"
 
 [features]
 default = ["nightly"]
@@ -38,4 +38,4 @@ crate-type = ["cdylib"]
 udis = { package = "libudis86-sys", version = "0.2.1" }
 
 [target."cfg(windows)".dev-dependencies]
-winapi = { version = "0.3.7", features = ["minwindef", "windef", "winnt", "libloaderapi"] }
+winapi = { version = "0.3.9", features = ["minwindef", "windef", "winnt", "libloaderapi"] }

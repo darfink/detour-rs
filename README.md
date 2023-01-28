@@ -1,13 +1,13 @@
 <div align="center">
 
-# `detour-rs`
+# `detour-fork` name TBD
 
-[![Azure build Status][azure-shield]][azure]
-[![crates.io version][crate-shield]][crate]
-[![Documentation][docs-shield]][docs]
 [![Language (Rust)][rust-shield]][rust]
 
 </div>
+(Fork of original detour-rs that works on nightly after nightly-2022-11-07, 
+which added additional trait bounds to Fn-family traits)
+
 
 This is a cross-platform detour library developed in Rust. Beyond the basic
 functionality, this library handles branch redirects, RIP-relative
@@ -45,7 +45,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-detour = "0.8.0"
+detour = {git = "https://github.com/Hpmason/detour-rs.git"}
 ```
 
 ## Example
@@ -131,13 +131,7 @@ derivative code of his work.
   trailing `NOP` instructions will be replaced, to make room for the detour.*
 
 <!-- Links -->
-[azure-shield]: https://img.shields.io/azure-devops/build/darfink/detour-rs/2/master?label=Azure%20Pipelines&logo=azure-pipelines&style=flat-square
-[azure]: https://dev.azure.com/darfink/detour-rs/_build/latest?definitionId=1&branchName=master
-[crate-shield]: https://img.shields.io/crates/v/detour.svg?style=flat-square
-[crate]: https://crates.io/crates/detour
 [rust-shield]: https://img.shields.io/badge/powered%20by-rust-blue.svg?style=flat-square
 [rust]: https://www.rust-lang.org
-[docs-shield]: https://img.shields.io/badge/docs-crates-green.svg?style=flat-square
-[docs]: https://docs.rs/detour/
 [minhook-author]: https://github.com/Jascha-N
 [minhook]: https://github.com/Jascha-N/minhook-rs/

@@ -4,7 +4,7 @@ use crate::error::Result;
 pub fn is_executable_address(address: *const ()) -> Result<bool> {
   Ok(
     region::query(address as *const _)?
-      .protection
+      .protection()
       .contains(region::Protection::EXECUTE),
   )
 }

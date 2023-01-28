@@ -1,30 +1,31 @@
 [package]
-authors = ["Elliott Linder <elliott.darfink@gmail.com>"]
+authors = ["Mason Ginter <mason@dagint.com>", "Elliott Linder <elliott.darfink@gmail.com>"]
 description = "A cross-platform detour library written in Rust"
-documentation = "https://docs.rs/detour"
-homepage = "https://github.com/darfink/detour-rs"
+# TODO: change doc site once auto-generating docs
+# documentation = "https://docs.rs/detour"
+homepage = "https://github.com/Hpmason/detour-rs"
 keywords = ["detour", "hook", "function", "api", "redirect"]
 license = "BSD-2-Clause"
-name = "detour"
+name = "detour-fork" # TODO: come up with another name before publishing
 readme = "README.md"
-repository = "https://github.com/darfink/detour-rs"
-version = "0.8.0"
+repository = "https://github.com/Hpmason/detour-rs"
+version = "0.1.0"
 edition = "2018"
 
-[badges]
-azure-devops = { project = "darfink/detour-rs", pipeline = "darfink.detour-rs" }
+# [badges]
+# azure-devops = { project = "darfink/detour-rs", pipeline = "darfink.detour-rs" }
 
 [dependencies]
 cfg-if = "1.0.0"
 generic-array = "0.14.1"
-lazy_static = "1.2"
+lazy_static = "1.4"
 libc = "0.2.45"
-mmap = { package = "mmap-fixed", version = "0.1.0" }
-region = "2.0.0"
+mmap = { package = "mmap-fixed-fixed", version = "0.1.0" }
+region = "3.0.0"
 slice-pool = "0.4.1"
 
 [dev-dependencies]
-matches = "0.1.8"
+matches = "0.1.10"
 
 [features]
 default = ["nightly"]
@@ -38,4 +39,4 @@ crate-type = ["cdylib"]
 udis = { package = "libudis86-sys", version = "0.2.1" }
 
 [target."cfg(windows)".dev-dependencies]
-winapi = { version = "0.3.7", features = ["minwindef", "windef", "winnt", "libloaderapi"] }
+winapi = { version = "0.3.9", features = ["minwindef", "windef", "winnt", "libloaderapi"] }

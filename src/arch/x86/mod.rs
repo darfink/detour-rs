@@ -14,6 +14,7 @@ mod tests {
   use crate::error::{Error, Result};
   use crate::RawDetour;
   use matches::assert_matches;
+  use std::arch::asm;
   use std::mem;
 
   /// Default test case function definition.
@@ -43,12 +44,12 @@ mod tests {
       asm!(
         "
             xor eax, eax
-            je ret5
+            je 5f
             mov eax, 2
-            jmp done
-          ret5:
+            jmp 2f
+          5:
             mov eax, 5
-          done:
+          2:
             ret",
         options(noreturn)
       );
@@ -102,11 +103,11 @@ mod tests {
     unsafe extern "C" fn external_loop() -> i32 {
       asm!(
         "
-            loop dest
+            loop 2f
             nop
             nop
             nop
-            dest:",
+            2:",
         options(noreturn)
       );
     }

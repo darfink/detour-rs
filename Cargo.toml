@@ -1,18 +1,19 @@
 [package]
-authors = ["Elliott Linder <elliott.darfink@gmail.com>"]
+authors = ["Mason Ginter <mason@dagint.com>", "Elliott Linder <elliott.darfink@gmail.com>"]
 description = "A cross-platform detour library written in Rust"
-documentation = "https://docs.rs/detour"
-homepage = "https://github.com/darfink/detour-rs"
+# TODO: change doc site once auto-generating docs
+# documentation = "https://docs.rs/detour"
+homepage = "https://github.com/Hpmason/detour-rs"
 keywords = ["detour", "hook", "function", "api", "redirect"]
 license = "BSD-2-Clause"
-name = "detour"
+name = "detour-fork" # TODO: come up with another name before publishing
 readme = "README.md"
-repository = "https://github.com/darfink/detour-rs"
-version = "0.8.0"
+repository = "https://github.com/Hpmason/detour-rs"
+version = "0.1.0"
 edition = "2018"
 
-[badges]
-azure-devops = { project = "darfink/detour-rs", pipeline = "darfink.detour-rs" }
+# [badges]
+# azure-devops = { project = "darfink/detour-rs", pipeline = "darfink.detour-rs" }
 
 [dependencies]
 cfg-if = "1.0.0"

@@ -5,6 +5,7 @@
 [![Language (Rust)][rust-shield]][rust]
 
 </div>
+
 (Fork of original [detour-rs](https://github.com/darfink/detour-rs) that works on nightly after nightly-2022-11-07, 
 which added additional trait bounds to Fn-family traits)
 

@@ -47,7 +47,7 @@ jobs:
       #   run: sudo apt-get install musl-tools
       
       # Windows mingw 64bit
-      - if: matrix.target.triple == 'i686-pc-windows-gnu' || matrix.target.triple == 'x86_64-pc-windows-gnu'
+      - if: matrix.target.triple == 'x86_64-pc-windows-gnu'
         name: Set up MinGW
         uses: egor-tensin/setup-mingw@v2
         with:

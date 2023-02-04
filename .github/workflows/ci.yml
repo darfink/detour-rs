@@ -1,0 +1,66 @@
+name: Cargo Check/Tests
+
+on:
+  - push
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        toolchain: [nightly]
+        target:
+          - os: windows-latest
+            triple: i686-pc-windows-msvc
+          - os: windows-latest
+            triple: x86_64-pc-windows-msvc
+          - os: windows-latest
+            triple: i686-pc-windows-gnu
+          - os: windows-latest
+            triple: x86_64-pc-windows-gnu
+          
+          - os: ubuntu-latest
+            triple: x86_64-unknown-linux-gnu
+          # - os: ubuntu-latest
+          #   triple: x86_64-unknown-linux-musl
+          #   rustflags: RUSTFLAGS="-C target-feature=-crt-static"
+          - os: ubuntu-latest
+            triple: i686-unknown-linux-gnu
+          
+          # - os: macos-latest
+          #   triple: i686-apple-darwin
+          # - os: macos-latest
+          #   triple: x86_64-apple-darwin
+
+    runs-on: ${{ matrix.target.os }}
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          targets: ${{ matrix.target.triple }}
+      # Install linux deps
+      - if: matrix.target.os == 'ubuntu-latest'
+        run: sudo apt-get install gcc-multilib
+      # Install linux deps
+      # - if: matrix.target.triple == 'x86_64-unknown-linux-musl'
+      #   run: sudo apt-get install musl-tools
+      
+      # Windows mingw 64bit
+      - if: matrix.target.triple == 'i686-pc-windows-gnu' || matrix.target.triple == 'x86_64-pc-windows-gnu'
+        name: Set up MinGW
+        uses: egor-tensin/setup-mingw@v2
+        with:
+          platform: x64
+      # Windows mingw 32bit
+      - if: matrix.target.triple == 'i686-pc-windows-gnu'
+        name: Set up MinGW
+        uses: egor-tensin/setup-mingw@v2
+        with:
+          platform: x86
+      
+      - name: Cargo Check
+        run: ${{ matrix.target.rustflags }} cargo check --target ${{ matrix.target.triple }} --all-features
+      
+      - name: Cargo tests
+        run: ${{ matrix.target.rustflags }} cargo test --target ${{ matrix.target.triple }} --all-features

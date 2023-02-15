@@ -46,7 +46,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-retour = {git = "https://github.com/Hpmason/retour-rs.git"}
+retour = "0.1"
 ```
 
 ## Example

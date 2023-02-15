@@ -2,7 +2,7 @@
 //! A `MessageBoxW` detour example.
 //!
 //! Ensure the crate is compiled as a 'cdylib' library to allow C interop.
-use detour::static_detour;
+use retour::static_detour;
 use std::error::Error;
 use std::{ffi::CString, iter, mem};
 use winapi::ctypes::c_int;

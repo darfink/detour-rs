@@ -23,7 +23,7 @@ use std::{mem, ptr};
 ///
 /// ```rust
 /// use std::error::Error;
-/// use detour::static_detour;
+/// use retour::static_detour;
 ///
 /// static_detour! {
 ///   static Test: fn(i32) -> i32;
@@ -88,7 +88,7 @@ impl<T: Function> StaticDetour<T> {
   /// It returns `&self` to allow chaining initialization and activation:
   ///
   /// ```rust
-  /// # use detour::{Result, static_detour};
+  /// # use retour::{Result, static_detour};
   /// # static_detour! {
   /// #   static Test: fn(i32) -> i32;
   /// # }

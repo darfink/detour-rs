@@ -1,4 +1,4 @@
-use detour::Result;
+use retour::Result;
 use std::mem;
 
 type FnAdd = extern "C" fn(i32, i32) -> i32;
@@ -10,7 +10,7 @@ extern "C" fn sub_detour(x: i32, y: i32) -> i32 {
 
 mod raw {
   use super::*;
-  use detour::RawDetour;
+  use retour::RawDetour;
 
   #[test]
   fn test() -> Result<()> {
@@ -51,7 +51,7 @@ mod raw {
 
 mod generic {
   use super::*;
-  use detour::GenericDetour;
+  use retour::GenericDetour;
 
   #[test]
   fn test() -> Result<()> {
@@ -82,7 +82,7 @@ mod generic {
 #[cfg(feature = "nightly")]
 mod statik {
   use super::*;
-  use detour::static_detour;
+  use retour::static_detour;
 
   #[inline(never)]
   unsafe extern "C" fn add(x: i32, y: i32) -> i32 {

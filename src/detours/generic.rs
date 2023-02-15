@@ -17,8 +17,8 @@ use std::marker::PhantomData;
 /// # Example
 ///
 /// ```rust
-/// # use detour::Result;
-/// use detour::GenericDetour;
+/// # use retour::Result;
+/// use retour::GenericDetour;
 ///
 /// fn add5(val: i32) -> i32 {
 ///   val + 5

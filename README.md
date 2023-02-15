@@ -1,13 +1,13 @@
 <div align="center">
 
-# `detour` Fork
+# `retour` (a `detour` Fork)
 
 [![Language (Rust)][rust-shield]][rust]
 
 </div>
 
-(Fork of original [detour-rs](https://github.com/darfink/detour-rs) that works on nightly after nightly-2022-11-07, 
-which added additional trait bounds to Fn-family traits)
+(Fork of original [detour-rs](https://github.com/darfink/detour-rs) 
+that works on nightly after nightly-2022-11-07)
 
 
 This is a cross-platform detour library developed in Rust. Beyond the basic
@@ -46,7 +46,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-detour = {git = "https://github.com/Hpmason/detour-rs.git"}
+retour = {git = "https://github.com/Hpmason/retour-rs.git"}
 ```
 
 ## Example
@@ -55,7 +55,7 @@ detour = {git = "https://github.com/Hpmason/detour-rs.git"}
 
 ```rust
 use std::error::Error;
-use detour::static_detour;
+use retour::static_detour;
 
 static_detour! {
   static Test: /* extern "X" */ fn(i32) -> i32;
@@ -103,8 +103,11 @@ $ cargo build --example messageboxw_detour
 
 ## Mentions
 
+This is fork of the original [detour-rs][detour-rs] creator 
+[darfink][detour-rs-author] that put *so much* work into the original crate.
+
 Part of the library's external user interface was inspired by
-[minhook-rs][minhook], created by [Jascha-N][minhook], and it contains
+[minhook-rs][minhook], created by [Jascha-N][minhook-author], and it contains
 derivative code of his work.
 
 ## Appendix
@@ -136,3 +139,5 @@ derivative code of his work.
 [rust]: https://www.rust-lang.org
 [minhook-author]: https://github.com/Jascha-N
 [minhook]: https://github.com/Jascha-N/minhook-rs/
+[detour-rs]: https://github.com/darfink/detour-rs
+[detour-rs-author]: https://github.com/darfink

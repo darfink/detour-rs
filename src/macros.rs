@@ -17,7 +17,7 @@
 /// # Example
 ///
 /// ```rust
-/// # use detour::static_detour;
+/// # use retour::static_detour;
 /// static_detour! {
 ///   // The simplest detour
 ///   static Foo: fn();

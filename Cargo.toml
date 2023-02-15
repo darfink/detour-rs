@@ -1,14 +1,13 @@
 [package]
 authors = ["Mason Ginter <mason@dagint.com>", "Elliott Linder <elliott.darfink@gmail.com>"]
 description = "A cross-platform detour library written in Rust"
-# TODO: change doc site once auto-generating docs
-# documentation = "https://docs.rs/detour"
-homepage = "https://github.com/Hpmason/detour-rs"
+documentation = "https://docs.rs/retour"
+homepage = "https://github.com/Hpmason/retour-rs"
 keywords = ["detour", "hook", "function", "api", "redirect"]
 license = "BSD-2-Clause"
-name = "detour" # TODO: come up with another name before publishing
+name = "retour"
 readme = "README.md"
-repository = "https://github.com/Hpmason/detour-rs"
+repository = "https://github.com/Hpmason/retour-rs"
 version = "0.1.0"
 edition = "2018"
 

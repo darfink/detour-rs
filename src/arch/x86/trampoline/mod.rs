@@ -167,7 +167,7 @@ impl Builder {
         let index = instruction_bytes.len() - mem::size_of::<u32>();
 
         // Write the adjusted displacement offset to the operand
-        let as_bytes: [u8; 4] = mem::transmute(adjusted_displacement as u32);
+        let as_bytes: [u8; 4] = (adjusted_displacement as u32).to_ne_bytes();
         bytes[index..instruction_bytes.len()].copy_from_slice(&as_bytes);
         bytes
       },

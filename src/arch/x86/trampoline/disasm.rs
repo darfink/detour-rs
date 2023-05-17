@@ -89,14 +89,14 @@ impl Instruction {
 
   /// Returns true if this instruction any type of a loop.
   pub fn is_loop(&self) -> bool {
-    match self.mnemonic {
+    matches!(
+      self.mnemonic,
       udis::ud_mnemonic_code::UD_Iloop
-      | udis::ud_mnemonic_code::UD_Iloope
-      | udis::ud_mnemonic_code::UD_Iloopne
-      | udis::ud_mnemonic_code::UD_Ijecxz
-      | udis::ud_mnemonic_code::UD_Ijcxz => true,
-      _ => false,
-    }
+        | udis::ud_mnemonic_code::UD_Iloope
+        | udis::ud_mnemonic_code::UD_Iloopne
+        | udis::ud_mnemonic_code::UD_Ijecxz
+        | udis::ud_mnemonic_code::UD_Ijcxz
+    )
   }
 
   /// Returns true if this instruction is an unconditional jump.

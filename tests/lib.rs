@@ -24,7 +24,7 @@ mod raw {
         .expect("target or source is not usable for detouring");
 
       assert_eq!(add(10, 5), 15);
-      assert_eq!(hook.is_enabled(), false);
+      assert!(!hook.is_enabled());
 
       hook.enable()?;
       {
@@ -42,7 +42,7 @@ mod raw {
       hook.disable()?;
 
       // With the hook disabled, the function is restored
-      assert_eq!(hook.is_enabled(), false);
+      assert!(!hook.is_enabled());
       assert_eq!(add(10, 5), 15);
     }
     Ok(())

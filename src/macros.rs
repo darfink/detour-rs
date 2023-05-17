@@ -254,7 +254,7 @@ macro_rules! impl_hookable {
       }
 
       fn to_ptr(&self) -> *const () {
-        unsafe { ::std::mem::transmute(*self) }
+        *self as *const ()
       }
     }
   };

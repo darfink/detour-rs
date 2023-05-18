@@ -201,8 +201,6 @@ macro_rules! impl_hookable {
   };
 
   (@impl_unsafe ($($nm:ident : $ty:ident),*) ($target:ty) ($detour:ty)) => {
-    unsafe impl<Ret: 'static, $($ty: 'static),*> HookableWith<$detour> for $target {}
-
     #[cfg(feature = "nightly")]
     impl<Ret: 'static, $($ty: 'static),*> $crate::StaticDetour<$target> {
       #[doc(hidden)]

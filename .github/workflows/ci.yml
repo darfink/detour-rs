@@ -44,7 +44,7 @@ jobs:
           targets: ${{ matrix.target.triple }}
       # Install linux deps
       - if: matrix.target.os == 'ubuntu-latest'
-        run: sudo apt-get install gcc-multilib
+        run: sudo apt-get update && sudo apt-get install gcc-multilib
       # Install linux deps
       # - if: matrix.target.triple == 'x86_64-unknown-linux-musl'
       #   run: sudo apt-get install musl-tools

@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+  RUSTDOCFLAGS: -D warnings
+
+jobs:
+  test:
+    name: Test (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu }
+          - { os: ubuntu-latest, target: i686-unknown-linux-gnu, packages: gcc-multilib }
+          - { os: ubuntu-24.04-arm, target: aarch64-unknown-linux-gnu }
+          - { os: windows-latest, target: x86_64-pc-windows-msvc }
+          - { os: windows-latest, target: i686-pc-windows-msvc }
+          - { os: windows-latest, target: x86_64-pc-windows-gnu }
+          - { os: windows-11-arm, target: aarch64-pc-windows-msvc }
+          - { os: macos-latest, target: aarch64-apple-darwin }
+          # Runs under Rosetta 2
+          - { os: macos-latest, target: x86_64-apple-darwin }
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - if: matrix.packages
+        run: sudo apt-get update && sudo apt-get install -y ${{ matrix.packages }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+      - run: cargo test --target ${{ matrix.target }}
+      - run: cargo test --target ${{ matrix.target }} --release
+
+  cross:
+    name: Check (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - x86_64-unknown-freebsd
+          - x86_64-unknown-linux-musl
+          - aarch64-linux-android
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - run: cargo check --target ${{ matrix.target }} --all-targets
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+          targets: x86_64-pc-windows-msvc, aarch64-apple-darwin, aarch64-unknown-linux-gnu, i686-unknown-linux-gnu
+      - run: cargo fmt --check
+      - run: |
+          for target in x86_64-unknown-linux-gnu x86_64-pc-windows-msvc aarch64-apple-darwin aarch64-unknown-linux-gnu i686-unknown-linux-gnu; do
+            cargo clippy --target "$target" --all-targets
+          done
+      - run: cargo doc --no-deps
+
+  msrv:
+    name: MSRV
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@1.85
+      - run: cargo check --lib

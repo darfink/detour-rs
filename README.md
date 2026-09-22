@@ -2,42 +2,39 @@
 
 # `detour-rs`
 
-[![Azure build Status][azure-shield]][azure]
+[![CI status][ci-shield]][ci]
 [![crates.io version][crate-shield]][crate]
 [![Documentation][docs-shield]][docs]
 [![Language (Rust)][rust-shield]][rust]
 
 </div>
 
-This is a cross-platform detour library developed in Rust. Beyond the basic
-functionality, this library handles branch redirects, RIP-relative
-instructions, hot-patching, NOP-padded functions, and allows the original
-function to be called using a trampoline whilst hooked.
+This is a cross-platform detour (inline hooking) library developed in Rust.
+Beyond the basic functionality, this library handles branch redirects,
+RIP/PC-relative instructions, hot-patching, NOP-padded functions, and allows
+the original function to be called using a trampoline whilst hooked.
 
 This is one of few **cross-platform** detour libraries that exists, and to
 maintain this feature, not all desired functionality can be supported due to
 lack of cross-platform APIs. Therefore [EIP relocation](#appendix) is not
 supported.
 
-**NOTE**: Nightly is currently required for `static_detour!` and is enabled by
-default.
+The library works on **stable Rust** (1.85+).
 
 ## Platforms
 
-This library provides CI for these targets:
+| Architecture | Windows | Linux | macOS | Notes |
+|--------------|:-------:|:-----:|:-----:|-------|
+| `x86`        | ✓       | ✓     |       | Hot-patching, padding detection |
+| `x86-64`     | ✓       | ✓     | ✓     | Relays for detours beyond ±2 GiB |
+| `AArch64`    | ✓       | ✓     | ✓     | Relays for detours beyond ±128 MiB, BTI & PAC aware |
 
-- Linux
-  * `i686-unknown-linux-gnu`
-  * `x86_64-unknown-linux-gnu`
-  * `x86_64-unknown-linux-musl`
-- Windows
-  * `i686-pc-windows-gnu`
-  * `i686-pc-windows-msvc`
-  * `x86_64-pc-windows-gnu`
-  * `x86_64-pc-windows-msvc`
-- macOS
-  * ~~`i686-apple-darwin`~~
-  * `x86_64-apple-darwin`
+Other Unix-like systems (e.g. FreeBSD, Android) are expected to work, but are
+not tested in CI. Instruction relocation is powered by [`iced-x86`][iced] on
+x86; AArch64 uses a built-in relocator.
+
+WebAssembly is not supported, and cannot be: its code is neither addressable
+nor writable at runtime, which inline detouring fundamentally requires.
 
 ## Installation
 
@@ -45,7 +42,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-detour = "0.8.0"
+detour = "0.9.0"
 ```
 
 ## Example
@@ -60,6 +57,7 @@ static_detour! {
   static Test: /* extern "X" */ fn(i32) -> i32;
 }
 
+#[inline(never)]
 fn add5(val: i32) -> i32 {
   val + 5
 }
@@ -96,14 +94,28 @@ fn main() -> Result<(), Box<dyn Error>> {
 ```
 
 - A Windows API hooking example is available [here](./examples/messageboxw_detour.rs); build it by running:
-```
+```sh
 $ cargo build --example messageboxw_detour
 ```
+
+## Upgrading from 0.8
+
+- The `nightly` feature has been removed; all detours, including
+  `static_detour!`, work on stable Rust.
+- Static detour closures must be `Send + Sync`.
+- `RawDetour::trampoline` returns `*const ()` instead of `&()`.
+- `Error::RegionFailure` has been replaced by `Error::Memory(std::io::Error)`,
+  and `Error` is now `#[non_exhaustive]`.
+- Disabling a detour whose target has been modified since (e.g. by another,
+  later enabled, detour of the same target) fails with
+  `Error::TargetModified` instead of silently overwriting it.
+- `extern "cdecl"`, `"stdcall"`, `"fastcall"` & `"thiscall"` function
+  pointers are only supported on `x86`; `"win64"` & `"sysv64"` on `x86-64`.
 
 ## Mentions
 
 Part of the library's external user interface was inspired by
-[minhook-rs][minhook], created by [Jascha-N][minhook], and it contains
+[minhook-rs][minhook], created by [Jascha-N][minhook-author], and it contains
 derivative code of his work.
 
 ## Appendix
@@ -114,7 +126,8 @@ derivative code of his work.
   are being executed, simultaneously as the function itself is being
   detoured. This is done by halting all affected threads, copying the affected
   instructions and appending a `JMP` to return to the function. This is
-  barely ever an issue, and never in single-threaded environments, but YMMV.*
+  barely ever an issue, and never in single-threaded environments, but YMMV.
+  On AArch64, only a single instruction is replaced, which is atomic.*
 
 - *NOP-padding*
   ```c
@@ -131,13 +144,14 @@ derivative code of his work.
   trailing `NOP` instructions will be replaced, to make room for the detour.*
 
 <!-- Links -->
-[azure-shield]: https://img.shields.io/azure-devops/build/darfink/detour-rs/2/master?label=Azure%20Pipelines&logo=azure-pipelines&style=flat-square
-[azure]: https://dev.azure.com/darfink/detour-rs/_build/latest?definitionId=1&branchName=master
+[ci-shield]: https://img.shields.io/github/actions/workflow/status/darfink/detour-rs/ci.yml?branch=master&label=CI&logo=github&style=flat-square
+[ci]: https://github.com/darfink/detour-rs/actions/workflows/ci.yml
 [crate-shield]: https://img.shields.io/crates/v/detour.svg?style=flat-square
 [crate]: https://crates.io/crates/detour
 [rust-shield]: https://img.shields.io/badge/powered%20by-rust-blue.svg?style=flat-square
 [rust]: https://www.rust-lang.org
 [docs-shield]: https://img.shields.io/badge/docs-crates-green.svg?style=flat-square
 [docs]: https://docs.rs/detour/
+[iced]: https://github.com/icedland/iced
 [minhook-author]: https://github.com/Jascha-N
 [minhook]: https://github.com/Jascha-N/minhook-rs/

@@ -1,4 +1,4 @@
-use crate::arch::Detour;
+use crate::detour::Detour;
 use crate::error::Result;
 
 /// A raw detour.
@@ -10,10 +10,12 @@ use crate::error::Result;
 /// use detour::RawDetour;
 /// use std::mem;
 ///
+/// #[inline(never)]
 /// fn add5(val: i32) -> i32 {
 ///   val + 5
 /// }
 ///
+/// #[inline(never)]
 /// fn add10(val: i32) -> i32 {
 ///   val + 10
 /// }
@@ -40,27 +42,43 @@ use crate::error::Result;
 #[derive(Debug)]
 pub struct RawDetour(Detour);
 
-// TODO: stop all threads in target during patch?
 impl RawDetour {
   /// Constructs a new inline detour patcher.
   ///
-  /// The hook is disabled by default. Even when this function is succesful,
-  /// there is no guaranteee that the detour function will actually get called
+  /// The hook is disabled by default. Even when this function is successful,
+  /// there is no guarantee that the detour function will actually get called
   /// when the target function gets called. An invocation of the target
   /// function might for example get inlined in which case it is impossible to
   /// hook at runtime.
+  ///
+  /// # Safety
+  ///
+  /// `target` and `detour` must point to functions with compatible signatures
+  /// and calling conventions.
   pub unsafe fn new(target: *const (), detour: *const ()) -> Result<Self> {
-    Detour::new(target, detour).map(RawDetour)
+    // SAFETY: Forwarded from the caller.
+    unsafe { Detour::new(target, detour) }.map(RawDetour)
   }
 
   /// Enables the detour.
+  ///
+  /// # Safety
+  ///
+  /// The target must not be executing its prolog (i.e. the patched
+  /// instructions) on another thread whilst the detour is being enabled.
   pub unsafe fn enable(&self) -> Result<()> {
-    self.0.enable()
+    // SAFETY: Forwarded from the caller.
+    unsafe { self.0.enable() }
   }
 
   /// Disables the detour.
+  ///
+  /// # Safety
+  ///
+  /// See [`RawDetour::enable`].
   pub unsafe fn disable(&self) -> Result<()> {
-    self.0.disable()
+    // SAFETY: Forwarded from the caller.
+    unsafe { self.0.disable() }
   }
 
   /// Returns whether the detour is enabled or not.
@@ -68,8 +86,11 @@ impl RawDetour {
     self.0.is_enabled()
   }
 
-  /// Returns a reference to the generated trampoline.
-  pub fn trampoline(&self) -> &() {
+  /// Returns a pointer to the trampoline, which invokes the original target
+  /// function regardless of whether the detour is enabled.
+  ///
+  /// The pointer is valid for as long as the detour exists.
+  pub fn trampoline(&self) -> *const () {
     self.0.trampoline()
   }
 }

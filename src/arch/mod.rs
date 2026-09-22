@@ -1,36 +1,38 @@
-/// Architecture specific code
-///
-/// The current implementation requires a module to expose some functionality:
-///
-/// - A standalone `relay_builder` function.
-/// This function creates a relay for targets with large displacement, that
-/// requires special attention. An example would be detours further away than
-/// 2GB on x64. A relative jump is not enough, so the `relay_builder`
-/// generates an absolute jump that the relative jump can reach. If it's
-/// needless, `None` can   be returned.
-///
-/// - A `Patcher`, modifies a target in-memory.
-/// - A `Trampoline`, generates a callable address to the target.
-pub use self::detour::Detour;
+//! Architecture-specific code generation.
+//!
+//! Each architecture exposes a `build` function, which disassembles a target,
+//! generates a trampoline (the relocated prolog, followed by a jump back into
+//! the original function), an optional relay (for detours beyond the reach of
+//! a relative branch), and the bytes used to patch the target.
 
-use cfg_if::cfg_if;
+use crate::memory::CodeBlock;
 
-// TODO: flush instruction cache? __clear_cache
-// See: https://github.com/llvm-mirror/compiler-rt/blob/master/lib/builtins/clear_cache.c
-cfg_if! {
-    if #[cfg(any(target_arch = "x86", target_arch = "x86_64"))] {
-        mod x86;
-        use self::x86::{Patcher, Trampoline, meta};
-    } else {
-        // TODO: Implement ARM/AARCH64/MIPS support!
-    }
-}
+#[cfg(target_arch = "aarch64")]
+mod aarch64;
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+mod x86;
 
-mod detour;
-mod memory;
+#[cfg(target_arch = "aarch64")]
+pub(crate) use self::aarch64::build;
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+pub(crate) use self::x86::build;
 
-/// Returns true if the displacement is within a certain range.
-pub fn is_within_range(displacement: isize) -> bool {
-  let range = meta::DETOUR_RANGE as i64;
-  (-range..range).contains(&(displacement as i64))
+// The AArch64 encoder is platform-independent, and tested on all 64-bit hosts
+#[cfg(all(test, not(target_arch = "aarch64"), target_pointer_width = "64"))]
+#[path = "aarch64.rs"]
+#[allow(dead_code)]
+mod aarch64_encoder;
+
+/// The components of a detour, generated for a specific target.
+pub(crate) struct Hook {
+  /// The address at which the target is patched.
+  pub patch_address: *mut u8,
+  /// The original bytes at the patch address.
+  pub original: Vec<u8>,
+  /// The bytes redirecting the target to the detour (or relay).
+  pub patched: Vec<u8>,
+  /// Callable code, equivalent to the original target.
+  pub trampoline: CodeBlock,
+  /// An intermediate jump to the detour, if it is out of reach.
+  pub relay: Option<CodeBlock>,
 }

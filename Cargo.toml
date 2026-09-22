@@ -1,41 +1,50 @@
 [package]
+name = "detour"
+version = "0.9.0"
 authors = ["Elliott Linder <elliott.darfink@gmail.com>"]
-description = "A cross-platform detour library written in Rust"
+description = "A cross-platform function detouring (inline hooking) library for x86, x86-64 and AArch64"
 documentation = "https://docs.rs/detour"
 homepage = "https://github.com/darfink/detour-rs"
-keywords = ["detour", "hook", "function", "api", "redirect"]
-license = "BSD-2-Clause"
-name = "detour"
-readme = "README.md"
 repository = "https://github.com/darfink/detour-rs"
-version = "0.8.0"
-edition = "2018"
+readme = "README.md"
+keywords = ["detour", "hook", "function", "api", "redirect"]
+categories = ["development-tools::ffi", "os"]
+license = "BSD-2-Clause"
+edition = "2024"
+rust-version = "1.85"
+include = ["src/**/*", "examples/**/*", "tests/**/*", "LICENSE", "README.md", "CHANGELOG.md"]
 
-[badges]
-azure-devops = { project = "darfink/detour-rs", pipeline = "darfink.detour-rs" }
+[target.'cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64"))'.dependencies]
+region = "4.0.0"
 
-[dependencies]
-cfg-if = "1.0.0"
-generic-array = "0.14.1"
-lazy_static = "1.2"
-libc = "0.2.45"
-mmap = { package = "mmap-fixed", version = "0.1.0" }
-region = "2.0.0"
-slice-pool = "0.4.1"
+[target.'cfg(any(target_arch = "x86", target_arch = "x86_64"))'.dependencies]
+iced-x86 = { version = "1.21.0", default-features = false, features = ["std", "decoder", "block_encoder", "instr_info"] }
 
-[dev-dependencies]
-matches = "0.1.8"
+[target.'cfg(unix)'.dependencies]
+libc = "0.2.172"
 
-[features]
-default = ["nightly"]
-nightly = []
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61.0", features = ["Win32_Foundation", "Win32_System_Diagnostics_Debug", "Win32_System_Threading"] }
+
+[target.'cfg(unix)'.dev-dependencies]
+libc = "0.2.172"
+region = "4.0.0"
+
+[target.'cfg(windows)'.dev-dependencies]
+region = "4.0.0"
+windows-sys = { version = "0.61.0", features = ["Win32_Foundation", "Win32_System_LibraryLoader", "Win32_System_SystemServices", "Win32_UI_WindowsAndMessaging"] }
 
 [[example]]
 name = "messageboxw_detour"
 crate-type = ["cdylib"]
 
-[target."cfg(any(target_arch = \"x86\", target_arch = \"x86_64\"))".dependencies]
-udis = { package = "libudis86-sys", version = "0.2.1" }
+[lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+missing_docs = "warn"
+rust_2018_idioms = { level = "warn", priority = -1 }
 
-[target."cfg(windows)".dev-dependencies]
-winapi = { version = "0.3.7", features = ["minwindef", "windef", "winnt", "libloaderapi"] }
+[lints.clippy]
+undocumented_unsafe_blocks = "warn"
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu", "i686-unknown-linux-gnu", "aarch64-unknown-linux-gnu", "x86_64-pc-windows-msvc", "aarch64-apple-darwin"]

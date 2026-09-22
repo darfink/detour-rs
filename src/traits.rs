@@ -5,6 +5,18 @@
 
 /// Trait representing a function that can be used as a target or detour for
 /// detouring.
+///
+/// It is implemented for function pointers with up to 14 arguments, for all
+/// calling conventions supported by the target (e.g. `extern "C"`,
+/// `extern "system"`, and `extern "thiscall"` on x86).
+///
+/// Function pointers with higher-ranked lifetimes (e.g. `fn(&str)`) cannot
+/// implement this trait; use [`RawDetour`](crate::RawDetour) for those.
+///
+/// # Safety
+///
+/// Implementors must be function pointers, compatible with the pointer
+/// returned by `to_ptr`.
 pub unsafe trait Function: Sized + Copy + Sync + 'static {
   /// The argument types as a tuple.
   type Arguments;
@@ -12,7 +24,14 @@ pub unsafe trait Function: Sized + Copy + Sync + 'static {
   /// The return type.
   type Output;
 
+  /// A closure type with a compatible signature (used by static detours).
+  type Closure: ?Sized + Send + Sync;
+
   /// Constructs a `Function` from an untyped pointer.
+  ///
+  /// # Safety
+  ///
+  /// The pointer must point to a function with a compatible signature.
   unsafe fn from_ptr(ptr: *const ()) -> Self;
 
   /// Returns an untyped pointer for this function.
@@ -20,8 +39,13 @@ pub unsafe trait Function: Sized + Copy + Sync + 'static {
 }
 
 /// Trait indicating that `Self` can be detoured by the given function `D`.
+///
+/// # Safety
+///
+/// `Self` and `D` must share the same signature and calling convention.
 pub unsafe trait HookableWith<D: Function>: Function {}
 
+// SAFETY: A function is always compatible with itself.
 unsafe impl<T: Function> HookableWith<T> for T {}
 
 impl_hookable! {

@@ -1,10 +1,5 @@
-condense_wildcard_suffixes = true
-fn_single_line = false
-format_strings = true
-match_block_trailing_comma = true
-normalize_comments = true
-reorder_imports = true
+style_edition = "2024"
 tab_spaces = 2
+match_block_trailing_comma = true
 use_field_init_shorthand = true
 use_try_shorthand = true
-wrap_comments = true

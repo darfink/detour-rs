@@ -1,13 +1,3 @@
-#![recursion_limit = "1024"]
-#![cfg_attr(
-  feature = "nightly",
-  feature(const_fn_trait_bound, unboxed_closures, abi_thiscall)
-)]
-#![cfg_attr(
-  all(feature = "nightly", test),
-  feature(naked_functions, core_intrinsics, asm)
-)]
-
 //! A cross-platform detour library written in Rust.
 //!
 //! ## Intro
@@ -20,11 +10,13 @@
 //! Beyond the basic functionality this library handles several different edge
 //! cases:
 //!
-//! - Relative branches.
-//! - RIP relative operands.
+//! - Relative branches (including `loop`/`jrcxz` and branches within the
+//!   prolog).
+//! - RIP-relative operands (x86-64) and PC-relative instructions (AArch64).
 //! - Detects NOP-padding.
-//! - Relay for large offsets (>2GB).
+//! - Relay for large offsets (>2 GiB on x86-64, >128 MiB on AArch64).
 //! - Supports hot patching.
+//! - Preserves BTI/PAC landing pads (AArch64).
 //!
 //! ## Detours
 //!
@@ -43,15 +35,15 @@
 //!   pointers. It should be avoided unless any types are references, or not
 //!   known until runtime.
 //!
-//! ## Features
-//!
-//! - **nightly**: Enabled by default. Required for static detours, due to usage
-//!   of *const_fn* & *unboxed_closures*.   The feature also enables a more
-//!   extensive test suite.
-//!
 //! ## Platforms
 //!
-//! - Both `x86` & `x86-64` are supported.
+//! - Architectures: `x86`, `x86-64` & `AArch64`.
+//! - Operating systems: Windows, Linux, macOS, and other Unix-like systems.
+//!
+//! On macOS, code signing prevents making `__TEXT` writable; code is instead
+//! patched using copy-on-write or remapping of the affected pages. Executable
+//! memory is allocated with `MAP_JIT` on Apple silicon. Systems enforcing W^X
+//! are supported, as long as code pages may be re-protected.
 //!
 //! ## Procedure
 //!
@@ -92,59 +84,85 @@
 //!
 //! Beyond what is shown here, a trampoline is also generated so the original
 //! function can be called regardless whether the function is hooked or not.
+//!
+//! ## Caveats
+//!
+//! - Threads are not suspended whilst a target is being patched. Enabling or
+//!   disabling a detour whilst another thread executes the target's prolog is
+//!   undefined behavior.
+//! - Multiple detours of the same target must be disabled in the reverse order
+//!   they were enabled in; otherwise [`Error::TargetModified`] is returned.
 
-// Re-exports
-pub use detours::*;
-pub use error::{Error, Result};
-pub use traits::{Function, HookableWith};
+#[cfg(not(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")))]
+compile_error!(
+  "detour only supports x86, x86-64 and AArch64 targets; inline detours are not possible on \
+   architectures without addressable, writable code (e.g. WebAssembly)"
+);
 
 #[macro_use]
 mod macros;
 
-// Modules
-mod alloc;
-mod arch;
-mod detours;
-mod error;
-mod pic;
-mod traits;
-mod util;
+supported! {
+  pub use detours::*;
+  pub use error::{Error, Result};
+  pub use traits::{Function, HookableWith};
+
+  mod arch;
+  mod detour;
+  mod detours;
+  mod error;
+  mod memory;
+  mod traits;
+}
+
+#[cfg(doctest)]
+#[doc = include_str!("../README.md")]
+struct ReadmeDoctests;
 
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::Result;
-  use matches::assert_matches;
 
   #[test]
   fn detours_share_target() -> Result<()> {
     #[inline(never)]
     extern "C" fn add(x: i32, y: i32) -> i32 {
-      unsafe { std::ptr::read_volatile(&x as *const i32) + y }
+      std::hint::black_box(x) + y + std::hint::black_box(0) * line!() as i32
     }
 
-    let hook1 = unsafe {
-      extern "C" fn sub(x: i32, y: i32) -> i32 {
-        x - y
-      }
-      GenericDetour::<extern "C" fn(i32, i32) -> i32>::new(add, sub)?
-    };
+    extern "C" fn sub(x: i32, y: i32) -> i32 {
+      x - y
+    }
 
+    extern "C" fn div(x: i32, y: i32) -> i32 {
+      x / y
+    }
+
+    // SAFETY: The functions share the same signature.
+    let hook1 = unsafe { GenericDetour::<extern "C" fn(i32, i32) -> i32>::new(add, sub)? };
+    // SAFETY: No other thread is executing `add`.
     unsafe { hook1.enable()? };
     assert_eq!(add(5, 5), 0);
 
-    let hook2 = unsafe {
-      extern "C" fn div(x: i32, y: i32) -> i32 {
-        x / y
-      }
-      GenericDetour::<extern "C" fn(i32, i32) -> i32>::new(add, div)?
-    };
-
+    // SAFETY: The functions share the same signature.
+    let hook2 = unsafe { GenericDetour::<extern "C" fn(i32, i32) -> i32>::new(add, div)? };
+    // SAFETY: No other thread is executing `add`.
     unsafe { hook2.enable()? };
 
     // This will call the previous hook's detour
     assert_eq!(hook2.call(5, 5), 0);
     assert_eq!(add(10, 5), 2);
+
+    // The first hook cannot be disabled before the second
+    // SAFETY: No other thread is executing `add`.
+    let result = unsafe { hook1.disable() };
+    assert!(matches!(result, Err(Error::TargetModified)));
+    // SAFETY: No other thread is executing `add`.
+    unsafe {
+      hook2.disable()?;
+      hook1.disable()?;
+    }
+    assert_eq!(add(10, 5), 15);
     Ok(())
   }
 
@@ -152,10 +170,21 @@ mod tests {
   fn same_detour_and_target() {
     #[inline(never)]
     extern "C" fn add(x: i32, y: i32) -> i32 {
-      unsafe { std::ptr::read_volatile(&x as *const i32) + y }
+      std::hint::black_box(x) + y + std::hint::black_box(0) * line!() as i32
     }
 
-    let err = unsafe { RawDetour::new(add as *const (), add as *const ()).unwrap_err() };
-    assert_matches!(err, Error::SameAddress);
+    // SAFETY: The detour is never enabled.
+    let error = unsafe { RawDetour::new(add as *const (), add as *const ()) }.unwrap_err();
+    assert!(matches!(error, Error::SameAddress));
+  }
+
+  #[test]
+  fn non_executable_target() {
+    let data = [0x90u8; 16];
+    extern "C" fn detour() {}
+
+    // SAFETY: The detour is never enabled.
+    let error = unsafe { RawDetour::new(data.as_ptr().cast(), detour as *const ()) }.unwrap_err();
+    assert!(matches!(error, Error::NotExecutable));
   }
 }

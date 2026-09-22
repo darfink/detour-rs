@@ -1,7 +1,16 @@
+/// Applies a `cfg` of the supported architectures to each item.
+macro_rules! supported {
+  ($($item:item)*) => {
+    $(
+      #[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64"))]
+      $item
+    )*
+  };
+}
+
 /// A macro for defining static, type-safe detours.
 ///
-/// This macro defines one or more [StaticDetour](./struct.StaticDetour.html)s.
-///
+/// This macro defines one or more [`StaticDetour`](crate::StaticDetour)s.
 ///
 /// # Syntax
 ///
@@ -25,145 +34,75 @@
 ///   // An unsafe public detour with a different calling convention
 ///   pub static PubFoo: unsafe extern "C" fn(i32) -> i32;
 ///
-///   // A specific visibility modifier
-///   pub(crate) static PubSelf: unsafe extern "C" fn();
+///   // A specific visibility modifier, and a trailing comma
+///   pub(crate) static PubSelf: unsafe extern "C" fn(i32, i32,);
 /// }
-/// # fn main() { }
 /// ```
-#[cfg(feature = "nightly")]
 #[macro_export]
 // Inspired by: https://github.com/Jascha-N/minhook-rs
 macro_rules! static_detour {
-  // 1 — meta attributes
-  (@parse_attributes ($($input:tt)*) | #[$attribute:meta] $($rest:tt)*) => {
-    static_detour!(@parse_attributes ($($input)* $attribute) | $($rest)*);
+  () => {};
+
+  // Normalize the function qualifiers
+  ($(#[$attr:meta])* $vis:vis static $name:ident : unsafe extern $abi:literal fn $($rest:tt)*) => {
+    $crate::static_detour!(@signature [$(#[$attr])*] [$vis] [$name] [unsafe extern $abi] $($rest)*);
   };
-  (@parse_attributes ($($input:tt)*) | $($rest:tt)+) => {
-    static_detour!(@parse_access_modifier (($($input)*)) | $($rest)*);
+  ($(#[$attr:meta])* $vis:vis static $name:ident : unsafe extern fn $($rest:tt)*) => {
+    $crate::static_detour!(@signature [$(#[$attr])*] [$vis] [$name] [unsafe extern "C"] $($rest)*);
+  };
+  ($(#[$attr:meta])* $vis:vis static $name:ident : unsafe fn $($rest:tt)*) => {
+    $crate::static_detour!(@signature [$(#[$attr])*] [$vis] [$name] [unsafe] $($rest)*);
+  };
+  ($(#[$attr:meta])* $vis:vis static $name:ident : extern $abi:literal fn $($rest:tt)*) => {
+    $crate::static_detour!(@signature [$(#[$attr])*] [$vis] [$name] [extern $abi] $($rest)*);
+  };
+  ($(#[$attr:meta])* $vis:vis static $name:ident : extern fn $($rest:tt)*) => {
+    $crate::static_detour!(@signature [$(#[$attr])*] [$vis] [$name] [extern "C"] $($rest)*);
+  };
+  ($(#[$attr:meta])* $vis:vis static $name:ident : fn $($rest:tt)*) => {
+    $crate::static_detour!(@signature [$(#[$attr])*] [$vis] [$name] [] $($rest)*);
   };
 
-  // 2 — pub modifier (path/scope/yes/no)
-  (@parse_access_modifier ($($input:tt)*) | pub(in $vis:path) static $($rest:tt)*) => {
-    static_detour!(@parse_name ($($input)* (pub(in $vis))) | $($rest)*);
+  // Parse the arguments and the (optional) return type
+  (@signature $attrs:tt $vis:tt $name:tt $qualifiers:tt
+      ($($argument:ty),* $(,)?) -> $output:ty ; $($rest:tt)*) => {
+    $crate::static_detour!(@names $attrs $vis $name $qualifiers [$output] [] [$($argument),*]
+      [__arg_0 __arg_1 __arg_2 __arg_3 __arg_4 __arg_5 __arg_6
+       __arg_7 __arg_8 __arg_9 __arg_10 __arg_11 __arg_12 __arg_13]);
+    $crate::static_detour!($($rest)*);
   };
-  (@parse_access_modifier ($($input:tt)*) | pub($vis:tt) static $($rest:tt)*) => {
-    static_detour!(@parse_name ($($input)* (pub($vis))) | $($rest)*);
-  };
-  (@parse_access_modifier ($($input:tt)*) | pub static $($rest:tt)*) => {
-    static_detour!(@parse_name ($($input)* (pub)) | $($rest)*);
-  };
-  (@parse_access_modifier ($($input:tt)*) | static $($rest:tt)*) => {
-    static_detour!(@parse_name ($($input)* ()) | $($rest)*);
-  };
-
-  // 3 — detour name
-  (@parse_name ($($input:tt)*) | $name:ident : $($rest:tt)*) => {
-    static_detour!(@parse_unsafe ($($input)* ($name)) | $($rest)*);
+  (@signature $attrs:tt $vis:tt $name:tt $qualifiers:tt ($($argument:ty),* $(,)?) ; $($rest:tt)*) => {
+    $crate::static_detour!(@names $attrs $vis $name $qualifiers [()] [] [$($argument),*]
+      [__arg_0 __arg_1 __arg_2 __arg_3 __arg_4 __arg_5 __arg_6
+       __arg_7 __arg_8 __arg_9 __arg_10 __arg_11 __arg_12 __arg_13]);
+    $crate::static_detour!($($rest)*);
   };
 
-  // 4 — unsafe modifier (yes/no)
-  (@parse_unsafe ($($input:tt)*) | unsafe $($rest:tt)*) => {
-    static_detour!(@parse_calling_convention ($($input)*) (unsafe) | $($rest)*);
-  };
-  (@parse_unsafe ($($input:tt)*) | $($rest:tt)*) => {
-    static_detour!(@parse_calling_convention ($($input)*) () | $($rest)*);
-  };
+  // Associate each argument type with a name
+  (@names [$($attr:tt)*] [$vis:vis] [$name:ident] [$($qualifier:tt)*] [$output:ty]
+      [$(($argument_name:ident: $argument:ty))*] [] [$($unused:ident)*]) => {
+    $($attr)*
+    #[allow(non_upper_case_globals)]
+    $vis static $name: $crate::StaticDetour<$($qualifier)* fn($($argument),*) -> $output> = {
+      #[inline(never)]
+      #[allow(unused_unsafe)]
+      $($qualifier)* fn __ffi_detour($($argument_name: $argument),*) -> $output {
+        let detour = $name.__detour();
+        (detour)($($argument_name),*)
+      }
 
-  // 5 — calling convention (extern "XXX"/extern/-)
-  (@parse_calling_convention
-      ($($input:tt)*) ($($modifier:tt)*) | extern $cc:tt fn $($rest:tt)*) => {
-    static_detour!(@parse_prototype ($($input)* ($($modifier)* extern $cc)) | $($rest)*);
+      $crate::StaticDetour::__new(__ffi_detour)
+    };
   };
-  (@parse_calling_convention
-      ($($input:tt)*) ($($modifier:tt)*) | extern fn $($rest:tt)*) => {
-    static_detour!(@parse_prototype ($($input)* ($($modifier)* extern)) | $($rest)*);
-  };
-  (@parse_calling_convention ($($input:tt)*) ($($modifier:tt)*) | fn $($rest:tt)*) => {
-    static_detour!(@parse_prototype ($($input)* ($($modifier)*)) | $($rest)*);
-  };
-
-  // 6 — argument and return type (return/void)
-  (@parse_prototype
-      ($($input:tt)*) | ($($argument_type:ty),*) -> $return_type:ty ; $($rest:tt)*) => {
-    static_detour!(
-      @parse_terminator ($($input)* ($($argument_type)*) ($return_type)) | ; $($rest)*);
-  };
-  (@parse_prototype ($($input:tt)*) | ($($argument_type:ty),*) $($rest:tt)*) => {
-    static_detour!(@parse_terminator ($($input)* ($($argument_type)*) (())) | $($rest)*);
-  };
-
-  // 7 — semicolon terminator
-  (@parse_terminator ($($input:tt)*) | ; $($rest:tt)*) => {
-    static_detour!(@parse_entries ($($input)*) | $($rest)*);
-  };
-
-  // 8 - additional detours (multiple/single)
-  (@parse_entries ($($input:tt)*) | $($rest:tt)+) => {
-    static_detour!(@aggregate $($input)*);
-    static_detour!($($rest)*);
-  };
-  (@parse_entries ($($input:tt)*) | ) => {
-    static_detour!(@aggregate $($input)*);
-  };
-
-  // 9 - aggregate data for the generate function
-  (@aggregate ($($attribute:meta)*) ($($visibility:tt)*) ($name:ident)
-              ($($modifier:tt)*) ($($argument_type:ty)*) ($return_type:ty)) => {
-    static_detour!(@argument_names (create_detour)(
-      ($($attribute)*) ($($visibility)*) ($name)
-      ($($modifier)*) ($($argument_type)*) ($return_type)
-      ($($modifier)* fn ($($argument_type),*) -> $return_type)
-    )($($argument_type)*));
-  };
-
-  // 10 - detour type implementation
-  (@create_detour ($($argument_name:ident)*) ($($attribute:meta)*) ($($visibility:tt)*)
-                  ($name:ident) ($($modifier:tt)*) ($($argument_type:ty)*)
-                  ($return_type:ty) ($fn_type:ty)) => {
-    static_detour!(@generate
-      #[allow(non_upper_case_globals)]
-      $(#[$attribute])*
-      $($visibility)* static $name: $crate::StaticDetour<$fn_type> = {
-        #[inline(never)]
-        #[allow(unused_unsafe)]
-        $($modifier) * fn __ffi_detour(
-            $($argument_name: $argument_type),*) -> $return_type {
-          #[allow(unused_unsafe)]
-          ($name.__detour())($($argument_name),*)
-        }
-
-        $crate::StaticDetour::__new(__ffi_detour)
-      };
-    );
-  };
-
-  // Associates each argument type with a dummy name.
-  (@argument_names ($label:ident) ($($input:tt)*) ($($token:tt)*)) => {
-    static_detour!(@argument_names ($label) ($($input)*)(
-      __arg_0  __arg_1  __arg_2  __arg_3  __arg_4  __arg_5  __arg_6
-      __arg_7  __arg_8  __arg_9  __arg_10 __arg_11 __arg_12 __arg_13
-    )($($token)*)());
-  };
-  (@argument_names
-      ($label:ident)
-      ($($input:tt)*)
-      ($hd_name:tt $($tl_name:tt)*)
-      ($hd:tt $($tl:tt)*) ($($acc:tt)*)) => {
-    static_detour!(
-      @argument_names ($label) ($($input)*) ($($tl_name)*) ($($tl)*) ($($acc)* $hd_name));
-  };
-  (@argument_names ($label:ident) ($($input:tt)*) ($($name:tt)*) () ($($acc:tt)*)) => {
-    static_detour!(@$label ($($acc)*) $($input)*);
-  };
-
-  (@generate $item:item) => { $item };
-
-  // Bootstrapper
-  ($($t:tt)+) => {
-    static_detour!(@parse_attributes () | $($t)+);
+  (@names $attrs:tt $vis:tt $name:tt $qualifiers:tt $output:tt
+      [$($named:tt)*] [$argument:ty $(, $arguments:ty)*] [$next:ident $($names:ident)*]) => {
+    $crate::static_detour!(@names $attrs $vis $name $qualifiers $output
+      [$($named)* ($next: $argument)] [$($arguments),*] [$($names)*]);
   };
 }
 
+/// Implements `Function`, `HookableWith`, and the signature-specific methods
+/// of `GenericDetour` & `StaticDetour`, for all supported function pointers.
 macro_rules! impl_hookable {
   (@recurse () ($($nm:ident : $ty:ident),*)) => {
     impl_hookable!(@impl_all ($($nm : $ty),*));
@@ -176,16 +115,25 @@ macro_rules! impl_hookable {
   };
 
   (@impl_all ($($nm:ident : $ty:ident),*)) => {
-    impl_hookable!(@impl_pair ($($nm : $ty),*) (                  fn($($ty),*) -> Ret));
-    impl_hookable!(@impl_pair ($($nm : $ty),*) (extern "cdecl"    fn($($ty),*) -> Ret));
-    impl_hookable!(@impl_pair ($($nm : $ty),*) (extern "stdcall"  fn($($ty),*) -> Ret));
-    impl_hookable!(@impl_pair ($($nm : $ty),*) (extern "fastcall" fn($($ty),*) -> Ret));
-    impl_hookable!(@impl_pair ($($nm : $ty),*) (extern "win64"    fn($($ty),*) -> Ret));
-    impl_hookable!(@impl_pair ($($nm : $ty),*) (extern "C"        fn($($ty),*) -> Ret));
-    impl_hookable!(@impl_pair ($($nm : $ty),*) (extern "system"   fn($($ty),*) -> Ret));
+    impl_hookable!(@impl_pair ($($nm : $ty),*) (                       fn($($ty),*) -> Ret));
+    impl_hookable!(@impl_pair ($($nm : $ty),*) (extern "C"             fn($($ty),*) -> Ret));
+    impl_hookable!(@impl_pair ($($nm : $ty),*) (extern "C-unwind"      fn($($ty),*) -> Ret));
+    impl_hookable!(@impl_pair ($($nm : $ty),*) (extern "system"        fn($($ty),*) -> Ret));
+    impl_hookable!(@impl_pair ($($nm : $ty),*) (extern "system-unwind" fn($($ty),*) -> Ret));
 
-    #[cfg(feature = "nightly")]
-    impl_hookable!(@impl_pair ($($nm : $ty),*) (extern "thiscall" fn($($ty),*) -> Ret));
+    #[cfg(target_arch = "x86")]
+    impl_hookable!(@impl_pair ($($nm : $ty),*) (extern "cdecl"         fn($($ty),*) -> Ret));
+    #[cfg(target_arch = "x86")]
+    impl_hookable!(@impl_pair ($($nm : $ty),*) (extern "stdcall"       fn($($ty),*) -> Ret));
+    #[cfg(target_arch = "x86")]
+    impl_hookable!(@impl_pair ($($nm : $ty),*) (extern "fastcall"      fn($($ty),*) -> Ret));
+    #[cfg(target_arch = "x86")]
+    impl_hookable!(@impl_pair ($($nm : $ty),*) (extern "thiscall"      fn($($ty),*) -> Ret));
+
+    #[cfg(target_arch = "x86_64")]
+    impl_hookable!(@impl_pair ($($nm : $ty),*) (extern "win64"         fn($($ty),*) -> Ret));
+    #[cfg(target_arch = "x86_64")]
+    impl_hookable!(@impl_pair ($($nm : $ty),*) (extern "sysv64"        fn($($ty),*) -> Ret));
   };
 
   (@impl_pair ($($nm:ident : $ty:ident),*) ($($fn_t:tt)*)) => {
@@ -193,68 +141,69 @@ macro_rules! impl_hookable {
   };
 
   (@impl_fun ($($nm:ident : $ty:ident),*) ($safe_type:ty) ($unsafe_type:ty)) => {
-    impl_hookable!(@impl_core ($($nm : $ty),*) ($safe_type));
-    impl_hookable!(@impl_core ($($nm : $ty),*) ($unsafe_type));
+    impl_hookable!(@impl_core ($($nm : $ty),*) ($safe_type) ());
+    impl_hookable!(@impl_core ($($nm : $ty),*) ($unsafe_type) (unsafe));
 
-    impl_hookable!(@impl_unsafe ($($nm : $ty),*) ($unsafe_type) ($safe_type));
-    impl_hookable!(@impl_safe ($($nm : $ty),*) ($safe_type));
+    // SAFETY: A safe function can be used wherever an unsafe one is expected.
+    unsafe impl<Ret: 'static, $($ty: 'static),*> HookableWith<$safe_type> for $unsafe_type {}
   };
 
-  (@impl_unsafe ($($nm:ident : $ty:ident),*) ($target:ty) ($detour:ty)) => {
-    unsafe impl<Ret: 'static, $($ty: 'static),*> HookableWith<$detour> for $target {}
+  (@impl_core ($($nm:ident : $ty:ident),*) ($fn_type:ty) ($($unsafety:tt)?)) => {
+    // SAFETY: Implemented for function pointers only.
+    unsafe impl<Ret: 'static, $($ty: 'static),*> Function for $fn_type {
+      type Arguments = ($($ty,)*);
+      type Output = Ret;
+      type Closure = dyn Fn($($ty),*) -> Ret + Send + Sync;
 
-    #[cfg(feature = "nightly")]
-    impl<Ret: 'static, $($ty: 'static),*> $crate::StaticDetour<$target> {
-      #[doc(hidden)]
-      pub unsafe fn call(&self, $($nm : $ty),*) -> Ret {
-        let original: $target = ::std::mem::transmute(self.trampoline().expect("calling detour trampoline"));
-        original($($nm),*)
+      unsafe fn from_ptr(ptr: *const ()) -> Self {
+        // SAFETY: Function pointers and data pointers share representation on
+        // all supported platforms; validity is guaranteed by the caller.
+        unsafe { ::core::mem::transmute::<*const (), Self>(ptr) }
       }
-    }
 
-    impl<Ret: 'static, $($ty: 'static),*> $crate::GenericDetour<$target> {
-      #[doc(hidden)]
-      pub unsafe fn call(&self, $($nm : $ty),*) -> Ret {
-        let original: $target = ::std::mem::transmute(self.trampoline());
-        original($($nm),*)
-      }
-    }
-  };
-
-  (@impl_safe ($($nm:ident : $ty:ident),*) ($fn_type:ty)) => {
-    #[cfg(feature = "nightly")]
-    impl<Ret: 'static, $($ty: 'static),*> $crate::StaticDetour<$fn_type> {
-      #[doc(hidden)]
-      pub fn call(&self, $($nm : $ty),*) -> Ret {
-        unsafe {
-          let original: $fn_type = ::std::mem::transmute(self.trampoline().expect("calling detour trampoline"));
-          original($($nm),*)
-        }
+      fn to_ptr(&self) -> *const () {
+        *self as *const ()
       }
     }
 
     impl<Ret: 'static, $($ty: 'static),*> $crate::GenericDetour<$fn_type> {
       #[doc(hidden)]
-      pub fn call(&self, $($nm : $ty),*) -> Ret {
+      pub $($unsafety)? fn call(&self, $($nm : $ty),*) -> Ret {
+        // SAFETY: The trampoline shares the target's signature, and remains
+        // valid for the lifetime of `self`.
         unsafe {
-          let original: $fn_type = ::std::mem::transmute(self.trampoline());
+          let original = <$fn_type as Function>::from_ptr(self.trampoline());
           original($($nm),*)
         }
       }
     }
-  };
 
-  (@impl_core ($($nm:ident : $ty:ident),*) ($fn_type:ty)) => {
-    unsafe impl<Ret: 'static, $($ty: 'static),*> Function for $fn_type {
-      type Arguments = ($($ty,)*);
-      type Output = Ret;
-
-      unsafe fn from_ptr(ptr: *const ()) -> Self {
-        ::std::mem::transmute(ptr)
+    impl<Ret: 'static, $($ty: 'static),*> $crate::StaticDetour<$fn_type> {
+      #[doc(hidden)]
+      pub $($unsafety)? fn call(&self, $($nm : $ty),*) -> Ret {
+        // SAFETY: The trampoline shares the target's signature, and remains
+        // valid for the lifetime of `self` (i.e. forever).
+        unsafe {
+          let original = <$fn_type as Function>::from_ptr(self.trampoline());
+          original($($nm),*)
+        }
       }
 
-      fn to_ptr(&self) -> *const () {
-        unsafe { ::std::mem::transmute(*self) }
+      #[doc(hidden)]
+      pub unsafe fn initialize<Detour>(&self, target: $fn_type, closure: Detour) -> $crate::Result<&Self>
+      where
+        Detour: Fn($($ty),*) -> Ret + Send + Sync + 'static,
+      {
+        // SAFETY: Forwarded from the caller.
+        unsafe { self.initialize_shared(target, ::std::sync::Arc::new(closure)) }
+      }
+
+      #[doc(hidden)]
+      pub fn set_detour<Detour>(&self, closure: Detour)
+      where
+        Detour: Fn($($ty),*) -> Ret + Send + Sync + 'static,
+      {
+        self.set_detour_shared(::std::sync::Arc::new(closure));
       }
     }
   };

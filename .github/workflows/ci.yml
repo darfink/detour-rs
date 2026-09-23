@@ -56,6 +56,16 @@ jobs:
       - run: cargo run --release
         working-directory: tests/no-std
 
+  mach2:
+    name: Test (mach2 0.4.3)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      # The oldest version accepted by the `mach2` requirement
+      - run: cargo update -p mach2 --precise 0.4.3
+      - run: cargo test
+
   cross:
     name: Check (${{ matrix.target }})
     runs-on: ubuntu-latest

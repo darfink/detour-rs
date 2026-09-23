@@ -29,6 +29,8 @@ A comprehensive overhaul of the library.
 - Instruction decoding & relocation uses `iced-x86` instead of the
   unmaintained, C-based `libudis86-sys` (#42). As a result, `loop`/`jrcxz`
   instructions and branches within the prolog are now relocated.
+- Mach VM calls (macOS & iOS) use `mach2` (`>=0.4.2, <0.8`, shared with
+  `region`).
 - Executable memory is allocated using `mmap` hints (Unix) & `VirtualAlloc`
   (Windows) instead of `mmap-fixed` (#32) and `slice-pool`, never replacing
   existing mappings.

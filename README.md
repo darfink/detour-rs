@@ -19,7 +19,8 @@ maintain this feature, not all desired functionality can be supported due to
 lack of cross-platform APIs. Therefore [EIP relocation](#appendix) is not
 supported.
 
-The library works on **stable Rust** (1.85+).
+The library works on **stable Rust** (1.85+). It also supports
+`#![no_std]` environments with a global allocator; see [Features](#features).
 
 ## Platforms
 
@@ -98,14 +99,30 @@ fn main() -> Result<(), Box<dyn Error>> {
 $ cargo build --example messageboxw_detour
 ```
 
+## Features
+
+- **`std`** (default): Uses the standard library for locking, and allows
+  converting `detour::MemoryError` into `std::io::Error`.
+- **`no_std`**: Supports `#![no_std]` environments (requires `alloc`), using
+  spin locks. An operating system is still required for memory management
+  (see the [platforms](#platforms)).
+
+```toml
+[dependencies]
+detour = { version = "0.9.0", default-features = false, features = ["no_std"] }
+```
+
+On x86, `iced-x86` treats `std` and `no_std` as mutually exclusive, so the
+`no_std` feature cannot be combined with another crate enabling `iced-x86/std`.
+
 ## Upgrading from 0.8
 
 - The `nightly` feature has been removed; all detours, including
   `static_detour!`, work on stable Rust.
 - Static detour closures must be `Send + Sync`.
 - `RawDetour::trampoline` returns `*const ()` instead of `&()`.
-- `Error::RegionFailure` has been replaced by `Error::Memory(std::io::Error)`,
-  and `Error` is now `#[non_exhaustive]`.
+- `Error::RegionFailure` has been replaced by `Error::Memory(MemoryError)`
+  (convertible into `std::io::Error`), and `Error` is now `#[non_exhaustive]`.
 - Disabling a detour whose target has been modified since (e.g. by another,
   later enabled, detour of the same target) fails with
   `Error::TargetModified` instead of silently overwriting it.

@@ -3,9 +3,10 @@
 use crate::arch;
 use crate::error::{Error, Result};
 use crate::memory::{self, CodeBlock};
-use std::fmt;
-use std::mem::ManuallyDrop;
-use std::sync::atomic::{AtomicBool, Ordering};
+use alloc::boxed::Box;
+use core::fmt;
+use core::mem::ManuallyDrop;
+use core::sync::atomic::{AtomicBool, Ordering};
 
 /// The building block of all detour types.
 pub(crate) struct Detour {
@@ -98,7 +99,7 @@ impl Detour {
     // Refuse to overwrite code that has been modified by someone else, e.g.
     // another detour of the same target that was enabled after this one.
     // SAFETY: The patch area is readable (it was read upon creation).
-    let current = unsafe { std::slice::from_raw_parts(self.patch_address, expected.len()) };
+    let current = unsafe { core::slice::from_raw_parts(self.patch_address, expected.len()) };
     if current != &expected[..] {
       return Err(Error::TargetModified);
     }

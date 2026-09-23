@@ -13,8 +13,10 @@ use iced_x86::{
   BlockEncoder, BlockEncoderOptions, Code, Decoder, DecoderOptions, FlowControl, Instruction,
   InstructionBlock, Mnemonic, OpKind,
 };
-use std::ops::Range;
-use std::slice;
+use core::ops::Range;
+use alloc::vec::Vec;
+use alloc::vec;
+use core::slice;
 
 #[cfg(target_arch = "x86")]
 const BITNESS: u32 = 32;

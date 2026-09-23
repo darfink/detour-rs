@@ -6,6 +6,7 @@ A comprehensive overhaul of the library.
 
 ### Added
 
+- `#![no_std]` support (with `alloc`), using the `no_std` feature.
 - AArch64 support (Linux, macOS & Windows), including relays for detours
   beyond ±128 MiB, relocation of all PC-relative instructions, and awareness
   of BTI & PAC landing pads.
@@ -34,8 +35,8 @@ A comprehensive overhaul of the library.
 - Static detour closures must be `Send + Sync`.
 - The `Function` trait has a new associated type, `Closure`.
 - `RawDetour::trampoline` returns `*const ()`.
-- `Error::RegionFailure` was replaced by `Error::Memory(std::io::Error)`, and
-  `Error` is `#[non_exhaustive]`.
+- `Error::RegionFailure` was replaced by `Error::Memory(MemoryError)`, which is
+  convertible into `std::io::Error`, and `Error` is `#[non_exhaustive]`.
 - Calling-convention specific function pointers are restricted to the
   architectures that support them.
 - The crate uses the 2024 edition.

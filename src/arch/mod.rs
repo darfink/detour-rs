@@ -6,6 +6,7 @@
 //! a relative branch), and the bytes used to patch the target.
 
 use crate::memory::CodeBlock;
+use alloc::vec::Vec;
 
 #[cfg(target_arch = "aarch64")]
 mod aarch64;

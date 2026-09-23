@@ -1,6 +1,10 @@
 use crate::error::{Error, Result};
+use crate::sync::RwLock;
 use crate::{Function, GenericDetour};
-use std::sync::{Arc, OnceLock, PoisonError, RwLock};
+use alloc::boxed::Box;
+use alloc::sync::Arc;
+use core::ptr;
+use core::sync::atomic::{AtomicPtr, Ordering};
 
 /// A type-safe static detour.
 ///
@@ -76,7 +80,8 @@ use std::sync::{Arc, OnceLock, PoisonError, RwLock};
 /// ```
 pub struct StaticDetour<T: Function> {
   closure: RwLock<Option<Arc<T::Closure>>>,
-  detour: OnceLock<GenericDetour<T>>,
+  // Set once, and never released (statics are never dropped)
+  detour: AtomicPtr<GenericDetour<T>>,
   ffi: T,
 }
 
@@ -86,7 +91,7 @@ impl<T: Function> StaticDetour<T> {
   pub const fn __new(ffi: T) -> Self {
     StaticDetour {
       closure: RwLock::new(None),
-      detour: OnceLock::new(),
+      detour: AtomicPtr::new(ptr::null_mut()),
       ffi,
     }
   }
@@ -97,18 +102,23 @@ impl<T: Function> StaticDetour<T> {
     target: T,
     closure: Arc<T::Closure>,
   ) -> Result<&Self> {
-    if self.detour.get().is_some() {
+    if self.get().is_some() {
       return Err(Error::AlreadyInitialized);
     }
 
     // SAFETY: The target is compatible with the generated FFI function.
-    let detour = unsafe { GenericDetour::new(target, self.ffi)? };
+    let detour = Box::into_raw(Box::new(unsafe { GenericDetour::new(target, self.ffi)? }));
 
     // Another thread may have raced to initialize the detour
-    self
-      .detour
-      .set(detour)
-      .map_err(|_| Error::AlreadyInitialized)?;
+    let result =
+      self
+        .detour
+        .compare_exchange(ptr::null_mut(), detour, Ordering::AcqRel, Ordering::Acquire);
+    if result.is_err() {
+      // SAFETY: The detour was never shared.
+      drop(unsafe { Box::from_raw(detour) });
+      return Err(Error::AlreadyInitialized);
+    }
     self.set_detour_shared(closure);
     Ok(self)
   }
@@ -119,7 +129,7 @@ impl<T: Function> StaticDetour<T> {
   ///
   /// See [`GenericDetour::enable`].
   pub unsafe fn enable(&self) -> Result<()> {
-    let detour = self.detour.get().ok_or(Error::NotInitialized)?;
+    let detour = self.get().ok_or(Error::NotInitialized)?;
     // SAFETY: Forwarded from the caller.
     unsafe { detour.enable() }
   }
@@ -130,19 +140,19 @@ impl<T: Function> StaticDetour<T> {
   ///
   /// See [`GenericDetour::enable`].
   pub unsafe fn disable(&self) -> Result<()> {
-    let detour = self.detour.get().ok_or(Error::NotInitialized)?;
+    let detour = self.get().ok_or(Error::NotInitialized)?;
     // SAFETY: Forwarded from the caller.
     unsafe { detour.disable() }
   }
 
   /// Returns whether the detour is enabled or not.
   pub fn is_enabled(&self) -> bool {
-    self.detour.get().is_some_and(GenericDetour::is_enabled)
+    self.get().is_some_and(GenericDetour::is_enabled)
   }
 
   /// Replaces the detour closure; see `set_detour`.
   pub(crate) fn set_detour_shared(&self, closure: Arc<T::Closure>) {
-    let mut current = self.closure.write().unwrap_or_else(PoisonError::into_inner);
+    let mut current = self.closure.write();
     let previous = current.replace(closure);
     drop(current);
 
@@ -157,25 +167,40 @@ impl<T: Function> StaticDetour<T> {
     self
       .closure
       .read()
-      .unwrap_or_else(PoisonError::into_inner)
       .clone()
       .expect("static detour closure is not initialized")
+  }
+
+  /// Returns the detour, if initialized.
+  fn get(&self) -> Option<&GenericDetour<T>> {
+    // SAFETY: The pointer is either null, or a detour that is never released
+    // whilst `self` is alive.
+    unsafe { self.detour.load(Ordering::Acquire).as_ref() }
   }
 
   /// Returns a pointer to the generated trampoline.
   pub(crate) fn trampoline(&self) -> *const () {
     self
-      .detour
       .get()
       .expect("static detour is not initialized")
       .trampoline()
   }
 }
 
-impl<T: Function> std::fmt::Debug for StaticDetour<T> {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl<T: Function> Drop for StaticDetour<T> {
+  fn drop(&mut self) {
+    let detour = *self.detour.get_mut();
+    if !detour.is_null() {
+      // SAFETY: The detour is exclusively owned by `self`.
+      drop(unsafe { Box::from_raw(detour) });
+    }
+  }
+}
+
+impl<T: Function> core::fmt::Debug for StaticDetour<T> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     f.debug_struct("StaticDetour")
-      .field("detour", &self.detour.get())
+      .field("detour", &self.get())
       .finish_non_exhaustive()
   }
 }

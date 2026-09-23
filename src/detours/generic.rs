@@ -1,7 +1,7 @@
 use crate::detour::Detour;
 use crate::error::Result;
 use crate::{Function, HookableWith};
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 /// A type-safe detour.
 ///
@@ -106,8 +106,8 @@ impl<T: Function> GenericDetour<T> {
   }
 }
 
-impl<T: Function> std::fmt::Debug for GenericDetour<T> {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl<T: Function> core::fmt::Debug for GenericDetour<T> {
+  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     f.debug_tuple("GenericDetour").field(&self.detour).finish()
   }
 }

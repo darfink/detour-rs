@@ -100,6 +100,8 @@ pub(crate) unsafe fn build(target: *const (), detour: *const ()) -> Result<Hook>
 ///
 /// This module is platform-independent, so it is unit tested on all hosts.
 pub(crate) mod encode {
+  use alloc::vec::Vec;
+
   pub const NOP: u32 = 0xD503_201F;
   pub const BTI: u32 = 0xD503_241F;
   pub const BTI_C: u32 = 0xD503_245F;
@@ -331,6 +333,7 @@ pub(crate) mod encode {
 #[cfg(test)]
 mod tests {
   use super::encode::*;
+  use alloc::vec::Vec;
 
   const PC: usize = 0x1_0000_0000;
   const FAR: usize = 0x7_0000_0000;

@@ -195,7 +195,7 @@ macro_rules! impl_hookable {
         Detour: Fn($($ty),*) -> Ret + Send + Sync + 'static,
       {
         // SAFETY: Forwarded from the caller.
-        unsafe { self.initialize_shared(target, ::std::sync::Arc::new(closure)) }
+        unsafe { self.initialize_shared(target, $crate::__private::Arc::new(closure)) }
       }
 
       #[doc(hidden)]
@@ -203,7 +203,7 @@ macro_rules! impl_hookable {
       where
         Detour: Fn($($ty),*) -> Ret + Send + Sync + 'static,
       {
-        self.set_detour_shared(::std::sync::Arc::new(closure));
+        self.set_detour_shared($crate::__private::Arc::new(closure));
       }
     }
   };

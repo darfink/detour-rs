@@ -7,9 +7,11 @@
 
 use super::{copy_code, flush_instruction_cache};
 use crate::error::{Error, Result};
-use std::fmt;
-use std::ops::Range;
-use std::sync::{Mutex, PoisonError};
+use crate::sync::Mutex;
+use alloc::vec;
+use alloc::vec::Vec;
+use core::fmt;
+use core::ops::Range;
 
 /// The allocation unit; also the alignment of each block.
 const UNIT: usize = 16;
@@ -86,7 +88,7 @@ impl CodeBlock {
 
 impl Drop for CodeBlock {
   fn drop(&mut self) {
-    let mut pools = POOLS.lock().unwrap_or_else(PoisonError::into_inner);
+    let mut pools = POOLS.lock();
     let index = pools
       .iter()
       .position(|pool| pool.range().contains(&self.address))
@@ -116,7 +118,7 @@ impl fmt::Debug for CodeBlock {
 pub(crate) fn allocate_near(origin: usize, max_distance: usize, size: usize) -> Result<CodeBlock> {
   let size = size.max(1).next_multiple_of(UNIT);
   let range = origin.saturating_sub(max_distance)..origin.saturating_add(max_distance);
-  let mut pools = POOLS.lock().unwrap_or_else(PoisonError::into_inner);
+  let mut pools = POOLS.lock();
 
   // Prefer existing pools, to limit the amount of mappings
   for pool in pools.iter_mut() {
@@ -462,7 +464,7 @@ mod tests {
     unsafe { block.write(code)? };
 
     // SAFETY: The block contains a function matching the signature.
-    let function: extern "C" fn() -> i32 = unsafe { std::mem::transmute(block.as_ptr()) };
+    let function: extern "C" fn() -> i32 = unsafe { core::mem::transmute(block.as_ptr()) };
     assert_eq!(function(), 42);
     Ok(())
   }

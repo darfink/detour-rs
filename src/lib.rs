@@ -92,6 +92,29 @@
 //!   undefined behavior.
 //! - Multiple detours of the same target must be disabled in the reverse order
 //!   they were enabled in; otherwise [`Error::TargetModified`] is returned.
+//!
+//! ## Features
+//!
+//! - **std** (default): Uses the standard library for locking, and converts
+//!   [`MemoryError`] into [`std::io::Error`].
+//! - **no_std**: Supports `#![no_std]` environments with a global allocator,
+//!   using spin locks. Disable the default features to use it:
+//!
+//!   ```toml
+//!   detour = { version = "0.9", default-features = false, features = ["no_std"] }
+//!   ```
+//!
+//!   On x86, `iced-x86` requires `std` and `no_std` to be mutually exclusive,
+//!   so `no_std` cannot be used alongside another crate enabling `iced-x86/std`.
+
+#![no_std]
+
+extern crate alloc;
+#[cfg(any(feature = "std", test))]
+extern crate std;
+
+#[cfg(not(any(feature = "std", feature = "no_std")))]
+compile_error!("either the `std` (default) or `no_std` feature of `detour` must be enabled");
 
 #[cfg(not(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")))]
 compile_error!(
@@ -104,7 +127,7 @@ mod macros;
 
 supported! {
   pub use detours::*;
-  pub use error::{Error, Result};
+  pub use error::{Error, MemoryError, Result};
   pub use traits::{Function, HookableWith};
 
   mod arch;
@@ -112,7 +135,13 @@ supported! {
   mod detours;
   mod error;
   mod memory;
+  mod sync;
   mod traits;
+
+  #[doc(hidden)]
+  pub mod __private {
+    pub use alloc::sync::Arc;
+  }
 }
 
 #[cfg(doctest)]

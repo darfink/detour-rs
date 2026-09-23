@@ -3,8 +3,8 @@
 
 pub(crate) use self::alloc::{CodeBlock, allocate_near};
 
-use crate::error::{Error, Result};
-use std::sync::{Mutex, MutexGuard, PoisonError};
+use crate::error::Result;
+use crate::sync::Mutex;
 
 mod alloc;
 #[cfg(target_vendor = "apple")]
@@ -17,12 +17,10 @@ mod apple;
 /// code residing in a shared page).
 static PATCH_LOCK: Mutex<()> = Mutex::new(());
 
-/// Acquires the global patch lock.
-///
-/// A panic while holding the lock cannot leave any Rust-level state
-/// inconsistent (the lock guards no data), so poisoning is ignored.
-pub(crate) fn patch_lock() -> MutexGuard<'static, ()> {
-  PATCH_LOCK.lock().unwrap_or_else(PoisonError::into_inner)
+/// Acquires the global patch lock, which is held until the guard is dropped.
+#[must_use]
+pub(crate) fn patch_lock() -> impl Sized {
+  PATCH_LOCK.lock()
 }
 
 /// Returns whether `address` resides in executable memory.
@@ -195,10 +193,4 @@ unsafe fn aarch64_clear_cache(start: usize, len: usize) {
   }
   // SAFETY: Barrier.
   unsafe { asm!("isb", options(nostack)) };
-}
-
-impl From<region::Error> for Error {
-  fn from(error: region::Error) -> Self {
-    Error::Memory(error.into())
-  }
 }

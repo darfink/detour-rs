@@ -11,52 +11,12 @@
 
 use super::copy_code;
 use crate::error::{MemoryError, Result};
-
-#[allow(non_camel_case_types)]
-type kern_return_t = libc::c_int;
-#[allow(non_camel_case_types)]
-type vm_prot_t = libc::c_int;
-
-const KERN_SUCCESS: kern_return_t = 0;
-const VM_PROT_READ: vm_prot_t = 0x01;
-const VM_PROT_WRITE: vm_prot_t = 0x02;
-const VM_PROT_EXECUTE: vm_prot_t = 0x04;
-const VM_PROT_COPY: vm_prot_t = 0x10;
-const VM_FLAGS_FIXED: libc::c_int = 0x0000;
-const VM_FLAGS_ANYWHERE: libc::c_int = 0x0001;
-const VM_FLAGS_OVERWRITE: libc::c_int = 0x4000;
-const VM_INHERIT_COPY: libc::c_uint = 1;
-
-unsafe extern "C" {
-  static mach_task_self_: libc::mach_port_t;
-  fn mach_vm_protect(
-    task: libc::mach_port_t,
-    address: u64,
-    size: u64,
-    set_maximum: libc::boolean_t,
-    protection: vm_prot_t,
-  ) -> kern_return_t;
-  fn mach_vm_allocate(
-    task: libc::mach_port_t,
-    address: *mut u64,
-    size: u64,
-    flags: libc::c_int,
-  ) -> kern_return_t;
-  fn mach_vm_deallocate(task: libc::mach_port_t, address: u64, size: u64) -> kern_return_t;
-  fn mach_vm_remap(
-    target_task: libc::mach_port_t,
-    target_address: *mut u64,
-    size: u64,
-    mask: u64,
-    flags: libc::c_int,
-    src_task: libc::mach_port_t,
-    src_address: u64,
-    copy: libc::boolean_t,
-    cur_protection: *mut vm_prot_t,
-    max_protection: *mut vm_prot_t,
-    inheritance: libc::c_uint,
-  ) -> kern_return_t;
-}
+use mach2::kern_return::{KERN_SUCCESS, kern_return_t};
+use mach2::traps::mach_task_self;
+use mach2::vm::{mach_vm_allocate, mach_vm_deallocate, mach_vm_protect, mach_vm_remap};
+use mach2::vm_inherit::VM_INHERIT_COPY;
+use mach2::vm_prot::{VM_PROT_COPY, VM_PROT_EXECUTE, VM_PROT_READ, VM_PROT_WRITE};
+use mach2::vm_statistics::{VM_FLAGS_ANYWHERE, VM_FLAGS_FIXED, VM_FLAGS_OVERWRITE};
 
 fn check(result: kern_return_t) -> Result<()> {
   if result == KERN_SUCCESS {
@@ -92,8 +52,8 @@ pub(super) unsafe fn patch_code(address: *mut u8, bytes: &[u8]) -> Result<()> {
   }
   debug_assert!(size as usize % page_size == 0);
 
-  // SAFETY: The task port of the current process is initialized by libSystem.
-  let task = unsafe { mach_task_self_ };
+  // SAFETY: Returns the task port of the current process.
+  let task = unsafe { mach_task_self() };
   let rwx = VM_PROT_READ | VM_PROT_WRITE | VM_PROT_EXECUTE;
 
   // SAFETY: The pages are mapped (they were just queried), and copy-on-write

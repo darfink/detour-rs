@@ -26,7 +26,7 @@ no_std = ["dep:spin", "iced-x86/no_std"]
 spin = { version = "0.12.0", default-features = false, features = ["mutex", "spin_mutex", "rwlock"], optional = true }
 
 [target.'cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64"))'.dependencies]
-region = { version = "4.0.0", default-features = false }
+region = { version = "4.0.1", default-features = false }
 
 [target.'cfg(any(target_arch = "x86", target_arch = "x86_64"))'.dependencies]
 iced-x86 = { version = "1.21.0", default-features = false, features = ["decoder", "block_encoder", "instr_info"] }
@@ -34,15 +34,19 @@ iced-x86 = { version = "1.21.0", default-features = false, features = ["decoder"
 [target.'cfg(unix)'.dependencies]
 libc = { version = "0.2.172", default-features = false }
 
+# Accept a range so dependents can unify on a single `mach2` version (as `region`).
+[target.'cfg(target_vendor = "apple")'.dependencies]
+mach2 = { version = ">=0.4.2, <0.8", default-features = false }
+
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61.0", features = ["Win32_Foundation", "Win32_System_Diagnostics_Debug", "Win32_System_Threading"] }
 
 [target.'cfg(unix)'.dev-dependencies]
 libc = "0.2.172"
-region = "4.0.0"
+region = "4.0.1"
 
 [target.'cfg(windows)'.dev-dependencies]
-region = "4.0.0"
+region = "4.0.1"
 windows-sys = { version = "0.61.0", features = ["Win32_Foundation", "Win32_System_LibraryLoader", "Win32_System_SystemServices", "Win32_UI_WindowsAndMessaging"] }
 
 [[example]]

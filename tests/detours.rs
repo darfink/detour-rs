@@ -1,5 +1,5 @@
 //! Tests of the public API.
-use detour::{Error, GenericDetour, RawDetour, Result, static_detour};
+use detour::{Error, RawDetour, Result, TypedDetour, static_detour};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -168,7 +168,7 @@ mod raw {
     let hooks = targets
       .iter()
       // SAFETY: The functions share the same signature.
-      .map(|target| unsafe { GenericDetour::<FnAdd>::new(*target, sub_detour) })
+      .map(|target| unsafe { TypedDetour::<FnAdd>::new(*target, sub_detour) })
       .collect::<Result<Vec<_>>>()?;
 
     for hook in &hooks {
@@ -199,7 +199,7 @@ mod generic {
     }
 
     // SAFETY: The functions share the same signature.
-    let hook = unsafe { GenericDetour::<FnAdd>::new(add, sub_detour)? };
+    let hook = unsafe { TypedDetour::<FnAdd>::new(add, sub_detour)? };
     // SAFETY: No other thread is executing `add`.
     unsafe {
       hook.enable()?;
@@ -222,7 +222,7 @@ mod generic {
     // Trampolines are released upon drop, so this must not exhaust memory
     for _ in 0..10_000 {
       // SAFETY: The functions share the same signature.
-      let hook = unsafe { GenericDetour::<FnAdd>::new(add, sub_detour)? };
+      let hook = unsafe { TypedDetour::<FnAdd>::new(add, sub_detour)? };
       // SAFETY: No other thread is executing `add`.
       unsafe { hook.enable()? };
       assert_eq!(add(3, 1), 2);
@@ -266,7 +266,7 @@ mod generic {
         std::thread::spawn(move || -> Result<()> {
           for _ in 0..50 {
             // SAFETY: Each thread detours a distinct target.
-            let hook = unsafe { GenericDetour::<FnAdd>::new(target, sub_detour)? };
+            let hook = unsafe { TypedDetour::<FnAdd>::new(target, sub_detour)? };
             // SAFETY: See above.
             unsafe { hook.enable()? };
             assert_eq!(target(5, 2), 3);
@@ -293,7 +293,7 @@ mod generic {
     }
 
     // SAFETY: The functions share the same signature.
-    let hook = unsafe { GenericDetour::<FnAdd>::new(add, sub_detour)? };
+    let hook = unsafe { TypedDetour::<FnAdd>::new(add, sub_detour)? };
 
     assert_eq!(add(10, 5), 15);
     assert_eq!(hook.call(10, 5), 15);
@@ -302,6 +302,10 @@ mod generic {
     {
       assert_eq!(hook.call(10, 5), 15);
       assert_eq!(add(10, 5), 5);
+
+      // SAFETY: The hook outlives the trampoline's use.
+      let original = unsafe { hook.trampoline() };
+      assert_eq!(original(10, 5), 15);
     }
     // SAFETY: No other thread is executing `add`.
     unsafe { hook.disable()? };
@@ -323,7 +327,7 @@ mod generic {
 
     // SAFETY: The functions share the same signature.
     let hook = unsafe {
-      GenericDetour::<unsafe extern "C" fn() -> u64>::new(value, detour as extern "C" fn() -> u64)?
+      TypedDetour::<unsafe extern "C" fn() -> u64>::new(value, detour as extern "C" fn() -> u64)?
     };
     // SAFETY: No other thread is executing `value`.
     unsafe {
@@ -337,7 +341,7 @@ mod generic {
   #[test]
   fn is_send_and_sync() {
     fn assert<T: Send + Sync>() {}
-    assert::<GenericDetour<fn()>>();
+    assert::<TypedDetour<fn()>>();
     assert::<RawDetour>();
     assert::<detour::StaticDetour<fn()>>();
   }
@@ -466,7 +470,7 @@ fn toggle_whilst_executing() -> Result<()> {
   }
 
   // SAFETY: The functions share the same signature.
-  let hook = unsafe { GenericDetour::<extern "C" fn() -> i32>::new(ret1, ret2)? };
+  let hook = unsafe { TypedDetour::<extern "C" fn() -> i32>::new(ret1, ret2)? };
   let done = Arc::new(AtomicBool::new(false));
 
   let calls = Arc::new(AtomicUsize::new(0));

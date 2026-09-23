@@ -87,8 +87,7 @@ macro_rules! static_detour {
       #[inline(never)]
       #[allow(unused_unsafe)]
       $($qualifier)* fn __ffi_detour($($argument_name: $argument),*) -> $output {
-        let detour = $name.__detour();
-        (detour)($($argument_name),*)
+        $name.__with_detour(move |detour| detour($($argument_name),*))
       }
 
       $crate::StaticDetour::__new(__ffi_detour)
@@ -102,7 +101,7 @@ macro_rules! static_detour {
 }
 
 /// Implements `Function`, `HookableWith`, and the signature-specific methods
-/// of `GenericDetour` & `StaticDetour`, for all supported function pointers.
+/// of `TypedDetour` & `StaticDetour`, for all supported function pointers.
 macro_rules! impl_hookable {
   (@recurse () ($($nm:ident : $ty:ident),*)) => {
     impl_hookable!(@impl_all ($($nm : $ty),*));
@@ -114,41 +113,50 @@ macro_rules! impl_hookable {
     impl_hookable!(@recurse ($($tl_nm : $tl_ty),*) ($($nm : $ty,)* $hd_nm : $hd_ty));
   };
 
+  // The signature-specific methods are only documented once, for `fn(A) -> Ret`,
+  // to avoid hundreds of near-identical entries in the documentation.
+  (@impl_all (__arg_0 : A)) => {
+    impl_hookable!(@impl_abis [] (__arg_0 : A));
+  };
   (@impl_all ($($nm:ident : $ty:ident),*)) => {
-    impl_hookable!(@impl_pair ($($nm : $ty),*) (                       fn($($ty),*) -> Ret));
-    impl_hookable!(@impl_pair ($($nm : $ty),*) (extern "C"             fn($($ty),*) -> Ret));
-    impl_hookable!(@impl_pair ($($nm : $ty),*) (extern "C-unwind"      fn($($ty),*) -> Ret));
-    impl_hookable!(@impl_pair ($($nm : $ty),*) (extern "system"        fn($($ty),*) -> Ret));
-    impl_hookable!(@impl_pair ($($nm : $ty),*) (extern "system-unwind" fn($($ty),*) -> Ret));
-
-    #[cfg(target_arch = "x86")]
-    impl_hookable!(@impl_pair ($($nm : $ty),*) (extern "cdecl"         fn($($ty),*) -> Ret));
-    #[cfg(target_arch = "x86")]
-    impl_hookable!(@impl_pair ($($nm : $ty),*) (extern "stdcall"       fn($($ty),*) -> Ret));
-    #[cfg(target_arch = "x86")]
-    impl_hookable!(@impl_pair ($($nm : $ty),*) (extern "fastcall"      fn($($ty),*) -> Ret));
-    #[cfg(target_arch = "x86")]
-    impl_hookable!(@impl_pair ($($nm : $ty),*) (extern "thiscall"      fn($($ty),*) -> Ret));
-
-    #[cfg(target_arch = "x86_64")]
-    impl_hookable!(@impl_pair ($($nm : $ty),*) (extern "win64"         fn($($ty),*) -> Ret));
-    #[cfg(target_arch = "x86_64")]
-    impl_hookable!(@impl_pair ($($nm : $ty),*) (extern "sysv64"        fn($($ty),*) -> Ret));
+    impl_hookable!(@impl_abis [#[doc(hidden)]] ($($nm : $ty),*));
   };
 
-  (@impl_pair ($($nm:ident : $ty:ident),*) ($($fn_t:tt)*)) => {
-    impl_hookable!(@impl_fun ($($nm : $ty),*) ($($fn_t)*) (unsafe $($fn_t)*));
+  (@impl_abis [$($doc:tt)*] ($($nm:ident : $ty:ident),*)) => {
+    impl_hookable!(@impl_pair [$($doc)*]         ($($nm : $ty),*) (                       fn($($ty),*) -> Ret));
+    impl_hookable!(@impl_pair [#[doc(hidden)]] ($($nm : $ty),*) (extern "C"             fn($($ty),*) -> Ret));
+    impl_hookable!(@impl_pair [#[doc(hidden)]] ($($nm : $ty),*) (extern "C-unwind"      fn($($ty),*) -> Ret));
+    impl_hookable!(@impl_pair [#[doc(hidden)]] ($($nm : $ty),*) (extern "system"        fn($($ty),*) -> Ret));
+    impl_hookable!(@impl_pair [#[doc(hidden)]] ($($nm : $ty),*) (extern "system-unwind" fn($($ty),*) -> Ret));
+
+    #[cfg(target_arch = "x86")]
+    impl_hookable!(@impl_pair [#[doc(hidden)]] ($($nm : $ty),*) (extern "cdecl"         fn($($ty),*) -> Ret));
+    #[cfg(target_arch = "x86")]
+    impl_hookable!(@impl_pair [#[doc(hidden)]] ($($nm : $ty),*) (extern "stdcall"       fn($($ty),*) -> Ret));
+    #[cfg(target_arch = "x86")]
+    impl_hookable!(@impl_pair [#[doc(hidden)]] ($($nm : $ty),*) (extern "fastcall"      fn($($ty),*) -> Ret));
+    #[cfg(target_arch = "x86")]
+    impl_hookable!(@impl_pair [#[doc(hidden)]] ($($nm : $ty),*) (extern "thiscall"      fn($($ty),*) -> Ret));
+
+    #[cfg(target_arch = "x86_64")]
+    impl_hookable!(@impl_pair [#[doc(hidden)]] ($($nm : $ty),*) (extern "win64"         fn($($ty),*) -> Ret));
+    #[cfg(target_arch = "x86_64")]
+    impl_hookable!(@impl_pair [#[doc(hidden)]] ($($nm : $ty),*) (extern "sysv64"        fn($($ty),*) -> Ret));
   };
 
-  (@impl_fun ($($nm:ident : $ty:ident),*) ($safe_type:ty) ($unsafe_type:ty)) => {
-    impl_hookable!(@impl_core ($($nm : $ty),*) ($safe_type) ());
-    impl_hookable!(@impl_core ($($nm : $ty),*) ($unsafe_type) (unsafe));
+  (@impl_pair [$($doc:tt)*] ($($nm:ident : $ty:ident),*) ($($fn_t:tt)*)) => {
+    impl_hookable!(@impl_fun [$($doc)*] ($($nm : $ty),*) ($($fn_t)*) (unsafe $($fn_t)*));
+  };
+
+  (@impl_fun [$($doc:tt)*] ($($nm:ident : $ty:ident),*) ($safe_type:ty) ($unsafe_type:ty)) => {
+    impl_hookable!(@impl_core [$($doc)*] ($($nm : $ty),*) ($safe_type) ());
+    impl_hookable!(@impl_core [#[doc(hidden)]] ($($nm : $ty),*) ($unsafe_type) (unsafe));
 
     // SAFETY: A safe function can be used wherever an unsafe one is expected.
     unsafe impl<Ret: 'static, $($ty: 'static),*> HookableWith<$safe_type> for $unsafe_type {}
   };
 
-  (@impl_core ($($nm:ident : $ty:ident),*) ($fn_type:ty) ($($unsafety:tt)?)) => {
+  (@impl_core [$($doc:tt)*] ($($nm:ident : $ty:ident),*) ($fn_type:ty) ($($unsafety:tt)?)) => {
     // SAFETY: Implemented for function pointers only.
     unsafe impl<Ret: 'static, $($ty: 'static),*> Function for $fn_type {
       type Arguments = ($($ty,)*);
@@ -166,44 +174,72 @@ macro_rules! impl_hookable {
       }
     }
 
-    impl<Ret: 'static, $($ty: 'static),*> $crate::GenericDetour<$fn_type> {
-      #[doc(hidden)]
+    $($doc)*
+    impl<Ret: 'static, $($ty: 'static),*> $crate::TypedDetour<$fn_type> {
+      /// Calls the original function, regardless of whether it is detoured or
+      /// not.
+      ///
+      /// Available for all supported signatures, taking the same arguments
+      /// as the target. It is `unsafe` if the target is.
       pub $($unsafety)? fn call(&self, $($nm : $ty),*) -> Ret {
         // SAFETY: The trampoline shares the target's signature, and remains
         // valid for the lifetime of `self`.
         unsafe {
-          let original = <$fn_type as Function>::from_ptr(self.trampoline());
+          let original = <$fn_type as Function>::from_ptr(self.trampoline_ptr());
           original($($nm),*)
         }
       }
     }
 
+    $($doc)*
     impl<Ret: 'static, $($ty: 'static),*> $crate::StaticDetour<$fn_type> {
-      #[doc(hidden)]
+      /// Calls the original function, regardless of whether it is detoured or
+      /// not.
+      ///
+      /// Available for all supported signatures, taking the same arguments
+      /// as the target. It is `unsafe` if the target is.
+      ///
+      /// # Panics
+      ///
+      /// Panics if the detour has not been initialized.
       pub $($unsafety)? fn call(&self, $($nm : $ty),*) -> Ret {
         // SAFETY: The trampoline shares the target's signature, and remains
         // valid for the lifetime of `self` (i.e. forever).
         unsafe {
-          let original = <$fn_type as Function>::from_ptr(self.trampoline());
+          let original = <$fn_type as Function>::from_ptr(self.trampoline_ptr());
           original($($nm),*)
         }
       }
 
-      #[doc(hidden)]
-      pub unsafe fn initialize<Detour>(&self, target: $fn_type, closure: Detour) -> $crate::Result<&Self>
+      /// Creates the detour of `target`, redirected to `closure`.
+      ///
+      /// The detour is created disabled. It can only be initialized once;
+      /// subsequent calls fail with [`Error::AlreadyInitialized`]. Returns
+      /// `&self` to allow chaining, e.g. `initialize(..)?.enable()`.
+      ///
+      /// # Safety
+      ///
+      /// See [`TypedDetour::new`](crate::TypedDetour::new).
+      ///
+      /// [`Error::AlreadyInitialized`]: crate::Error::AlreadyInitialized
+      pub unsafe fn initialize<Closure>(&self, target: $fn_type, closure: Closure) -> $crate::Result<&Self>
       where
-        Detour: Fn($($ty),*) -> Ret + Send + Sync + 'static,
+        Closure: Fn($($ty),*) -> Ret + Send + Sync + 'static,
       {
         // SAFETY: Forwarded from the caller.
-        unsafe { self.initialize_shared(target, $crate::__private::Arc::new(closure)) }
+        unsafe { self.initialize_shared(target, ::alloc::boxed::Box::new(closure)) }
       }
 
-      #[doc(hidden)]
-      pub fn set_detour<Detour>(&self, closure: Detour)
+      /// Replaces the detour closure, regardless of whether the detour is
+      /// enabled or not.
+      ///
+      /// It may be called from within the detour itself. The previous closure
+      /// is released once no thread is executing it.
+      pub fn set_detour<Closure>(&self, closure: Closure)
       where
-        Detour: Fn($($ty),*) -> Ret + Send + Sync + 'static,
+        Closure: Fn($($ty),*) -> Ret + Send + Sync + 'static,
       {
-        self.set_detour_shared($crate::__private::Arc::new(closure));
+        self.set_detour_shared(::alloc::boxed::Box::new(closure));
       }
     }
   };

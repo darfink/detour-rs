@@ -22,15 +22,15 @@
 //!
 //! Three different types of detours are provided:
 //!
-//! - [Static](./struct.StaticDetour.html): A static & type-safe interface.
+//! - [`StaticDetour`]: A static & type-safe interface.
 //!   Thanks to its static nature it can accept a closure as its detour, but is
 //!   required to be statically defined at compile time.
 //!
-//! - [Generic](./struct.GenericDetour.html): A type-safe interface — the same
-//!   prototype is enforced for both the target and the detour. It is also
-//!   enforced when invoking the original target.
+//! - [`TypedDetour`]: A type-safe interface — the same prototype is enforced
+//!   for both the target and the detour. It is also enforced when invoking the
+//!   original target.
 //!
-//! - [Raw](./struct.RawDetour.html): The underlying building block that the
+//! - [`RawDetour`]: The underlying building block that the
 //!   others types abstract upon. It has no type-safety and interacts with raw
 //!   pointers. It should be avoided unless any types are references, or not
 //!   known until runtime.
@@ -141,11 +141,6 @@ supported! {
   mod memory;
   mod sync;
   mod traits;
-
-  #[doc(hidden)]
-  pub mod __private {
-    pub use alloc::sync::Arc;
-  }
 }
 
 #[cfg(doctest)]
@@ -172,13 +167,13 @@ mod tests {
     }
 
     // SAFETY: The functions share the same signature.
-    let hook1 = unsafe { GenericDetour::<extern "C" fn(i32, i32) -> i32>::new(add, sub)? };
+    let hook1 = unsafe { TypedDetour::<extern "C" fn(i32, i32) -> i32>::new(add, sub)? };
     // SAFETY: No other thread is executing `add`.
     unsafe { hook1.enable()? };
     assert_eq!(add(5, 5), 0);
 
     // SAFETY: The functions share the same signature.
-    let hook2 = unsafe { GenericDetour::<extern "C" fn(i32, i32) -> i32>::new(add, div)? };
+    let hook2 = unsafe { TypedDetour::<extern "C" fn(i32, i32) -> i32>::new(add, div)? };
     // SAFETY: No other thread is executing `add`.
     unsafe { hook2.enable()? };
 

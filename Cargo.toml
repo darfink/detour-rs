@@ -23,7 +23,7 @@ std = ["region/std", "iced-x86/std"]
 no_std = ["dep:spin", "iced-x86/no_std"]
 
 [dependencies]
-spin = { version = "0.12.0", default-features = false, features = ["mutex", "spin_mutex", "rwlock"], optional = true }
+spin = { version = "0.12.0", default-features = false, features = ["mutex", "spin_mutex"], optional = true }
 
 [target.'cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64"))'.dependencies]
 region = { version = "4.0.1", default-features = false }

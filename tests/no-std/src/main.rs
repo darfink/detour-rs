@@ -7,7 +7,7 @@ extern crate alloc;
 
 use alloc::sync::Arc;
 use core::sync::atomic::{AtomicU32, Ordering};
-use detour::{GenericDetour, RawDetour, static_detour};
+use detour::{TypedDetour, RawDetour, static_detour};
 
 /// Allocates memory using the C library.
 struct Malloc;
@@ -92,7 +92,7 @@ fn run() -> detour::Result<()> {
     raw.disable()?;
     assert_eq!(add_one(5), 6);
 
-    let generic = GenericDetour::<extern "C" fn(u32) -> u32>::new(add_two, times_hundred)?;
+    let generic = TypedDetour::<extern "C" fn(u32) -> u32>::new(add_two, times_hundred)?;
     generic.enable()?;
     assert_eq!(add_two(5), 500);
     assert_eq!(generic.call(5), 7);

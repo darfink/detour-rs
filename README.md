@@ -79,14 +79,14 @@ fn main() -> Result<(), Box<dyn Error>> {
 | Type | Detour | Type safety | Defined |
 |------|--------|-------------|---------|
 | [`StaticDetour`][static] | Function or closure | Enforced | Statically, with `static_detour!` |
-| [`GenericDetour`][generic] | Function | Enforced | At runtime |
+| [`TypedDetour`][typed] | Function | Enforced | At runtime |
 | [`RawDetour`][raw] | Function | None (raw pointers) | At runtime |
 
-`GenericDetour` requires no macro, and is suitable when the detour is a plain
+`TypedDetour` requires no macro, and is suitable when the detour is a plain
 function:
 
 ```rust
-use detour::GenericDetour;
+use detour::TypedDetour;
 
 #[inline(never)]
 extern "C" fn multiply(a: i32, b: i32) -> i32 {
@@ -98,7 +98,7 @@ extern "C" fn add(a: i32, b: i32) -> i32 {
 }
 
 fn main() -> detour::Result<()> {
-  let hook = unsafe { GenericDetour::<extern "C" fn(i32, i32) -> i32>::new(multiply, add)? };
+  let hook = unsafe { TypedDetour::<extern "C" fn(i32, i32) -> i32>::new(multiply, add)? };
   unsafe { hook.enable()? };
 
   assert_eq!(multiply(2, 3), 5);
@@ -275,7 +275,7 @@ derivative code of his work.
 [docs-shield]: https://img.shields.io/badge/docs-crates-green.svg?style=for-the-badge
 [docs]: https://docs.rs/detour/
 [static]: https://docs.rs/detour/latest/detour/struct.StaticDetour.html
-[generic]: https://docs.rs/detour/latest/detour/struct.GenericDetour.html
+[typed]: https://docs.rs/detour/latest/detour/struct.TypedDetour.html
 [raw]: https://docs.rs/detour/latest/detour/struct.RawDetour.html
 [iced]: https://github.com/icedland/iced
 [minhook-author]: https://github.com/Jascha-N

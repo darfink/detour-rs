@@ -2,6 +2,28 @@
 
 ## [Unreleased]
 
+### Added
+
+- `TypedDetour::trampoline`, returning the original function as `T`.
+- `MemoryError::raw_mach_error`.
+- `Clone`, `PartialEq` & `Eq` for `Error`.
+
+### Changed
+
+- Renamed `GenericDetour` to `TypedDetour` (a deprecated alias remains).
+- Renamed error variants: `InvalidCode` to `InvalidInstruction`,
+  `NoPatchArea` to `PatchAreaTooSmall`, and `OutOfMemory` to
+  `NoNearbyMemory`.
+- `call`, `initialize` & `set_detour` are now documented (shown once, for
+  `fn(A) -> Ret`).
+- Static detours no longer take a lock nor clone an `Arc` per call. A replaced
+  closure is released once no call is executing.
+
+### Removed
+
+- `From<region::Error>` implementations, keeping `region` a private
+  dependency.
+
 ## [0.9.0] - 2026-09-23
 
 A comprehensive overhaul of the library.

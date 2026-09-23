@@ -1,8 +1,8 @@
-//! Locks, backed by the standard library or by spin locks (`no_std`).
+//! A lock, backed by the standard library or by a spin lock (`no_std`).
 
 #[cfg(feature = "std")]
 mod imp {
-  use std::sync::{self, MutexGuard, PoisonError, RwLockReadGuard, RwLockWriteGuard};
+  use std::sync::{self, MutexGuard, PoisonError};
 
   /// A mutual exclusion lock, ignoring poisoning.
   ///
@@ -18,28 +18,11 @@ mod imp {
       self.0.lock().unwrap_or_else(PoisonError::into_inner)
     }
   }
-
-  /// A reader-writer lock, ignoring poisoning.
-  pub struct RwLock<T>(sync::RwLock<T>);
-
-  impl<T> RwLock<T> {
-    pub const fn new(value: T) -> Self {
-      RwLock(sync::RwLock::new(value))
-    }
-
-    pub fn read(&self) -> RwLockReadGuard<'_, T> {
-      self.0.read().unwrap_or_else(PoisonError::into_inner)
-    }
-
-    pub fn write(&self) -> RwLockWriteGuard<'_, T> {
-      self.0.write().unwrap_or_else(PoisonError::into_inner)
-    }
-  }
 }
 
 #[cfg(not(feature = "std"))]
 mod imp {
-  pub use spin::{Mutex, RwLock};
+  pub use spin::Mutex;
 }
 
-pub(crate) use self::imp::{Mutex, RwLock};
+pub(crate) use self::imp::Mutex;

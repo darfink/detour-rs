@@ -1,0 +1,19 @@
+[package]
+name = "detour-no-std"
+version = "0.0.0"
+edition = "2024"
+publish = false
+description = "Verifies that detours work in a `#![no_std]` executable"
+
+[dependencies]
+detour = { path = "../..", default-features = false, features = ["no_std"] }
+libc = { version = "0.2.172", default-features = false }
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+
+# A standalone package; not a member of the library's workspace
+[workspace]

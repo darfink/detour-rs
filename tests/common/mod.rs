@@ -96,3 +96,29 @@ fn clear_cache(address: usize, len: usize) {
 
   let _ = (address, len);
 }
+
+/// Returns whether the process is translated by Rosetta 2.
+///
+/// Rosetta intermittently raises `SIGBUS` when code is modified whilst another
+/// thread executes the same page, so such tests are skipped when translated.
+pub fn is_translated() -> bool {
+  #[cfg(all(target_vendor = "apple", target_arch = "x86_64"))]
+  {
+    let mut translated: libc::c_int = 0;
+    let mut size = size_of::<libc::c_int>();
+    // SAFETY: The output buffer is valid and its size is provided.
+    let result = unsafe {
+      libc::sysctlbyname(
+        c"sysctl.proc_translated".as_ptr(),
+        (&raw mut translated).cast(),
+        &mut size,
+        std::ptr::null_mut(),
+        0,
+      )
+    };
+    result == 0 && translated == 1
+  }
+
+  #[cfg(not(all(target_vendor = "apple", target_arch = "x86_64")))]
+  false
+}

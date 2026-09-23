@@ -7,58 +7,32 @@
 [![GitHub CI Status][github-shield]][github]
 [![crates.io version][crate-shield]][crate]
 [![Documentation][docs-shield]][docs]
-[![License][license-shield]][license]
 
 </div>
 
-This is a cross-platform detour (inline hooking) library developed in Rust.
-Beyond the basic functionality, this library handles branch redirects,
-RIP/PC-relative instructions, hot-patching, NOP-padded functions, and allows
-the original function to be called using a trampoline whilst hooked.
+A cross-platform library for detouring (inline hooking) functions at runtime.
+It redirects a function to your own code, while the original remains callable
+through a trampoline.
 
-Patches are kept as small as possible: on AArch64 a single aligned
-instruction is replaced atomically, and x86 hot-patching only alters the
-2-byte instruction at the function's entry (the jump itself is placed in the
-padding preceding it). Other threads are not suspended while a detour is
-toggled, and their instruction pointers are not relocated (i.e. no
-[EIP relocation](#appendix), yet). In practice this only matters when another
-thread executes the target's first few instructions at the exact moment it is
-patched.
-
-The library works on **stable Rust** (1.85+). It also supports
-`#![no_std]` environments with a global allocator; see [Features](#features).
-
-## Platforms
-
-| Architecture | Windows | Linux | macOS | Notes |
-|--------------|:-------:|:-----:|:-----:|-------|
-| `x86`        | ✓       | ✓     |       | Hot-patching, padding detection |
-| `x86-64`     | ✓       | ✓     | ✓     | Relays for detours beyond ±2 GiB |
-| `AArch64`    | ✓       | ✓     | ✓     | Relays for detours beyond ±128 MiB, BTI & PAC aware |
-
-Other Unix-like systems (e.g. FreeBSD, Android) are expected to work, but are
-not tested in CI. Instruction relocation is powered by [`iced-x86`][iced] on
-x86; AArch64 uses a built-in relocator.
-
-WebAssembly is not supported, and cannot be: its code is neither addressable
-nor writable at runtime, which inline detouring fundamentally requires.
+- Works on **stable Rust** (1.85+), with optional `#![no_std]` support.
+- Supports `x86`, `x86-64` & `AArch64` on Windows, Linux & macOS (including
+  Apple silicon).
+- Relocates branches and RIP/PC-relative instructions, supports hot-patching
+  and NOP-padded functions, and reaches distant detours through relays.
+- Type-safe detours for any function pointer, including closures as detours.
 
 ## Installation
-
-Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
 detour = "0.9.0"
 ```
 
-## Example
-
-- A static detour (one of *three* different detours):
+## Quick start
 
 ```rust
-use std::error::Error;
 use detour::static_detour;
+use std::error::Error;
 
 static_detour! {
   static Test: /* extern "X" */ fn(i32) -> i32;
@@ -100,34 +74,108 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 ```
 
-- A Windows API hooking example is available [here](./examples/messageboxw_detour.rs); build it by running:
-```sh
-$ cargo build --example messageboxw_detour
+## Choosing a detour
+
+| Type | Detour | Type safety | Defined |
+|------|--------|-------------|---------|
+| [`StaticDetour`][static] | Function or closure | Enforced | Statically, with `static_detour!` |
+| [`GenericDetour`][generic] | Function | Enforced | At runtime |
+| [`RawDetour`][raw] | Function | None (raw pointers) | At runtime |
+
+`GenericDetour` requires no macro, and is suitable when the detour is a plain
+function:
+
+```rust
+use detour::GenericDetour;
+
+#[inline(never)]
+extern "C" fn multiply(a: i32, b: i32) -> i32 {
+  std::hint::black_box(a) * b
+}
+
+extern "C" fn add(a: i32, b: i32) -> i32 {
+  a + b
+}
+
+fn main() -> detour::Result<()> {
+  let hook = unsafe { GenericDetour::<extern "C" fn(i32, i32) -> i32>::new(multiply, add)? };
+  unsafe { hook.enable()? };
+
+  assert_eq!(multiply(2, 3), 5);
+  assert_eq!(hook.call(2, 3), 6);
+  Ok(())
+}
 ```
 
-- Hooking a program from its very start, so no invocation is missed, is
-  shown in [`early_hook`](./examples/early_hook.rs). The library installs its
-  detours when loaded, before the program's `main` runs:
+`RawDetour` accepts any pointer, e.g. for functions only known at runtime, or
+signatures the typed detours cannot express, such as reference arguments:
+
+```rust
+use detour::RawDetour;
+
+#[inline(never)]
+fn length(text: &str) -> usize {
+  std::hint::black_box(text).len()
+}
+
+fn zero(_: &str) -> usize {
+  0
+}
+
+fn main() -> detour::Result<()> {
+  let hook = unsafe { RawDetour::new(length as *const (), zero as *const ())? };
+  unsafe { hook.enable()? };
+
+  let original: fn(&str) -> usize = unsafe { std::mem::transmute(hook.trampoline()) };
+  assert_eq!(length("detour"), 0);
+  assert_eq!(original("detour"), 6);
+  Ok(())
+}
+```
+
+## Examples
+
+- [`messageboxw_detour`](./examples/messageboxw_detour.rs): a DLL that
+  detours `MessageBoxW` for the process it is injected into (Windows).
+- [`early_hook`](./examples/early_hook.rs): installs a detour as soon as the
+  library is loaded, before the program's `main` runs, so no invocation is
+  missed. [`launch_suspended`](./examples/launch_suspended.rs) loads it on
+  Windows.
+
 ```sh
 $ cargo build --example early_hook --example early_target --example launch_suspended
 
 # Linux
 $ LD_PRELOAD=target/debug/examples/libearly_hook.so target/debug/examples/early_target
 
-# macOS
+# macOS (not for SIP-protected or hardened-runtime binaries)
 $ DYLD_INSERT_LIBRARIES=target/debug/examples/libearly_hook.dylib target/debug/examples/early_target
 
-# Windows (starts the program suspended, and loads the library before its entry point)
+# Windows
 $ target\debug\examples\launch_suspended.exe target\debug\examples\early_hook.dll target\debug\examples\early_target.exe
 ```
 
-## Features
+## Platforms
+
+| Architecture | Windows | Linux | macOS | Notes |
+|--------------|:-------:|:-----:|:-----:|-------|
+| `x86`        | ✓       | ✓     |       | Hot-patching, padding detection |
+| `x86-64`     | ✓       | ✓     | ✓     | Relays for detours beyond ±2 GiB |
+| `AArch64`    | ✓       | ✓     | ✓     | Relays for detours beyond ±128 MiB, BTI & PAC aware |
+
+Other Unix-like systems (e.g. FreeBSD, Android) are expected to work, but are
+not tested in CI. Instruction relocation uses [`iced-x86`][iced] on x86, and a
+built-in relocator on AArch64.
+
+WebAssembly is not supported, and cannot be: its code is neither addressable
+nor writable at runtime, which inline detouring fundamentally requires.
+
+## Cargo features
 
 - **`std`** (default): Uses the standard library for locking, and allows
   converting `detour::MemoryError` into `std::io::Error`.
 - **`no_std`**: Supports `#![no_std]` environments (requires `alloc`), using
-  spin locks. An operating system is still required for memory management
-  (see the [platforms](#platforms)).
+  spin locks. An operating system is still required for memory management.
 
 ```toml
 [dependencies]
@@ -136,6 +184,66 @@ detour = { version = "0.9.0", default-features = false, features = ["no_std"] }
 
 On x86, `iced-x86` treats `std` and `no_std` as mutually exclusive, so the
 `no_std` feature cannot be combined with another crate enabling `iced-x86/std`.
+
+## Caveats
+
+- **Inlined calls cannot be detoured.** Only calls that actually jump to the
+  target are redirected; mark your own targets `#[inline(never)]`. To detour
+  a function of another module (e.g. a system library), resolve its address
+  at runtime (`dlsym`, `GetProcAddress`), since a direct reference may resolve
+  to a local import stub instead.
+- **No EIP relocation.** Other threads are not suspended while a detour is
+  toggled, and their instruction pointers are not relocated. A thread
+  executing a target's first instructions at the exact moment they are
+  replaced may resume in the middle of the new jump. On AArch64 a single
+  aligned instruction is replaced atomically, which avoids this (except for
+  the absolute-jump fallback, used when no memory is available within
+  ±128 MiB of the target). On x86, enable detours before other threads run
+  the target (e.g. at start-up) to avoid the issue entirely.
+- **Shared targets.** Multiple detours of the same target must be disabled in
+  the reverse order they were enabled in; otherwise
+  `Error::TargetModified` is returned.
+- **Rosetta 2.** Under Rosetta 2 (x86-64 code on Apple silicon), modifying
+  code whilst another thread executes the same memory page may intermittently
+  raise `SIGBUS`. Native Intel Macs and native Apple silicon code are not
+  affected.
+
+## How it works
+
+To illustrate a detour on x86:
+
+```c
+int return_five() {
+    return 5;
+00400020 [b8 05 00 00 00] mov eax, 5
+00400025 [c3]             ret
+}
+
+int detour_function() {
+    return 10;
+00400040 [b8 0a 00 00 00] mov eax, 10
+00400045 [c3]             ret
+}
+```
+
+The target's prolog is disassembled, relocated to a trampoline allocated near
+the target, and followed by a jump back to the remainder of the function. The
+prolog is then replaced with a jump to the detour:
+
+```c
+int return_five() {
+    return detour_function();
+00400020 [e9 1b 00 00 00] jmp 00400040 <detour_function>
+00400025 [c3]             ret
+}
+```
+
+If the detour is out of reach of a relative jump, the jump targets a relay (an
+absolute jump allocated near the target) instead. Functions too small for a
+5-byte jump are supported if they are followed by padding (`nop`/`int3`), or
+preceded by a hot-patching area, in which case a 2-byte jump at the entry
+leads to the 5-byte jump placed in the area. On AArch64, a single `B`
+instruction is replaced instead.
 
 ## Upgrading from 0.8
 
@@ -151,47 +259,13 @@ On x86, `iced-x86` treats `std` and `no_std` as mutually exclusive, so the
 - `extern "cdecl"`, `"stdcall"`, `"fastcall"` & `"thiscall"` function
   pointers are only supported on `x86`; `"win64"` & `"sysv64"` on `x86-64`.
 
-## Mentions
+See the [changelog](./CHANGELOG.md) for all changes.
+
+## Acknowledgements
 
 Part of the library's external user interface was inspired by
 [minhook-rs][minhook], created by [Jascha-N][minhook-author], and it contains
 derivative code of his work.
-
-## Appendix
-
-- *EIP relocation*
-
-  *If another thread is executing a target's first instructions while they
-  are replaced, it may resume in the middle of the new jump. Some libraries
-  prevent this by suspending all other threads, and moving any instruction
-  pointer within the patched bytes to the equivalent position in the
-  trampoline. This library does not do so yet. The risk is mostly limited to
-  x86, where a 5-byte jump may replace several instructions; on AArch64 a
-  single instruction is replaced atomically (except for the absolute-jump
-  fallback, used when no memory is available within ±128 MiB of the target).
-  Enable detours before other threads run the target (e.g. at start-up; see
-  the `early_hook` example) to avoid the issue entirely.*
-
-- *Rosetta 2*
-
-  *Under Rosetta 2 (x86-64 code on Apple silicon), modifying code whilst
-  another thread executes the same memory page may intermittently raise
-  `SIGBUS`. This is a limitation of the translator; native Intel Macs and
-  native Apple silicon code are not affected.*
-
-- *NOP-padding*
-  ```c
-  int function() { return 0; }
-  // xor eax, eax
-  // ret
-  // nop
-  // nop
-  // ...
-  ```
-  *Functions such as this one, lacking a hot-patching area, and too small to
-  be hooked with a 5-byte `jmp`, are supported thanks to the detection of
-  code padding (`NOP/INT3` instructions). Therefore the required amount of
-  trailing `NOP` instructions will be replaced, to make room for the detour.*
 
 <!-- Links -->
 [github-shield]: https://img.shields.io/github/actions/workflow/status/darfink/detour-rs/ci.yml?branch=master&label=actions&logo=github&style=for-the-badge
@@ -200,8 +274,9 @@ derivative code of his work.
 [crate]: https://crates.io/crates/detour
 [docs-shield]: https://img.shields.io/badge/docs-crates-green.svg?style=for-the-badge
 [docs]: https://docs.rs/detour/
-[license-shield]: https://img.shields.io/crates/l/detour.svg?style=for-the-badge
-[license]: https://github.com/darfink/detour-rs
+[static]: https://docs.rs/detour/latest/detour/struct.StaticDetour.html
+[generic]: https://docs.rs/detour/latest/detour/struct.GenericDetour.html
+[raw]: https://docs.rs/detour/latest/detour/struct.RawDetour.html
 [iced]: https://github.com/icedland/iced
 [minhook-author]: https://github.com/Jascha-N
 [minhook]: https://github.com/Jascha-N/minhook-rs/

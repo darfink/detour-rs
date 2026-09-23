@@ -10,7 +10,7 @@
 
 ### Changed
 
-- Renamed `GenericDetour` to `TypedDetour` (a deprecated alias remains).
+- Renamed `GenericDetour` to `TypedDetour`.
 - Renamed error variants: `InvalidCode` to `InvalidInstruction`,
   `NoPatchArea` to `PatchAreaTooSmall`, and `OutOfMemory` to
   `NoNearbyMemory`.

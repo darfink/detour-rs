@@ -19,11 +19,11 @@ the original function to be called using a trampoline whilst hooked.
 Patches are kept as small as possible: on AArch64 a single aligned
 instruction is replaced atomically, and x86 hot-patching only alters the
 2-byte instruction at the function's entry (the jump itself is placed in the
-padding preceding it). Other threads are not
-suspended while a detour is toggled, and their instruction pointers are not
-relocated (i.e. no [EIP relocation](#appendix), yet). In practice this only
-matters when another thread executes the target's first few instructions at
-the exact moment it is patched.
+padding preceding it). Other threads are not suspended while a detour is
+toggled, and their instruction pointers are not relocated (i.e. no
+[EIP relocation](#appendix), yet). In practice this only matters when another
+thread executes the target's first few instructions at the exact moment it is
+patched.
 
 The library works on **stable Rust** (1.85+). It also supports
 `#![no_std]` environments with a global allocator; see [Features](#features).

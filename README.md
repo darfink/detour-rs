@@ -2,10 +2,12 @@
 
 # `detour-rs`
 
-[![CI status][ci-shield]][ci]
+## Cross-platform function detouring
+
+[![GitHub CI Status][github-shield]][github]
 [![crates.io version][crate-shield]][crate]
 [![Documentation][docs-shield]][docs]
-[![Language (Rust)][rust-shield]][rust]
+[![License][license-shield]][license]
 
 </div>
 
@@ -14,10 +16,14 @@ Beyond the basic functionality, this library handles branch redirects,
 RIP/PC-relative instructions, hot-patching, NOP-padded functions, and allows
 the original function to be called using a trampoline whilst hooked.
 
-This is one of few **cross-platform** detour libraries that exists, and to
-maintain this feature, not all desired functionality can be supported due to
-lack of cross-platform APIs. Therefore [EIP relocation](#appendix) is not
-supported.
+Patches are kept as small as possible: on AArch64 a single aligned
+instruction is replaced atomically, and x86 hot-patching only alters the
+2-byte instruction at the function's entry (the jump itself is placed in the
+padding preceding it). Other threads are not
+suspended while a detour is toggled, and their instruction pointers are not
+relocated (i.e. no [EIP relocation](#appendix), yet). In practice this only
+matters when another thread executes the target's first few instructions at
+the exact moment it is patched.
 
 The library works on **stable Rust** (1.85+). It also supports
 `#![no_std]` environments with a global allocator; see [Features](#features).
@@ -155,12 +161,16 @@ derivative code of his work.
 
 - *EIP relocation*
 
-  *Should be performed whenever a function's prolog instructions
-  are being executed, simultaneously as the function itself is being
-  detoured. This is done by halting all affected threads, copying the affected
-  instructions and appending a `JMP` to return to the function. This is
-  barely ever an issue, and never in single-threaded environments, but YMMV.
-  On AArch64, only a single instruction is replaced, which is atomic.*
+  *If another thread is executing a target's first instructions while they
+  are replaced, it may resume in the middle of the new jump. Some libraries
+  prevent this by suspending all other threads, and moving any instruction
+  pointer within the patched bytes to the equivalent position in the
+  trampoline. This library does not do so yet. The risk is mostly limited to
+  x86, where a 5-byte jump may replace several instructions; on AArch64 a
+  single instruction is replaced atomically (except for the absolute-jump
+  fallback, used when no memory is available within ±128 MiB of the target).
+  Enable detours before other threads run the target (e.g. at start-up; see
+  the `early_hook` example) to avoid the issue entirely.*
 
 - *Rosetta 2*
 
@@ -184,14 +194,14 @@ derivative code of his work.
   trailing `NOP` instructions will be replaced, to make room for the detour.*
 
 <!-- Links -->
-[ci-shield]: https://img.shields.io/github/actions/workflow/status/darfink/detour-rs/ci.yml?branch=master&label=CI&logo=github&style=flat-square
-[ci]: https://github.com/darfink/detour-rs/actions/workflows/ci.yml
-[crate-shield]: https://img.shields.io/crates/v/detour.svg?style=flat-square
+[github-shield]: https://img.shields.io/github/actions/workflow/status/darfink/detour-rs/ci.yml?branch=master&label=actions&logo=github&style=for-the-badge
+[github]: https://github.com/darfink/detour-rs/actions/workflows/ci.yml?query=branch%3Amaster
+[crate-shield]: https://img.shields.io/crates/v/detour.svg?style=for-the-badge
 [crate]: https://crates.io/crates/detour
-[rust-shield]: https://img.shields.io/badge/powered%20by-rust-blue.svg?style=flat-square
-[rust]: https://www.rust-lang.org
-[docs-shield]: https://img.shields.io/badge/docs-crates-green.svg?style=flat-square
+[docs-shield]: https://img.shields.io/badge/docs-crates-green.svg?style=for-the-badge
 [docs]: https://docs.rs/detour/
+[license-shield]: https://img.shields.io/crates/l/detour.svg?style=for-the-badge
+[license]: https://github.com/darfink/detour-rs
 [iced]: https://github.com/icedland/iced
 [minhook-author]: https://github.com/Jascha-N
 [minhook]: https://github.com/Jascha-N/minhook-rs/

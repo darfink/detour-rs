@@ -6,6 +6,13 @@
 //! even the smallest functions can be detoured, and internal branches into
 //! the patched area are practically impossible.
 //!
+//! If no memory is available within range of the target (e.g. within the
+//! densely packed dyld shared cache on macOS), the target is instead patched
+//! with an absolute jump (`LDR X16, #8; BR X16; .quad detour`), replacing four
+//! instructions. This requires that no other code branches into them. Unlike the
+//! single branch, replacing multiple instructions is not atomic, so the target
+//! must not be executing whilst the detour is toggled.
+//!
 //! Functions beginning with a landing pad (`BTI`, `PACIASP`, `PACIBSP`) are
 //! patched after it, so indirect calls remain valid on BTI-guarded pages.
 
@@ -21,6 +28,13 @@ const MAX_DISTANCE: usize = 0x07F0_0000;
 
 /// An upper bound for the size of a single relocated instruction.
 const MAX_RELOCATED_LEN: usize = 24;
+
+#[cfg(test)]
+std::thread_local! {
+  /// Forces the absolute patch (for the current thread), as if no memory was
+  /// available near targets.
+  pub(crate) static FORCE_FAR: core::cell::Cell<bool> = const { core::cell::Cell::new(false) };
+}
 
 /// Creates a detour of `target` to `detour`.
 ///
@@ -46,11 +60,36 @@ pub(crate) unsafe fn build(target: *const (), detour: *const ()) -> Result<Hook>
     encode::PACIBSP => (4, Some(encode::AUTIBSP)),
     _ => (0, None),
   };
-  let patch_address = target + patch_offset;
   if memory::readable_len(target, patch_offset + 4) < patch_offset + 4 {
     return Err(Error::InvalidCode);
   }
 
+  #[cfg(test)]
+  if FORCE_FAR.get() {
+    // SAFETY: Forwarded from the caller.
+    return unsafe { build_far(target, detour, patch_offset, relay_prefix) };
+  }
+
+  // SAFETY: Forwarded from the caller.
+  match unsafe { build_near(target, detour, patch_offset, relay_prefix) } {
+    // SAFETY: Forwarded from the caller.
+    Err(Error::OutOfMemory) => unsafe { build_far(target, detour, patch_offset, relay_prefix) },
+    result => result,
+  }
+}
+
+/// Patches the target with a direct branch, to the detour or a nearby relay.
+///
+/// # Safety
+///
+/// See [`build`].
+unsafe fn build_near(
+  target: usize,
+  detour: usize,
+  patch_offset: usize,
+  relay_prefix: Option<u32>,
+) -> Result<Hook> {
+  let patch_address = target + patch_offset;
   let relay = if relay_prefix.is_some() || encode::b(patch_address, detour).is_none() {
     let mut relay = memory::allocate_near(patch_address, MAX_DISTANCE, 24)?;
     let mut emitter = encode::Emitter::new(relay.address());
@@ -96,6 +135,82 @@ pub(crate) unsafe fn build(target: *const (), detour: *const ()) -> Result<Hook>
   })
 }
 
+/// Patches the target with an absolute jump to the detour, and relocates the
+/// replaced instructions to a trampoline allocated anywhere.
+///
+/// # Safety
+///
+/// See [`build`].
+unsafe fn build_far(
+  target: usize,
+  detour: usize,
+  patch_offset: usize,
+  relay_prefix: Option<u32>,
+) -> Result<Hook> {
+  let patch_address = target + patch_offset;
+
+  let mut patch = encode::Emitter::new(patch_address);
+  if let Some(prefix) = relay_prefix {
+    patch.push(prefix);
+  }
+  patch.absolute_jump(detour);
+  let patched = patch.into_bytes();
+  let patch_end = patch_address + patched.len();
+
+  // Inspect the function beyond the patched instructions, for branches into them
+  const SCAN_LEN: usize = 1024;
+  let available = memory::readable_len(target, SCAN_LEN) & !3;
+  if available < patch_end - target {
+    return Err(Error::NoPatchArea);
+  }
+  // SAFETY: The range has been verified to be readable.
+  let code = unsafe { core::slice::from_raw_parts(target as *const u32, available / 4) };
+  let patched_count = (patch_end - target) / 4;
+
+  // The function must not end within the patched instructions
+  if code[..patched_count - 1].iter().any(|&instruction| encode::is_terminator(instruction)) {
+    return Err(Error::NoPatchArea);
+  }
+
+  // The trampoline may be out of reach of a direct branch back, in which case
+  // the absolute jump clobbers X16. It holds no value upon function entry, but
+  // the replaced instructions must not assign it.
+  if code[..patched_count].iter().any(|&instruction| encode::may_use_x16(instruction)) {
+    return Err(Error::UnsupportedInstruction);
+  }
+
+  let replaced = (patch_address + 4)..patch_end;
+  let branches_into_patch = code.iter().enumerate().any(|(index, &instruction)| {
+    encode::branch_target(instruction, target + index * 4)
+      .is_some_and(|destination| replaced.contains(&destination))
+  });
+  if branches_into_patch {
+    return Err(Error::UnsupportedInstruction);
+  }
+
+  let mut trampoline =
+    memory::allocate_near(target, usize::MAX, (patched_count + 1) * MAX_RELOCATED_LEN)?;
+  let mut emitter = encode::Emitter::new(trampoline.address());
+  for (index, &instruction) in code[..patched_count].iter().enumerate() {
+    emitter.relocate(instruction, target + index * 4);
+  }
+  emitter.jump(patch_end);
+
+  // SAFETY: The trampoline has just been allocated, and cannot be executing.
+  unsafe { trampoline.write(&emitter.into_bytes())? };
+
+  // SAFETY: The range has been verified to be readable.
+  let original = unsafe { core::slice::from_raw_parts(patch_address as *const u8, patched.len()) };
+
+  Ok(Hook {
+    patch_address: patch_address as *mut u8,
+    original: original.to_vec(),
+    patched,
+    trampoline,
+    relay: None,
+  })
+}
+
 /// A minimal A64 encoder and relocator.
 ///
 /// This module is platform-independent, so it is unit tested on all hosts.
@@ -131,6 +246,38 @@ pub(crate) mod encode {
     let limit = 1i64 << (bits + 1);
     (delta % 4 == 0 && (-limit..limit).contains(&delta))
       .then(|| ((delta >> 2) as u32) & ((1 << bits) - 1))
+  }
+
+  /// Returns whether `instruction` unconditionally leaves the function (e.g.
+  /// `B`, `BR` & `RET`, but not calls).
+  pub fn is_terminator(instruction: u32) -> bool {
+    let is_branch_immediate = instruction & 0xFC00_0000 == 0x1400_0000;
+    // Unconditional branch (register), including pointer authentication variants
+    let is_branch_register = instruction & 0xFE00_0000 == 0xD600_0000;
+    let is_link = (instruction >> 21) & 0xF == 0b0001;
+    is_branch_immediate || (is_branch_register && !is_link)
+  }
+
+  /// Returns whether `instruction` may reference X16 (conservatively, by
+  /// inspecting every register field).
+  pub fn may_use_x16(instruction: u32) -> bool {
+    [0, 5, 10, 16].iter().any(|shift| (instruction >> shift) & 0x1F == X16)
+  }
+
+  /// Returns the destination of a PC-relative branch at `pc`, if any.
+  pub fn branch_target(instruction: u32, pc: usize) -> Option<usize> {
+    let target = |imm: u32, bits: u32| pc.wrapping_add((sign_extend(imm, bits) * 4) as usize);
+    match instruction {
+      // B & BL
+      i if i & 0x7C00_0000 == 0x1400_0000 => Some(target(i & 0x3FF_FFFF, 26)),
+      // B.cond, CBZ & CBNZ
+      i if i & 0xFF00_0000 == 0x5400_0000 || i & 0x7E00_0000 == 0x3400_0000 => {
+        Some(target((i >> 5) & 0x7_FFFF, 19))
+      },
+      // TBZ & TBNZ
+      i if i & 0x7E00_0000 == 0x3600_0000 => Some(target((i >> 5) & 0x3FFF, 14)),
+      _ => None,
+    }
   }
 
   /// `B <to>`
@@ -208,6 +355,14 @@ pub(crate) mod encode {
       self.literal(value);
     }
 
+    /// Branches to `destination` using an absolute address.
+    pub fn absolute_jump(&mut self, destination: usize) {
+      // LDR X16, #8; BR X16; .quad destination
+      self.push(ldr_literal(X16, 8));
+      self.push(br(X16));
+      self.literal(destination as u64);
+    }
+
     /// Branches to `destination`.
     ///
     /// A direct branch is preferred, since indirect branches must target
@@ -216,10 +371,7 @@ pub(crate) mod encode {
       if let Some(branch) = b(self.pc(), destination) {
         self.push(branch);
       } else {
-        // LDR X16, #8; BR X16; .quad destination
-        self.push(ldr_literal(X16, 8));
-        self.push(br(X16));
-        self.literal(destination as u64);
+        self.absolute_jump(destination);
       }
     }
 
@@ -345,6 +497,37 @@ mod tests {
   }
 
   #[test]
+  fn classifies_terminators() {
+    // b; br x16; ret; retaa; braaz x1
+    for instruction in [0x1400_0010, 0xD61F_0200, 0xD65F_03C0, 0xD65F_0BFF, 0xD61F_083F] {
+      assert!(is_terminator(instruction), "{instruction:#x}");
+    }
+    // bl; blr x8; b.eq; cbz x0; add x0, x1, x2
+    for instruction in [0x9400_0010, 0xD63F_0100, 0x5400_0040, 0xB400_0040, 0x8B02_0020] {
+      assert!(!is_terminator(instruction), "{instruction:#x}");
+    }
+  }
+
+  #[test]
+  fn resolves_branch_targets() {
+    assert_eq!(branch_target(0x1400_0004, PC), Some(PC + 0x10)); // b
+    assert_eq!(branch_target(0x97FF_FFFF, PC), Some(PC - 4)); // bl
+    assert_eq!(branch_target(0x5400_0040, PC), Some(PC + 8)); // b.eq
+    assert_eq!(branch_target(0xB400_0060, PC), Some(PC + 0xC)); // cbz x0
+    assert_eq!(branch_target(0x3618_0081, PC), Some(PC + 0x10)); // tbz w1, #3
+    assert_eq!(branch_target(0xD65F_03C0, PC), None); // ret
+    assert_eq!(branch_target(0x1000_0082, PC), None); // adr
+  }
+
+  #[test]
+  fn detects_x16_usage() {
+    assert!(may_use_x16(0xD280_0030)); // mov x16, #1
+    assert!(may_use_x16(0xF940_0210)); // ldr x16, [x16]
+    assert!(may_use_x16(0x8B10_0020)); // add x0, x1, x16
+    assert!(!may_use_x16(0x8B02_0020)); // add x0, x1, x2
+  }
+
+  #[test]
   fn branch_encoding() {
     assert_eq!(b(PC, PC + 8), Some(0x1400_0002));
     assert_eq!(b(PC, PC - 4), Some(0x17FF_FFFF));
@@ -461,5 +644,134 @@ mod tests {
     );
     // prfm pldl1keep, #+0x8
     assert_eq!(relocate(0xD800_0040, FAR), [NOP]);
+  }
+}
+
+/// Tests of the absolute patch (used when no memory is available nearby).
+#[cfg(all(test, target_arch = "aarch64"))]
+mod far_tests {
+  use super::FORCE_FAR;
+  use crate::{Error, RawDetour, Result};
+  use core::arch::naked_asm;
+
+  type Fn0 = unsafe extern "C" fn() -> i32;
+
+  extern "C" fn ret10() -> i32 {
+    10
+  }
+
+  /// Creates a detour using the absolute patch.
+  fn far_detour(target: Fn0) -> Result<RawDetour> {
+    FORCE_FAR.set(true);
+    // SAFETY: Both functions share the same signature.
+    let result = unsafe { RawDetour::new(target as *const (), ret10 as *const ()) };
+    FORCE_FAR.set(false);
+    result
+  }
+
+  /// Detours `target`, and asserts its return value before, during, and after.
+  fn assert_far_detour(target: Fn0, result: i32) -> Result<()> {
+    let hook = far_detour(target)?;
+    // SAFETY: The fixtures are valid functions, not executed concurrently.
+    unsafe {
+      assert_eq!(target(), result);
+      hook.enable()?;
+      assert_eq!(target(), 10);
+      let original: Fn0 = core::mem::transmute(hook.trampoline());
+      assert_eq!(original(), result);
+      hook.disable()?;
+      assert_eq!(target(), result);
+    }
+    Ok(())
+  }
+
+  #[test]
+  fn patches_absolute_jump() -> Result<()> {
+    #[unsafe(naked)]
+    unsafe extern "C" fn ret3() -> i32 {
+      naked_asm!("mov w0, #1", "mov w1, #2", "add w0, w0, w1", "nop", "ret")
+    }
+
+    assert_far_detour(ret3, 3)
+  }
+
+  #[test]
+  fn relocates_pc_relative_instructions() -> Result<()> {
+    #[unsafe(naked)]
+    unsafe extern "C" fn literal_ret77() -> i32 {
+      naked_asm!("ldr w0, 2f", "nop", "nop", "nop", "ret", "2:", ".word 77")
+    }
+
+    assert_far_detour(literal_ret77, 77)
+  }
+
+  #[test]
+  fn preserves_pointer_authentication() -> Result<()> {
+    #[unsafe(naked)]
+    unsafe extern "C" fn pac_ret5() -> i32 {
+      // paciasp; ...; autiasp; ret
+      naked_asm!("hint #25", "mov w0, #5", "nop", "nop", "nop", "nop", "hint #29", "ret")
+    }
+
+    assert_far_detour(pac_ret5, 5)
+  }
+
+  #[test]
+  fn rejects_branches_into_patch() {
+    #[unsafe(naked)]
+    unsafe extern "C" fn branch_into_patch() -> i32 {
+      naked_asm!("cbz x0, 2f", "nop", "2:", "mov w0, #1", "nop", "ret")
+    }
+
+    assert!(matches!(far_detour(branch_into_patch), Err(Error::UnsupportedInstruction)));
+  }
+
+  #[test]
+  fn rejects_x16_usage() {
+    #[unsafe(naked)]
+    unsafe extern "C" fn uses_x16() -> i32 {
+      naked_asm!("mov x16, #1", "mov w0, w16", "nop", "nop", "ret")
+    }
+
+    assert!(matches!(far_detour(uses_x16), Err(Error::UnsupportedInstruction)));
+  }
+
+  /// The case this patch exists for: a function in the dyld shared cache.
+  #[test]
+  #[cfg(target_vendor = "apple")]
+  fn patches_shared_cache_function() -> Result<()> {
+    extern "C" fn fake_pid() -> libc::pid_t {
+      -7
+    }
+
+    // SAFETY: The symbol name is null-terminated.
+    let getpid = unsafe { libc::dlsym(libc::RTLD_DEFAULT, c"getpid".as_ptr()) };
+    FORCE_FAR.set(true);
+    // SAFETY: Both functions share the same signature.
+    let hook = unsafe { RawDetour::new(getpid.cast_const().cast(), fake_pid as *const ()) };
+    FORCE_FAR.set(false);
+    let hook = hook?;
+
+    // SAFETY: `getpid` has no preconditions.
+    unsafe {
+      let expected = libc::getpid();
+      hook.enable()?;
+      assert_eq!(libc::getpid(), -7);
+      let original: extern "C" fn() -> libc::pid_t = core::mem::transmute(hook.trampoline());
+      assert_eq!(original(), expected);
+      hook.disable()?;
+      assert_eq!(libc::getpid(), expected);
+    }
+    Ok(())
+  }
+
+  #[test]
+  fn rejects_small_functions() {
+    #[unsafe(naked)]
+    unsafe extern "C" fn tiny() -> i32 {
+      naked_asm!("mov w0, #5", "ret", "mov w0, #6", "ret", "nop")
+    }
+
+    assert!(matches!(far_detour(tiny), Err(Error::NoPatchArea)));
   }
 }

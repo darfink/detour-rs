@@ -10,6 +10,8 @@ A comprehensive overhaul of the library.
 - AArch64 support (Linux, macOS & Windows), including relays for detours
   beyond ±128 MiB, relocation of all PC-relative instructions, and awareness
   of BTI & PAC landing pads.
+  If no memory is available within ±128 MiB of the target (e.g. functions
+  in the dyld shared cache), an absolute jump is patched instead.
 - Support for Apple silicon, where code pages are patched by remapping (code
   signing prevents making `__TEXT` writable), and trampolines are allocated
   using `MAP_JIT`.

@@ -27,8 +27,9 @@ jobs:
           - { os: windows-latest, target: x86_64-pc-windows-gnu }
           - { os: windows-11-arm, target: aarch64-pc-windows-msvc }
           - { os: macos-latest, target: aarch64-apple-darwin }
-          # Runs under Rosetta 2
-          - { os: macos-latest, target: x86_64-apple-darwin }
+          # Runs under Rosetta 2, which intermittently raises `SIGBUS` when code is
+          # modified whilst another thread executes the same page
+          - { os: macos-latest, target: x86_64-apple-darwin, test-args: -- --test-threads=1 }
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
@@ -39,9 +40,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.target }}
-      - run: cargo test --target ${{ matrix.target }}
-      - run: cargo test --target ${{ matrix.target }} --release
-      - run: cargo test --target ${{ matrix.target }} --no-default-features --features no_std
+      - run: cargo test --target ${{ matrix.target }} ${{ matrix.test-args }}
+      - run: cargo test --target ${{ matrix.target }} --release ${{ matrix.test-args }}
+      - run: cargo test --target ${{ matrix.target }} --no-default-features --features no_std ${{ matrix.test-args }}
 
   no-std:
     name: no_std executable (${{ matrix.os }})

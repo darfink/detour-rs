@@ -43,6 +43,19 @@ jobs:
       - run: cargo test --target ${{ matrix.target }} ${{ matrix.test-args }}
       - run: cargo test --target ${{ matrix.target }} --release ${{ matrix.test-args }}
       - run: cargo test --target ${{ matrix.target }} --no-default-features --features no_std ${{ matrix.test-args }}
+      - name: Run the early hook example
+        shell: bash
+        run: |
+          cargo build --target ${{ matrix.target }} --example early_hook --example early_target --example launch_suspended
+          dir=target/${{ matrix.target }}/debug/examples
+          case "${{ matrix.target }}" in
+            *windows*) output=$("$dir/launch_suspended.exe" "$dir/early_hook.dll" "$dir/early_target.exe" 2>&1) ;;
+            *apple*) output=$(DYLD_INSERT_LIBRARIES="$dir/libearly_hook.dylib" "$dir/early_target" 2>&1) ;;
+            *) output=$(LD_PRELOAD="$dir/libearly_hook.so" "$dir/early_target" 2>&1) ;;
+          esac
+          echo "$output"
+          grep -q "intercepted the process ID query" <<< "$output"
+          grep -q "process id:" <<< "$output"
 
   no-std:
     name: no_std executable (${{ matrix.os }})

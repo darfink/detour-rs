@@ -194,7 +194,7 @@ mod x86 {
     // SAFETY: The detour is never enabled.
     let error =
       unsafe { RawDetour::new(offset(tiny, 2) as *const (), ret10 as *const ()) }.unwrap_err();
-    assert!(matches!(error, Error::NoPatchArea));
+    assert!(matches!(error, Error::PatchAreaTooSmall));
   }
 
   #[test]

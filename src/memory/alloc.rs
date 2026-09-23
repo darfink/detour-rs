@@ -6,7 +6,7 @@
 //! subdivided into fixed-size units.
 
 use super::{copy_code, flush_instruction_cache};
-use crate::error::{Error, Result};
+use crate::error::{Error, MemoryError, Result};
 use crate::sync::Mutex;
 use alloc::vec;
 use alloc::vec::Vec;
@@ -66,9 +66,11 @@ impl CodeBlock {
         use region::Protection;
         // SAFETY: The block is exclusively owned, and not yet executing.
         unsafe {
-          region::protect(destination, code.len(), Protection::READ_WRITE)?;
+          region::protect(destination, code.len(), Protection::READ_WRITE)
+            .map_err(MemoryError::from_region)?;
           copy_code(destination, code);
-          region::protect(destination, code.len(), Protection::READ_EXECUTE)?;
+          region::protect(destination, code.len(), Protection::READ_EXECUTE)
+            .map_err(MemoryError::from_region)?;
         }
       },
       #[cfg(all(target_vendor = "apple", target_arch = "aarch64"))]
@@ -147,7 +149,7 @@ pub(crate) fn allocate_near(origin: usize, max_distance: usize, size: usize) -> 
     }
   }
 
-  Err(Error::OutOfMemory)
+  Err(Error::NoNearbyMemory)
 }
 
 /// Returns addresses of unmapped memory suitable for a pool, ordered by their

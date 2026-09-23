@@ -3,7 +3,7 @@
 
 pub(crate) use self::alloc::{CodeBlock, allocate_near};
 
-use crate::error::Result;
+use crate::error::{MemoryError, Result};
 use crate::sync::Mutex;
 
 mod alloc;
@@ -28,7 +28,7 @@ pub(crate) fn is_executable(address: *const ()) -> Result<bool> {
   match region::query(address) {
     Ok(region) => Ok(region.is_executable()),
     Err(region::Error::UnmappedRegion) => Ok(false),
-    Err(error) => Err(error.into()),
+    Err(error) => Err(MemoryError::from_region(error).into()),
   }
 }
 
@@ -114,7 +114,7 @@ pub(crate) unsafe fn patch_code(address: *mut u8, bytes: &[u8]) -> Result<()> {
     #[cfg(target_vendor = "apple")]
     Err(_) => unsafe { apple::patch_code(address, bytes) },
     #[cfg(not(target_vendor = "apple"))]
-    Err(error) => Err(error.into()),
+    Err(error) => Err(MemoryError::from_region(error).into()),
   };
 
   if result.is_ok() {

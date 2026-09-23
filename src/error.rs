@@ -6,24 +6,25 @@ use core::fmt;
 pub type Result<T> = core::result::Result<T, Error>;
 
 /// A representation of all possible errors.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum Error {
   /// The address for the target and detour are identical.
   SameAddress,
-  /// The address does not contain valid instructions.
-  InvalidCode,
-  /// The address has no available area for patching.
-  NoPatchArea,
+  /// The target does not contain valid instructions.
+  InvalidInstruction,
+  /// The target is too small to fit a branch (and cannot be hot patched).
+  PatchAreaTooSmall,
   /// The address is not executable memory.
   NotExecutable,
   /// The detour is not initialized.
   NotInitialized,
   /// The detour is already initialized.
   AlreadyInitialized,
-  /// No executable memory could be allocated within range of the target.
-  OutOfMemory,
-  /// The address contains an instruction that cannot be relocated.
+  /// No executable memory could be allocated within branch range of the
+  /// target.
+  NoNearbyMemory,
+  /// The target contains an instruction that cannot be relocated.
   UnsupportedInstruction,
   /// The target's code was modified by a third party since the detour was
   /// created (e.g. another detour, sharing the same target, is still active).
@@ -44,16 +45,16 @@ impl core::error::Error for Error {
 impl fmt::Display for Error {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     match self {
-      Error::SameAddress => write!(f, "target and detour address is the same"),
-      Error::InvalidCode => write!(f, "address contains invalid assembly"),
-      Error::NoPatchArea => write!(f, "cannot find an inline patch area"),
-      Error::NotExecutable => write!(f, "address is not executable"),
-      Error::NotInitialized => write!(f, "detour is not initialized"),
-      Error::AlreadyInitialized => write!(f, "detour is already initialized"),
-      Error::OutOfMemory => write!(f, "cannot allocate executable memory near the target"),
-      Error::UnsupportedInstruction => write!(f, "address contains an unsupported instruction"),
-      Error::TargetModified => write!(f, "target has been modified by a third party"),
-      Error::Memory(_) => write!(f, "memory operation failed"),
+      Error::SameAddress => f.write_str("target and detour addresses are the same"),
+      Error::InvalidInstruction => f.write_str("target contains an invalid instruction"),
+      Error::PatchAreaTooSmall => f.write_str("target is too small to be patched"),
+      Error::NotExecutable => f.write_str("address is not executable"),
+      Error::NotInitialized => f.write_str("detour is not initialized"),
+      Error::AlreadyInitialized => f.write_str("detour is already initialized"),
+      Error::NoNearbyMemory => f.write_str("cannot allocate executable memory near the target"),
+      Error::UnsupportedInstruction => f.write_str("target contains an unsupported instruction"),
+      Error::TargetModified => f.write_str("target has been modified by a third party"),
+      Error::Memory(_) => f.write_str("memory operation failed"),
     }
   }
 }
@@ -92,6 +93,30 @@ impl MemoryError {
       _ => None,
     }
   }
+
+  /// Returns the Mach kernel error code (`kern_return_t`), if applicable.
+  ///
+  /// This is only ever set on Apple platforms.
+  pub fn raw_mach_error(&self) -> Option<i32> {
+    match self.0 {
+      Kind::Mach(code) => Some(code),
+      _ => None,
+    }
+  }
+
+  /// Converts an error from `region`.
+  ///
+  /// Intentionally not a `From` implementation, so that `region` remains a
+  /// private dependency.
+  pub(crate) fn from_region(error: region::Error) -> Self {
+    MemoryError(match error {
+      region::Error::SystemCall(code) => Kind::Os(code),
+      region::Error::MachCall(code) => Kind::Mach(code),
+      region::Error::UnmappedRegion => Kind::Other("memory is unmapped"),
+      region::Error::InvalidParameter(_) => Kind::Other("invalid memory parameter"),
+      region::Error::ProcfsInput(_) => Kind::Other("invalid procfs input"),
+    })
+  }
 }
 
 impl fmt::Display for MemoryError {
@@ -108,24 +133,6 @@ impl fmt::Display for MemoryError {
 }
 
 impl core::error::Error for MemoryError {}
-
-impl From<region::Error> for MemoryError {
-  fn from(error: region::Error) -> Self {
-    MemoryError(match error {
-      region::Error::SystemCall(code) => Kind::Os(code),
-      region::Error::MachCall(code) => Kind::Mach(code),
-      region::Error::UnmappedRegion => Kind::Other("memory is unmapped"),
-      region::Error::InvalidParameter(_) => Kind::Other("invalid memory parameter"),
-      region::Error::ProcfsInput(_) => Kind::Other("invalid procfs input"),
-    })
-  }
-}
-
-impl From<region::Error> for Error {
-  fn from(error: region::Error) -> Self {
-    Error::Memory(error.into())
-  }
-}
 
 #[cfg(feature = "std")]
 impl From<MemoryError> for std::io::Error {
@@ -144,8 +151,9 @@ mod tests {
 
   #[test]
   fn memory_error_preserves_os_code() {
-    let error = MemoryError::from(region::Error::SystemCall(13));
+    let error = MemoryError::from_region(region::Error::SystemCall(13));
     assert_eq!(error.raw_os_error(), Some(13));
+    assert_eq!(error.raw_mach_error(), None);
     assert!(!error.to_string().is_empty());
 
     #[cfg(feature = "std")]
@@ -154,9 +162,10 @@ mod tests {
 
   #[test]
   fn error_exposes_source() {
-    let error = Error::from(region::Error::MachCall(2));
+    let error = Error::Memory(MemoryError::from_region(region::Error::MachCall(2)));
+    assert_eq!(error.clone(), error);
     let source = core::error::Error::source(&error).expect("memory errors have a source");
     assert_eq!(source.to_string(), "mach kernel call failed (2)");
-    assert!(core::error::Error::source(&Error::OutOfMemory).is_none());
+    assert!(core::error::Error::source(&Error::NoNearbyMemory).is_none());
   }
 }

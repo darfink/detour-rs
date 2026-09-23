@@ -46,7 +46,7 @@ pub(crate) unsafe fn build(target: *const (), detour: *const ()) -> Result<Hook>
   let detour = detour as usize;
 
   if target % 4 != 0 || detour % 4 != 0 || memory::readable_len(target, 4) < 4 {
-    return Err(Error::InvalidCode);
+    return Err(Error::InvalidInstruction);
   }
 
   // SAFETY: The first instruction has been verified to be readable.
@@ -61,7 +61,7 @@ pub(crate) unsafe fn build(target: *const (), detour: *const ()) -> Result<Hook>
     _ => (0, None),
   };
   if memory::readable_len(target, patch_offset + 4) < patch_offset + 4 {
-    return Err(Error::InvalidCode);
+    return Err(Error::InvalidInstruction);
   }
 
   #[cfg(test)]
@@ -73,7 +73,7 @@ pub(crate) unsafe fn build(target: *const (), detour: *const ()) -> Result<Hook>
   // SAFETY: Forwarded from the caller.
   match unsafe { build_near(target, detour, patch_offset, relay_prefix) } {
     // SAFETY: Forwarded from the caller.
-    Err(Error::OutOfMemory) => unsafe { build_far(target, detour, patch_offset, relay_prefix) },
+    Err(Error::NoNearbyMemory) => unsafe { build_far(target, detour, patch_offset, relay_prefix) },
     result => result,
   }
 }
@@ -106,7 +106,7 @@ unsafe fn build_near(
   };
 
   let destination = relay.as_ref().map_or(detour, CodeBlock::address);
-  let branch = encode::b(patch_address, destination).ok_or(Error::OutOfMemory)?;
+  let branch = encode::b(patch_address, destination).ok_or(Error::NoNearbyMemory)?;
 
   // Relocate every instruction up to, and including, the patched one
   let count = patch_offset / 4 + 1;
@@ -161,7 +161,7 @@ unsafe fn build_far(
   const SCAN_LEN: usize = 1024;
   let available = memory::readable_len(target, SCAN_LEN) & !3;
   if available < patch_end - target {
-    return Err(Error::NoPatchArea);
+    return Err(Error::PatchAreaTooSmall);
   }
   // SAFETY: The range has been verified to be readable.
   let code = unsafe { core::slice::from_raw_parts(target as *const u32, available / 4) };
@@ -169,7 +169,7 @@ unsafe fn build_far(
 
   // The function must not end within the patched instructions
   if code[..patched_count - 1].iter().any(|&instruction| encode::is_terminator(instruction)) {
-    return Err(Error::NoPatchArea);
+    return Err(Error::PatchAreaTooSmall);
   }
 
   // The trampoline may be out of reach of a direct branch back, in which case
@@ -772,6 +772,6 @@ mod far_tests {
       naked_asm!("mov w0, #5", "ret", "mov w0, #6", "ret", "nop")
     }
 
-    assert!(matches!(far_detour(tiny), Err(Error::NoPatchArea)));
+    assert!(matches!(far_detour(tiny), Err(Error::PatchAreaTooSmall)));
   }
 }

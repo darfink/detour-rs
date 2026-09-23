@@ -39,7 +39,9 @@ pub(super) unsafe fn patch_code(address: *mut u8, bytes: &[u8]) -> Result<()> {
   let offset = address as usize - base;
 
   // Preserve the protection of the page (typically `r-x`)
-  let protection = region::query(address)?.protection();
+  let protection = region::query(address)
+    .map_err(MemoryError::from_region)?
+    .protection();
   let mut native = 0;
   for (flag, value) in [
     (region::Protection::READ, VM_PROT_READ),

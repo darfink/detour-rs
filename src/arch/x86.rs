@@ -61,7 +61,7 @@ pub(crate) unsafe fn build(target: *const (), detour: *const ()) -> Result<Hook>
     {
       true
     } else {
-      return Err(Error::NoPatchArea);
+      return Err(Error::PatchAreaTooSmall);
     };
 
   let patch_address = if hot_patch {
@@ -89,7 +89,7 @@ pub(crate) unsafe fn build(target: *const (), detour: *const ()) -> Result<Hook>
   };
 
   let destination = relay.as_ref().map_or(detour, CodeBlock::address);
-  let displacement = rel32(jump_end, destination).ok_or(Error::OutOfMemory)?;
+  let displacement = rel32(jump_end, destination).ok_or(Error::NoNearbyMemory)?;
 
   let mut patched = Vec::with_capacity(patch_len);
   patched.push(0xE9);
@@ -140,12 +140,12 @@ impl Prolog {
 
     while decoder.position() < margin && !terminated {
       if !decoder.can_decode() {
-        return Err(Error::InvalidCode);
+        return Err(Error::InvalidInstruction);
       }
 
       let instruction = decoder.decode();
       if instruction.is_invalid() {
-        return Err(Error::InvalidCode);
+        return Err(Error::InvalidInstruction);
       }
 
       // Instructions preceding the destination of an internal branch are

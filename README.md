@@ -146,6 +146,13 @@ derivative code of his work.
   barely ever an issue, and never in single-threaded environments, but YMMV.
   On AArch64, only a single instruction is replaced, which is atomic.*
 
+- *Rosetta 2*
+
+  *Under Rosetta 2 (x86-64 code on Apple silicon), modifying code whilst
+  another thread executes the same memory page may intermittently raise
+  `SIGBUS`. This is a limitation of the translator; native Intel Macs and
+  native Apple silicon code are not affected.*
+
 - *NOP-padding*
   ```c
   int function() { return 0; }

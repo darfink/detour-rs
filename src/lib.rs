@@ -92,6 +92,10 @@
 //!   undefined behavior.
 //! - Multiple detours of the same target must be disabled in the reverse order
 //!   they were enabled in; otherwise [`Error::TargetModified`] is returned.
+//! - Under Rosetta 2 (x86-64 code on Apple silicon), modifying code whilst
+//!   another thread executes the same memory page may intermittently raise
+//!   `SIGBUS`. This is a limitation of the translator; native Intel Macs are
+//!   not affected.
 //!
 //! ## Features
 //!

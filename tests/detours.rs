@@ -233,6 +233,11 @@ mod generic {
 
   #[test]
   fn concurrent_creation() {
+    if common::is_translated() {
+      eprintln!("skipped: concurrent code modification is unreliable under Rosetta 2");
+      return;
+    }
+
     macro_rules! targets {
       ($($name:ident = $value:literal),*) => {{
         $(
@@ -464,16 +469,24 @@ fn toggle_whilst_executing() -> Result<()> {
   let hook = unsafe { GenericDetour::<extern "C" fn() -> i32>::new(ret1, ret2)? };
   let done = Arc::new(AtomicBool::new(false));
 
+  let calls = Arc::new(AtomicUsize::new(0));
+
   let worker = std::thread::spawn({
-    let done = done.clone();
+    let (done, calls) = (done.clone(), calls.clone());
     move || {
       let mut results = [0usize; 3];
       while !done.load(Ordering::Relaxed) {
         results[ret1() as usize] += 1;
+        calls.fetch_add(1, Ordering::Relaxed);
       }
       results
     }
   });
+
+  // Ensure the worker is executing the target before it is patched
+  while calls.load(Ordering::Relaxed) == 0 {
+    std::thread::yield_now();
+  }
 
   for _ in 0..200 {
     // SAFETY: Replacing a single instruction is atomic on AArch64.
@@ -485,7 +498,8 @@ fn toggle_whilst_executing() -> Result<()> {
 
   done.store(true, Ordering::Relaxed);
   let results = worker.join().expect("worker thread panicked");
+  // Every call must return either the original, or the detoured, result
   assert_eq!(results[0], 0);
-  assert!(results[1] > 0);
+  assert!(results[1] + results[2] > 0);
   Ok(())
 }

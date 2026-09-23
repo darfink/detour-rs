@@ -1,4 +1,4 @@
-use crate::detour::Detour;
+use crate::hook::Hook;
 use crate::error::Result;
 
 /// A raw detour.
@@ -40,7 +40,7 @@ use crate::error::Result;
 /// # }
 /// ```
 #[derive(Debug)]
-pub struct RawDetour(Detour);
+pub struct RawDetour(Hook);
 
 impl RawDetour {
   /// Constructs a new inline detour patcher.
@@ -57,7 +57,7 @@ impl RawDetour {
   /// and calling conventions.
   pub unsafe fn new(target: *const (), detour: *const ()) -> Result<Self> {
     // SAFETY: Forwarded from the caller.
-    unsafe { Detour::new(target, detour) }.map(RawDetour)
+    unsafe { Hook::new(target, detour) }.map(RawDetour)
   }
 
   /// Enables the detour.
@@ -66,6 +66,7 @@ impl RawDetour {
   ///
   /// The target must not be executing its prolog (i.e. the patched
   /// instructions) on another thread whilst the detour is being enabled.
+  /// To suspend other threads meanwhile, use a [`Transaction`](crate::Transaction).
   pub unsafe fn enable(&self) -> Result<()> {
     // SAFETY: Forwarded from the caller.
     unsafe { self.0.enable() }
@@ -94,3 +95,11 @@ impl RawDetour {
     self.0.trampoline()
   }
 }
+
+impl crate::transaction::private::Sealed for RawDetour {
+  fn hook(&self) -> Option<&Hook> {
+    Some(&self.0)
+  }
+}
+
+impl crate::Detour for RawDetour {}

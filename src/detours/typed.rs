@@ -1,4 +1,4 @@
-use crate::detour::Detour;
+use crate::hook::Hook;
 use crate::error::Result;
 use crate::{Function, HookableWith};
 use core::marker::PhantomData;
@@ -43,7 +43,7 @@ use core::marker::PhantomData;
 /// ```
 pub struct TypedDetour<T: Function> {
   phantom: PhantomData<T>,
-  detour: Detour,
+  detour: Hook,
 }
 
 impl<T: Function> TypedDetour<T> {
@@ -60,7 +60,7 @@ impl<T: Function> TypedDetour<T> {
     D: Function,
   {
     // SAFETY: The signatures are compatible, as asserted by `HookableWith`.
-    unsafe { Detour::new(target.to_ptr(), detour.to_ptr()) }.map(|detour| TypedDetour {
+    unsafe { Hook::new(target.to_ptr(), detour.to_ptr()) }.map(|detour| TypedDetour {
       phantom: PhantomData,
       detour,
     })
@@ -72,6 +72,7 @@ impl<T: Function> TypedDetour<T> {
   ///
   /// The target must not be executing its prolog (i.e. the patched
   /// instructions) on another thread whilst the detour is being enabled.
+  /// To suspend other threads meanwhile, use a [`Transaction`](crate::Transaction).
   pub unsafe fn enable(&self) -> Result<()> {
     // SAFETY: Forwarded from the caller.
     unsafe { self.detour.enable() }
@@ -117,3 +118,11 @@ impl<T: Function> core::fmt::Debug for TypedDetour<T> {
     f.debug_tuple("TypedDetour").field(&self.detour).finish()
   }
 }
+
+impl<T: Function> crate::transaction::private::Sealed for TypedDetour<T> {
+  fn hook(&self) -> Option<&Hook> {
+    Some(&self.detour)
+  }
+}
+
+impl<T: Function> crate::Detour for TypedDetour<T> {}

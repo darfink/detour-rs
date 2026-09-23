@@ -3,7 +3,7 @@
 
 pub(crate) use self::alloc::{CodeBlock, allocate_near};
 
-use crate::error::{MemoryError, Result};
+use crate::error::{Error, Result};
 use crate::sync::Mutex;
 
 mod alloc;
@@ -28,7 +28,7 @@ pub(crate) fn is_executable(address: *const ()) -> Result<bool> {
   match region::query(address) {
     Ok(region) => Ok(region.is_executable()),
     Err(region::Error::UnmappedRegion) => Ok(false),
-    Err(error) => Err(MemoryError::from_region(error).into()),
+    Err(error) => Err(Error::from_region(error)),
   }
 }
 
@@ -91,30 +91,85 @@ pub(crate) unsafe fn copy_code(destination: *mut u8, bytes: &[u8]) {
   }
 }
 
+/// The protection of the pages spanned by a code patch.
+///
+/// It is queried in advance, since querying may allocate (e.g. by parsing
+/// `/proc/self/maps`), which is prohibited whilst threads are suspended.
+pub(crate) struct Protections {
+  regions: [(usize, usize, region::Protection); 2],
+  count: usize,
+}
+
+impl Protections {
+  /// Queries the protection of the pages spanned by `len` bytes at `address`.
+  pub fn query(address: *const u8, len: usize) -> Result<Self> {
+    let start = region::page::floor(address) as usize;
+    let end = region::page::ceil(address.wrapping_add(len)) as usize;
+
+    let mut protections = Protections {
+      regions: [(0, 0, region::Protection::NONE); 2],
+      count: 0,
+    };
+
+    let regions =
+      region::query_range(start as *const u8, end - start).map_err(Error::from_region)?;
+    for region in regions {
+      let region = region.map_err(Error::from_region)?;
+      let range = region.as_range();
+      let (lower, upper) = (range.start.max(start), range.end.min(end));
+
+      // A patch is smaller than a page, so it spans at most two regions
+      let slot = protections
+        .regions
+        .get_mut(protections.count)
+        .ok_or(Error::PatchAreaTooSmall)?;
+      *slot = (lower, upper - lower, region.protection());
+      protections.count += 1;
+    }
+
+    Ok(protections)
+  }
+
+  fn iter(&self) -> impl Iterator<Item = &(usize, usize, region::Protection)> {
+    self.regions[..self.count].iter()
+  }
+}
+
 /// Overwrites existing (typically read-only) code at `address` with `bytes`.
 ///
-/// The memory protection is restored afterwards, and the instruction cache is
-/// invalidated for the modified range.
+/// The memory protection is restored to `protections` afterwards, and the
+/// instruction cache is invalidated for the modified range. This does not
+/// allocate, so it may be used whilst other threads are suspended.
 ///
 /// # Safety
 ///
 /// The caller must guarantee that the modification leaves the process in a
 /// consistent state, i.e. that `address` points to code that may be replaced.
-pub(crate) unsafe fn patch_code(address: *mut u8, bytes: &[u8]) -> Result<()> {
+pub(crate) unsafe fn patch_code(
+  address: *mut u8,
+  bytes: &[u8],
+  protections: &Protections,
+) -> Result<()> {
   // SAFETY: The requested protection is a superset of the existing one.
   let result = match unsafe {
-    region::protect_with_handle(address, bytes.len(), region::Protection::READ_WRITE_EXECUTE)
+    region::protect(address, bytes.len(), region::Protection::READ_WRITE_EXECUTE)
   } {
-    Ok(_guard) => {
+    Ok(()) => {
       // SAFETY: The range was just made writable.
       unsafe { copy_code(address, bytes) };
-      Ok(())
+      protections.iter().try_for_each(|&(base, len, protection)| {
+        // SAFETY: Restores the protection the pages had previously.
+        unsafe { region::protect(base as *const u8, len, protection) }.map_err(Error::from_region)
+      })
     },
     // SAFETY: Forwarded from the caller.
     #[cfg(target_vendor = "apple")]
-    Err(_) => unsafe { apple::patch_code(address, bytes) },
+    Err(_) => unsafe {
+      let protection = protections.iter().next().map_or(region::Protection::READ_EXECUTE, |r| r.2);
+      apple::patch_code(address, bytes, protection)
+    },
     #[cfg(not(target_vendor = "apple"))]
-    Err(error) => Err(MemoryError::from_region(error).into()),
+    Err(error) => Err(Error::from_region(error)),
   };
 
   if result.is_ok() {

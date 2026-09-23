@@ -39,7 +39,7 @@ libc = { version = "0.2.172", default-features = false }
 mach2 = { version = ">=0.4.2, <0.8", default-features = false }
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.61.0", features = ["Win32_Foundation", "Win32_System_Diagnostics_Debug", "Win32_System_Threading"] }
+windows-sys = { version = "0.61.0", features = ["Win32_Foundation", "Win32_System_Diagnostics_Debug", "Win32_System_Diagnostics_ToolHelp", "Win32_System_Kernel", "Win32_System_Threading"] }
 
 [target.'cfg(unix)'.dev-dependencies]
 libc = "0.2.172"

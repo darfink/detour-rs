@@ -6,7 +6,7 @@
 //! subdivided into fixed-size units.
 
 use super::{copy_code, flush_instruction_cache};
-use crate::error::{Error, MemoryError, Result};
+use crate::error::{Error, Result};
 use crate::sync::Mutex;
 use alloc::vec;
 use alloc::vec::Vec;
@@ -67,10 +67,10 @@ impl CodeBlock {
         // SAFETY: The block is exclusively owned, and not yet executing.
         unsafe {
           region::protect(destination, code.len(), Protection::READ_WRITE)
-            .map_err(MemoryError::from_region)?;
+            .map_err(Error::from_region)?;
           copy_code(destination, code);
           region::protect(destination, code.len(), Protection::READ_EXECUTE)
-            .map_err(MemoryError::from_region)?;
+            .map_err(Error::from_region)?;
         }
       },
       #[cfg(all(target_vendor = "apple", target_arch = "aarch64"))]

@@ -6,7 +6,7 @@
 //! preceding the function is used. Detours further away than ±2 GiB (x86-64)
 //! are reached via a relay, an absolute jump allocated near the target.
 
-use super::Hook;
+use super::Parts;
 use crate::error::{Error, Result};
 use crate::memory::{self, CodeBlock};
 use iced_x86::{
@@ -45,7 +45,7 @@ const MAX_RELOCATED_LEN: usize = 24;
 /// # Safety
 ///
 /// `target` must point to executable code.
-pub(crate) unsafe fn build(target: *const (), detour: *const ()) -> Result<Hook> {
+pub(crate) unsafe fn build(target: *const (), detour: *const ()) -> Result<Parts> {
   let target = target as usize;
   let detour = detour as usize;
 
@@ -101,13 +101,14 @@ pub(crate) unsafe fn build(target: *const (), detour: *const ()) -> Result<Hook>
 
   // SAFETY: The patch area has been verified to be readable.
   let original = unsafe { slice::from_raw_parts(patch_address as *const u8, patch_len) }.to_vec();
-  let trampoline = prolog.relocate(target)?;
+  let (trampoline, relocated) = prolog.relocate(target)?;
 
-  Ok(Hook {
+  Ok(Parts {
     patch_address: patch_address as *mut u8,
     original,
     patched,
     trampoline,
+    relocated,
     relay,
   })
 }
@@ -220,7 +221,10 @@ impl Prolog {
   }
 
   /// Relocates the prolog to a trampoline allocated close to `target`.
-  fn relocate(&self, target: usize) -> Result<CodeBlock> {
+  ///
+  /// Returns the trampoline, and the offsets of the relocated instructions
+  /// (see [`Parts::relocated`]).
+  fn relocate(&self, target: usize) -> Result<(CodeBlock, Vec<(u32, u32)>)> {
     let mut instructions = self.instructions.clone();
 
     if !self.terminated {
@@ -245,17 +249,28 @@ impl Prolog {
     // Relative branches and RIP-relative operands are adjusted for their new
     // location, and branches to relocated instructions are redirected.
     let block = InstructionBlock::new(&instructions, trampoline.address() as u64);
-    let code = BlockEncoder::encode(BITNESS, block, BlockEncoderOptions::NONE)
-      .map_err(|_| Error::UnsupportedInstruction)?
-      .code_buffer;
+    let encoded =
+      BlockEncoder::encode(BITNESS, block, BlockEncoderOptions::RETURN_NEW_INSTRUCTION_OFFSETS)
+        .map_err(|_| Error::UnsupportedInstruction)?;
+    let code = encoded.code_buffer;
 
     if code.len() > trampoline.len() {
       return Err(Error::UnsupportedInstruction);
     }
 
+    // Generated instructions (e.g. the jump back) have no address in the
+    // prolog, and rewritten instructions have no offset (`u32::MAX`).
+    let prolog = target as u64..(target + self.len) as u64;
+    let relocated = instructions
+      .iter()
+      .zip(encoded.new_instruction_offsets)
+      .filter(|(instruction, offset)| prolog.contains(&instruction.ip()) && *offset != u32::MAX)
+      .map(|(instruction, offset)| ((instruction.ip() - target as u64) as u32, offset))
+      .collect();
+
     // SAFETY: The trampoline has just been allocated, and cannot be executing.
     unsafe { trampoline.write(&code)? };
-    Ok(trampoline)
+    Ok((trampoline, relocated))
   }
 }
 

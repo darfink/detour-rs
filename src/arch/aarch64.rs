@@ -16,9 +16,10 @@
 //! Functions beginning with a landing pad (`BTI`, `PACIASP`, `PACIBSP`) are
 //! patched after it, so indirect calls remain valid on BTI-guarded pages.
 
-use super::Hook;
+use super::Parts;
 use crate::error::{Error, Result};
 use crate::memory::{self, CodeBlock};
+use alloc::vec::Vec;
 
 /// The maximum distance of generated code from its target.
 ///
@@ -41,7 +42,7 @@ std::thread_local! {
 /// # Safety
 ///
 /// `target` must point to executable code.
-pub(crate) unsafe fn build(target: *const (), detour: *const ()) -> Result<Hook> {
+pub(crate) unsafe fn build(target: *const (), detour: *const ()) -> Result<Parts> {
   let target = target as usize;
   let detour = detour as usize;
 
@@ -88,7 +89,7 @@ unsafe fn build_near(
   detour: usize,
   patch_offset: usize,
   relay_prefix: Option<u32>,
-) -> Result<Hook> {
+) -> Result<Parts> {
   let patch_address = target + patch_offset;
   let relay = if relay_prefix.is_some() || encode::b(patch_address, detour).is_none() {
     let mut relay = memory::allocate_near(patch_address, MAX_DISTANCE, 24)?;
@@ -113,8 +114,10 @@ unsafe fn build_near(
   let mut trampoline =
     memory::allocate_near(target, MAX_DISTANCE, (count + 1) * MAX_RELOCATED_LEN)?;
   let mut emitter = encode::Emitter::new(trampoline.address());
+  let mut relocated = Vec::with_capacity(count);
   for index in 0..count {
     let pc = target + index * 4;
+    relocated.push(((index * 4) as u32, emitter.offset()));
     // SAFETY: The instructions have been verified to be readable.
     emitter.relocate(unsafe { (pc as *const u32).read() }, pc);
   }
@@ -126,11 +129,12 @@ unsafe fn build_near(
   // SAFETY: The instruction has been verified to be readable.
   let original = unsafe { (patch_address as *const [u8; 4]).read() }.to_vec();
 
-  Ok(Hook {
+  Ok(Parts {
     patch_address: patch_address as *mut u8,
     original,
     patched: branch.to_le_bytes().to_vec(),
     trampoline,
+    relocated,
     relay,
   })
 }
@@ -146,7 +150,7 @@ unsafe fn build_far(
   detour: usize,
   patch_offset: usize,
   relay_prefix: Option<u32>,
-) -> Result<Hook> {
+) -> Result<Parts> {
   let patch_address = target + patch_offset;
 
   let mut patch = encode::Emitter::new(patch_address);
@@ -191,7 +195,9 @@ unsafe fn build_far(
   let mut trampoline =
     memory::allocate_near(target, usize::MAX, (patched_count + 1) * MAX_RELOCATED_LEN)?;
   let mut emitter = encode::Emitter::new(trampoline.address());
+  let mut relocated = Vec::with_capacity(patched_count);
   for (index, &instruction) in code[..patched_count].iter().enumerate() {
+    relocated.push(((index * 4) as u32, emitter.offset()));
     emitter.relocate(instruction, target + index * 4);
   }
   emitter.jump(patch_end);
@@ -202,11 +208,12 @@ unsafe fn build_far(
   // SAFETY: The range has been verified to be readable.
   let original = unsafe { core::slice::from_raw_parts(patch_address as *const u8, patched.len()) };
 
-  Ok(Hook {
+  Ok(Parts {
     patch_address: patch_address as *mut u8,
     original: original.to_vec(),
     patched,
     trampoline,
+    relocated,
     relay: None,
   })
 }
@@ -323,6 +330,11 @@ pub(crate) mod encode {
     /// Returns the address of the next instruction.
     fn pc(&self) -> usize {
       self.base + self.code.len() * 4
+    }
+
+    /// Returns the offset of the next instruction, in bytes.
+    pub fn offset(&self) -> u32 {
+      (self.code.len() * 4) as u32
     }
 
     /// Appends an instruction.

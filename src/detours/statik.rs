@@ -224,6 +224,14 @@ impl<T: Function> Drop for StaticDetour<T> {
   }
 }
 
+impl<T: Function> crate::transaction::private::Sealed for StaticDetour<T> {
+  fn hook(&self) -> Option<&crate::hook::Hook> {
+    self.get().and_then(|detour| detour.hook())
+  }
+}
+
+impl<T: Function> crate::Detour for StaticDetour<T> {}
+
 impl<T: Function> core::fmt::Debug for StaticDetour<T> {
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     f.debug_struct("StaticDetour")

@@ -133,6 +133,41 @@ fn main() -> detour::Result<()> {
 }
 ```
 
+Several detours can be enabled or disabled at once with a
+[`Transaction`][transaction]. It is applied completely or not at all, and can
+suspend other threads whilst the code is patched:
+
+```rust
+use detour::{Threads, Transaction, TypedDetour};
+
+#[inline(never)]
+fn add(x: i32, y: i32) -> i32 {
+  x + y
+}
+
+#[inline(never)]
+fn sub(x: i32, y: i32) -> i32 {
+  x - y
+}
+
+fn zero(_: i32, _: i32) -> i32 {
+  0
+}
+
+fn main() -> detour::Result<()> {
+  let add_hook = unsafe { TypedDetour::<fn(i32, i32) -> i32>::new(add, zero)? };
+  let sub_hook = unsafe { TypedDetour::<fn(i32, i32) -> i32>::new(sub, zero)? };
+
+  let threads = if cfg!(any(windows, target_vendor = "apple")) { Threads::All } else { Threads::None };
+  let mut transaction = Transaction::new();
+  transaction.enable(&add_hook).enable(&sub_hook);
+  unsafe { transaction.commit(threads)? };
+
+  assert_eq!((add(2, 3), sub(2, 3)), (0, 0));
+  Ok(())
+}
+```
+
 ## Examples
 
 - [`messageboxw_detour`](./examples/messageboxw_detour.rs): a DLL that
@@ -173,7 +208,7 @@ nor writable at runtime, which inline detouring fundamentally requires.
 ## Cargo features
 
 - **`std`** (default): Uses the standard library for locking, and allows
-  converting `detour::MemoryError` into `std::io::Error`.
+  converting `detour::OsError` into `std::io::Error`.
 - **`no_std`**: Supports `#![no_std]` environments (requires `alloc`), using
   spin locks. An operating system is still required for memory management.
 
@@ -192,14 +227,14 @@ On x86, `iced-x86` treats `std` and `no_std` as mutually exclusive, so the
   a function of another module (e.g. a system library), resolve its address
   at runtime (`dlsym`, `GetProcAddress`), since a direct reference may resolve
   to a local import stub instead.
-- **No EIP relocation.** Other threads are not suspended while a detour is
-  toggled, and their instruction pointers are not relocated. A thread
-  executing a target's first instructions at the exact moment they are
-  replaced may resume in the middle of the new jump. On AArch64 a single
-  aligned instruction is replaced atomically, which avoids this (except for
-  the absolute-jump fallback, used when no memory is available within
-  ±128 MiB of the target). On x86, enable detours before other threads run
-  the target (e.g. at start-up) to avoid the issue entirely.
+- **Other threads.** `enable` and `disable` do not suspend other threads. A
+  thread executing a target's first instructions at the exact moment they are
+  replaced may resume in the middle of the new jump. To avoid this, commit a
+  [`Transaction`][transaction] with `Threads::All` (or selected threads): the
+  threads are suspended, and any executing the patched instructions are moved
+  to equivalent code (EIP relocation). This is supported on Windows and Apple
+  platforms. On AArch64 a single aligned instruction is replaced atomically,
+  which avoids the issue in most cases.
 - **Shared targets.** Multiple detours of the same target must be disabled in
   the reverse order they were enabled in; otherwise
   `Error::TargetModified` is returned.
@@ -251,7 +286,7 @@ instruction is replaced instead.
   `static_detour!`, work on stable Rust.
 - Static detour closures must be `Send + Sync`.
 - `RawDetour::trampoline` returns `*const ()` instead of `&()`.
-- `Error::RegionFailure` has been replaced by `Error::Memory(MemoryError)`
+- `Error::RegionFailure` has been replaced by `Error::Memory(OsError)`
   (convertible into `std::io::Error`), and `Error` is now `#[non_exhaustive]`.
 - Disabling a detour whose target has been modified since (e.g. by another,
   later enabled, detour of the same target) fails with
@@ -277,6 +312,7 @@ derivative code of his work.
 [static]: https://docs.rs/detour/latest/detour/struct.StaticDetour.html
 [typed]: https://docs.rs/detour/latest/detour/struct.TypedDetour.html
 [raw]: https://docs.rs/detour/latest/detour/struct.RawDetour.html
+[transaction]: https://docs.rs/detour/latest/detour/struct.Transaction.html
 [iced]: https://github.com/icedland/iced
 [minhook-author]: https://github.com/Jascha-N
 [minhook]: https://github.com/Jascha-N/minhook-rs/

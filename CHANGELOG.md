@@ -4,12 +4,21 @@
 
 ### Added
 
+- `Transaction`, which enables and disables several detours at once. It is
+  applied completely or not at all, and can suspend other threads (`Threads`)
+  whilst code is patched, moving any executing the patched instructions
+  (EIP relocation). Thread suspension is supported on Windows and Apple
+  platforms.
+- `Detour`, a trait implemented by all detour types.
+- `Error::ThreadNotRelocatable`, `Error::ThreadsUnsupported` &
+  `Error::Thread`.
 - `TypedDetour::trampoline`, returning the original function as `T`.
-- `MemoryError::raw_mach_error`.
+- `OsError::raw_mach_error`.
 - `Clone`, `PartialEq` & `Eq` for `Error`.
 
 ### Changed
 
+- Renamed `MemoryError` to `OsError`.
 - Renamed `GenericDetour` to `TypedDetour`.
 - Renamed error variants: `InvalidCode` to `InvalidInstruction`,
   `NoPatchArea` to `PatchAreaTooSmall`, and `OutOfMemory` to
@@ -21,7 +30,7 @@
 
 ### Removed
 
-- `From<region::Error>` implementations, keeping `region` a private
+- `From<region::Error>` & `From<OsError>` implementations, keeping `region` a private
   dependency.
 
 ## [0.9.0] - 2026-09-23

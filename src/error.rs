@@ -29,14 +29,21 @@ pub enum Error {
   /// The target's code was modified by a third party since the detour was
   /// created (e.g. another detour, sharing the same target, is still active).
   TargetModified,
+  /// A suspended thread is executing code that cannot be relocated, i.e. an
+  /// instruction that was rewritten when it was copied to the trampoline.
+  ThreadNotRelocatable,
+  /// Threads cannot be suspended on this platform.
+  ThreadsUnsupported,
   /// A memory operation failed.
-  Memory(MemoryError),
+  Memory(OsError),
+  /// Suspending, inspecting, or resuming a thread failed.
+  Thread(OsError),
 }
 
 impl core::error::Error for Error {
   fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
     match self {
-      Error::Memory(error) => Some(error),
+      Error::Memory(error) | Error::Thread(error) => Some(error),
       _ => None,
     }
   }
@@ -54,20 +61,27 @@ impl fmt::Display for Error {
       Error::NoNearbyMemory => f.write_str("cannot allocate executable memory near the target"),
       Error::UnsupportedInstruction => f.write_str("target contains an unsupported instruction"),
       Error::TargetModified => f.write_str("target has been modified by a third party"),
+      Error::ThreadNotRelocatable => {
+        f.write_str("a suspended thread is executing code that cannot be relocated")
+      },
+      Error::ThreadsUnsupported => f.write_str("threads cannot be suspended on this platform"),
       Error::Memory(_) => f.write_str("memory operation failed"),
+      Error::Thread(_) => f.write_str("thread operation failed"),
     }
   }
 }
 
-impl From<MemoryError> for Error {
-  fn from(error: MemoryError) -> Self {
-    Error::Memory(error)
+impl Error {
+  /// Converts a failed memory operation of `region`.
+  pub(crate) fn from_region(error: region::Error) -> Self {
+    Error::Memory(OsError::from_region(error))
   }
 }
 
-/// A failed memory operation (e.g. querying or protecting memory).
+/// A failed operating system call (e.g. protecting memory, or suspending a
+/// thread).
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct MemoryError(Kind);
+pub struct OsError(Kind);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Kind {
@@ -79,10 +93,18 @@ enum Kind {
   Other(&'static str),
 }
 
-impl MemoryError {
+impl OsError {
   #[cfg(target_vendor = "apple")]
   pub(crate) const fn mach(code: i32) -> Self {
-    MemoryError(Kind::Mach(code))
+    OsError(Kind::Mach(code))
+  }
+
+  /// Returns the last error of the current thread (`GetLastError`).
+  #[cfg(windows)]
+  pub(crate) fn last_os_error() -> Self {
+    // SAFETY: Reads the calling thread's last-error code.
+    let code = unsafe { windows_sys::Win32::Foundation::GetLastError() };
+    OsError(Kind::Os(code as i32))
   }
 
   /// Returns the operating system error code (`errno` on Unix-like platforms,
@@ -109,7 +131,7 @@ impl MemoryError {
   /// Intentionally not a `From` implementation, so that `region` remains a
   /// private dependency.
   pub(crate) fn from_region(error: region::Error) -> Self {
-    MemoryError(match error {
+    OsError(match error {
       region::Error::SystemCall(code) => Kind::Os(code),
       region::Error::MachCall(code) => Kind::Mach(code),
       region::Error::UnmappedRegion => Kind::Other("memory is unmapped"),
@@ -119,7 +141,7 @@ impl MemoryError {
   }
 }
 
-impl fmt::Display for MemoryError {
+impl fmt::Display for OsError {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     match &self.0 {
       #[cfg(feature = "std")]
@@ -132,11 +154,11 @@ impl fmt::Display for MemoryError {
   }
 }
 
-impl core::error::Error for MemoryError {}
+impl core::error::Error for OsError {}
 
 #[cfg(feature = "std")]
-impl From<MemoryError> for std::io::Error {
-  fn from(error: MemoryError) -> Self {
+impl From<OsError> for std::io::Error {
+  fn from(error: OsError) -> Self {
     match error.0 {
       Kind::Os(code) => std::io::Error::from_raw_os_error(code),
       _ => std::io::Error::other(error),
@@ -151,7 +173,7 @@ mod tests {
 
   #[test]
   fn memory_error_preserves_os_code() {
-    let error = MemoryError::from_region(region::Error::SystemCall(13));
+    let error = OsError::from_region(region::Error::SystemCall(13));
     assert_eq!(error.raw_os_error(), Some(13));
     assert_eq!(error.raw_mach_error(), None);
     assert!(!error.to_string().is_empty());
@@ -162,7 +184,7 @@ mod tests {
 
   #[test]
   fn error_exposes_source() {
-    let error = Error::Memory(MemoryError::from_region(region::Error::MachCall(2)));
+    let error = Error::Memory(OsError::from_region(region::Error::MachCall(2)));
     assert_eq!(error.clone(), error);
     let source = core::error::Error::source(&error).expect("memory errors have a source");
     assert_eq!(source.to_string(), "mach kernel call failed (2)");

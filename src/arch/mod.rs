@@ -15,6 +15,8 @@ mod x86;
 
 #[cfg(target_arch = "aarch64")]
 pub(crate) use self::aarch64::build;
+#[cfg(all(test, target_arch = "aarch64"))]
+pub(crate) use self::aarch64::FORCE_FAR;
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 pub(crate) use self::x86::build;
 
@@ -25,7 +27,7 @@ pub(crate) use self::x86::build;
 mod aarch64_encoder;
 
 /// The components of a detour, generated for a specific target.
-pub(crate) struct Hook {
+pub(crate) struct Parts {
   /// The address at which the target is patched.
   pub patch_address: *mut u8,
   /// The original bytes at the patch address.
@@ -34,6 +36,12 @@ pub(crate) struct Hook {
   pub patched: Vec<u8>,
   /// Callable code, equivalent to the original target.
   pub trampoline: CodeBlock,
+  /// The offsets of relocated instructions relative to the target, paired
+  /// with the offset of their equivalent in the trampoline.
+  ///
+  /// Instructions whose equivalent is unknown (e.g. rewritten by the x86
+  /// block encoder) are omitted.
+  pub relocated: Vec<(u32, u32)>,
   /// An intermediate jump to the detour, if it is out of reach.
   pub relay: Option<CodeBlock>,
 }

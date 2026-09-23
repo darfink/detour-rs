@@ -10,7 +10,7 @@
 //!    remapping it over the original (required on Apple silicon).
 
 use super::copy_code;
-use crate::error::{MemoryError, Result};
+use crate::error::{Error, OsError, Result};
 use mach2::kern_return::{KERN_SUCCESS, kern_return_t};
 use mach2::traps::mach_task_self;
 use mach2::vm::{mach_vm_allocate, mach_vm_deallocate, mach_vm_protect, mach_vm_remap};
@@ -22,26 +22,29 @@ fn check(result: kern_return_t) -> Result<()> {
   if result == KERN_SUCCESS {
     Ok(())
   } else {
-    Err(MemoryError::mach(result).into())
+    Err(Error::Memory(OsError::mach(result)))
   }
 }
 
 /// Overwrites code at `address` using Mach VM primitives.
 ///
+/// The pages are restored to `protection` (typically `r-x`). This does not
+/// allocate from the heap.
+///
 /// # Safety
 ///
 /// See [`super::patch_code`].
-pub(super) unsafe fn patch_code(address: *mut u8, bytes: &[u8]) -> Result<()> {
+pub(super) unsafe fn patch_code(
+  address: *mut u8,
+  bytes: &[u8],
+  protection: region::Protection,
+) -> Result<()> {
   let page_size = region::page::size();
   let base = region::page::floor(address) as usize;
   let end = region::page::ceil(address.wrapping_add(bytes.len())) as usize;
   let size = (end - base) as u64;
   let offset = address as usize - base;
 
-  // Preserve the protection of the page (typically `r-x`)
-  let protection = region::query(address)
-    .map_err(MemoryError::from_region)?
-    .protection();
   let mut native = 0;
   for (flag, value) in [
     (region::Protection::READ, VM_PROT_READ),

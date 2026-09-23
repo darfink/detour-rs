@@ -87,9 +87,10 @@
 //!
 //! ## Caveats
 //!
-//! - Threads are not suspended whilst a target is being patched. Enabling or
-//!   disabling a detour whilst another thread executes the target's prolog is
-//!   undefined behavior.
+//! - `enable` and `disable` do not suspend other threads; doing so whilst
+//!   another thread executes the target's prolog is undefined behavior. A
+//!   [`Transaction`] can suspend threads (see [`Threads`]), and relocates the
+//!   instruction pointers of those executing patched instructions.
 //! - Multiple detours of the same target must be disabled in the reverse order
 //!   they were enabled in; otherwise [`Error::TargetModified`] is returned.
 //! - Under Rosetta 2 (x86-64 code on Apple silicon), modifying code whilst
@@ -100,7 +101,7 @@
 //! ## Features
 //!
 //! - **std** (default): Uses the standard library for locking, and converts
-//!   [`MemoryError`] into [`std::io::Error`].
+//!   [`OsError`] into [`std::io::Error`].
 //! - **no_std**: Supports `#![no_std]` environments with a global allocator,
 //!   using spin locks. Disable the default features to use it:
 //!
@@ -131,16 +132,20 @@ mod macros;
 
 supported! {
   pub use detours::*;
-  pub use error::{Error, MemoryError, Result};
+  pub use error::{Error, OsError, Result};
+  pub use thread::{Thread, Threads};
   pub use traits::{Function, HookableWith};
+  pub use transaction::{Detour, Transaction};
 
   mod arch;
-  mod detour;
   mod detours;
   mod error;
+  mod hook;
   mod memory;
   mod sync;
+  mod thread;
   mod traits;
+  mod transaction;
 }
 
 #[cfg(doctest)]

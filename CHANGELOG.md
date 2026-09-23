@@ -7,6 +7,9 @@ A comprehensive overhaul of the library.
 ### Added
 
 - `#![no_std]` support (with `alloc`), using the `no_std` feature.
+- Examples of hooking a program from its start: `early_hook` (loaded via
+  `LD_PRELOAD` / `DYLD_INSERT_LIBRARIES`) and `launch_suspended` (Windows)
+  (#34).
 - AArch64 support (Linux, macOS & Windows), including relays for detours
   beyond ±128 MiB, relocation of all PC-relative instructions, and awareness
   of BTI & PAC landing pads.

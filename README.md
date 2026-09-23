@@ -99,6 +99,22 @@ fn main() -> Result<(), Box<dyn Error>> {
 $ cargo build --example messageboxw_detour
 ```
 
+- Hooking a program from its very start, so no invocation is missed, is
+  shown in [`early_hook`](./examples/early_hook.rs). The library installs its
+  detours when loaded, before the program's `main` runs:
+```sh
+$ cargo build --example early_hook --example early_target --example launch_suspended
+
+# Linux
+$ LD_PRELOAD=target/debug/examples/libearly_hook.so target/debug/examples/early_target
+
+# macOS
+$ DYLD_INSERT_LIBRARIES=target/debug/examples/libearly_hook.dylib target/debug/examples/early_target
+
+# Windows (starts the program suspended, and loads the library before its entry point)
+$ target\debug\examples\launch_suspended.exe target\debug\examples\early_hook.dll target\debug\examples\early_target.exe
+```
+
 ## Features
 
 - **`std`** (default): Uses the standard library for locking, and allows

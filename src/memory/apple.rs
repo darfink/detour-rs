@@ -10,8 +10,7 @@
 //!    remapping it over the original (required on Apple silicon).
 
 use super::copy_code;
-use crate::error::{Error, Result};
-use std::io;
+use crate::error::{MemoryError, Result};
 
 #[allow(non_camel_case_types)]
 type kern_return_t = libc::c_int;
@@ -63,9 +62,7 @@ fn check(result: kern_return_t) -> Result<()> {
   if result == KERN_SUCCESS {
     Ok(())
   } else {
-    Err(Error::Memory(io::Error::other(format!(
-      "mach kernel call failed ({result})"
-    ))))
+    Err(MemoryError::mach(result).into())
   }
 }
 
@@ -119,7 +116,7 @@ pub(super) unsafe fn patch_code(address: *mut u8, bytes: &[u8]) -> Result<()> {
     unsafe {
       copy_code(
         scratch as *mut u8,
-        std::slice::from_raw_parts(base as *const u8, size as usize),
+        core::slice::from_raw_parts(base as *const u8, size as usize),
       );
       copy_code((scratch as usize + offset) as *mut u8, bytes);
     }

@@ -207,17 +207,20 @@ nor writable at runtime, which inline detouring fundamentally requires.
 ## Cargo features
 
 - **`std`** (default): Uses the standard library for locking, and allows
-  converting `detour::OsError` into `std::io::Error`.
-- **`no_std`**: Supports `#![no_std]` environments (requires `alloc`), using
-  spin locks. An operating system is still required for memory management.
+  converting `detour::OsError` into `std::io::Error`, and `JoinHandle` into
+  `detour::Thread`.
+
+Disabling `std` supports `#![no_std]` environments (requires `alloc`), using
+spin locks. An operating system is still required for memory management. On
+x86, enable the `no_std` feature instead (it has no effect on AArch64):
 
 ```toml
 [dependencies]
 detour = { version = "0.9.0", default-features = false, features = ["no_std"] }
 ```
 
-On x86, `iced-x86` treats `std` and `no_std` as mutually exclusive, so the
-`no_std` feature cannot be combined with another crate enabling `iced-x86/std`.
+`iced-x86` requires exactly one of its `std` and `no_std` features, so on x86
+`no_std` cannot be combined with another crate enabling `iced-x86/std`.
 
 ## Caveats
 
@@ -235,6 +238,11 @@ On x86, `iced-x86` treats `std` and `no_std` as mutually exclusive, so the
   platforms, Linux and Android (using a real-time signal). On AArch64 a
   single aligned instruction is replaced atomically, which avoids the issue
   in most cases.
+- **Dropping detours.** A dropped detour is disabled without suspending
+  threads, and its trampoline is released immediately. Disable it with a
+  `Transaction` first if other threads may be executing the target.
+- **Return addresses.** Only the program counters of suspended threads are
+  relocated, not return addresses that refer to patched instructions.
 - **Shared targets.** Multiple detours of the same target must be disabled in
   the reverse order they were enabled in; otherwise
   `Error::TargetModified` is returned.

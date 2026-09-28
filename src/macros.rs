@@ -157,6 +157,8 @@ macro_rules! impl_hookable {
   };
 
   (@impl_core [$($doc:tt)*] ($($nm:ident : $ty:ident),*) ($fn_type:ty) ($($unsafety:tt)?)) => {
+    impl<Ret: 'static, $($ty: 'static),*> $crate::traits::private::Sealed for $fn_type {}
+
     // SAFETY: Implemented for function pointers only.
     unsafe impl<Ret: 'static, $($ty: 'static),*> Function for $fn_type {
       type Arguments = ($($ty,)*);

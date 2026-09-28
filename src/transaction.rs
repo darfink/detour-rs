@@ -110,7 +110,16 @@ impl<'a> Transaction<'a> {
   /// - Threads that are not suspended must not execute the patched
   ///   instructions (i.e. the prologs of the targets) whilst the transaction
   ///   is committed.
-  /// - Suspended threads must belong to the current process.
+  /// - Each thread of [`Threads::Only`] must be a thread of the current
+  ///   process, which remains valid (i.e. is not joined, or exits whilst
+  ///   detached) until this returns.
+  ///
+  /// # Limitations
+  ///
+  /// Only the program counters of suspended threads are relocated. A return
+  /// address referring to patched instructions (e.g. of a thread that is
+  /// executing a function called from within a target's prolog) is not
+  /// adjusted; such a thread returns into the midst of the patch.
   pub unsafe fn commit(self, threads: Threads<'_>) -> Result<()> {
     let operations = self
       .operations

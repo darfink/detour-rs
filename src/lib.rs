@@ -102,15 +102,18 @@
 //!
 //! - **std** (default): Uses the standard library for locking, and converts
 //!   [`OsError`] into [`std::io::Error`].
-//! - **no_std**: Supports `#![no_std]` environments with a global allocator,
-//!   using spin locks. Disable the default features to use it:
 //!
-//!   ```toml
-//!   detour = { version = "0.9", default-features = false, features = ["no_std"] }
-//!   ```
+//! Without `std`, `#![no_std]` environments with a global allocator are
+//! supported, using spin locks. On x86, the `no_std` feature must be enabled
+//! instead, since `iced-x86` requires either its `std` or `no_std` feature:
 //!
-//!   On x86, `iced-x86` requires `std` and `no_std` to be mutually exclusive,
-//!   so `no_std` cannot be used alongside another crate enabling `iced-x86/std`.
+//! ```toml
+//! detour = { version = "0.9", default-features = false, features = ["no_std"] }
+//! ```
+//!
+//! `iced-x86` does not allow both, so on x86 `no_std` cannot be combined
+//! with another crate enabling `iced-x86/std`. On AArch64, the `no_std`
+//! feature has no effect.
 
 #![no_std]
 
@@ -118,8 +121,14 @@ extern crate alloc;
 #[cfg(any(feature = "std", test))]
 extern crate std;
 
-#[cfg(not(any(feature = "std", feature = "no_std")))]
-compile_error!("either the `std` (default) or `no_std` feature of `detour` must be enabled");
+#[cfg(all(
+  any(target_arch = "x86", target_arch = "x86_64"),
+  not(any(feature = "std", feature = "no_std"))
+))]
+compile_error!(
+  "on x86, either the `std` (default) or `no_std` feature of `detour` must be enabled, since \
+   `iced-x86` requires one of them"
+);
 
 #[cfg(not(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")))]
 compile_error!(
@@ -134,8 +143,11 @@ supported! {
   pub use detours::*;
   pub use error::{Error, OsError, Result};
   pub use thread::{Thread, Threads};
+  /// Functionality specific to Linux and Android.
   #[cfg(any(target_os = "linux", target_os = "android"))]
-  pub use thread::set_suspend_signal;
+  pub mod linux {
+    pub use crate::thread::set_suspend_signal;
+  }
   pub use traits::{Function, HookableWith};
   pub use transaction::{Detour, Transaction};
 

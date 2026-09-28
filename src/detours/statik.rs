@@ -130,6 +130,19 @@ impl<T: Function> StaticDetour<T> {
     unsafe { detour.disable() }
   }
 
+  /// Returns the trampoline, i.e. a function that invokes the original,
+  /// undetoured target, or `None` if the detour is not initialized.
+  ///
+  /// Prefer [`call`](#method.call), unless the original function must be
+  /// passed elsewhere (e.g. as a callback, or to foreign code). Since static
+  /// detours are never dropped, the trampoline remains valid forever.
+  pub fn trampoline(&'static self) -> Option<T> {
+    let detour = self.get()?;
+    // SAFETY: The trampoline is released once `self` is dropped, which never
+    // happens to a `'static` reference.
+    Some(unsafe { detour.trampoline() })
+  }
+
   /// Returns whether the detour is enabled or not.
   pub fn is_enabled(&self) -> bool {
     self.get().is_some_and(TypedDetour::is_enabled)

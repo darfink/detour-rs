@@ -16,14 +16,15 @@ include = ["src/**/*", "examples/**/*", "tests/**/*", "LICENSE", "README.md", "C
 
 [features]
 default = ["std"]
-# Use the standard library (locks, `std::io::Error` conversions).
+# Use the standard library (locks, `std::io::Error` & `JoinHandle`
+# conversions).
 std = ["region/std", "iced-x86/std"]
-# Support `#![no_std]` environments (requires `alloc`). Mutually exclusive
-# with `std` on x86, due to `iced-x86`.
-no_std = ["dep:spin", "iced-x86/no_std"]
+# Build `iced-x86` without the standard library. Only required on x86 when
+# `std` is disabled, since `iced-x86` requires exactly one of its `std` and
+# `no_std` features. Otherwise, disabling `std` suffices.
+no_std = ["iced-x86/no_std"]
 
 [dependencies]
-spin = { version = "0.12.0", default-features = false, features = ["mutex", "spin_mutex"], optional = true }
 
 [target.'cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64"))'.dependencies]
 region = { version = "4.0.1", default-features = false }

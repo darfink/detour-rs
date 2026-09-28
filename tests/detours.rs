@@ -438,6 +438,10 @@ mod statik {
     unsafe { DetourNegate.initialize(negate, |x, y| x + y)?.enable()? };
     assert_eq!(negate(2, 3), 5);
     assert_eq!(DetourNegate.call(2, 3), -6);
+
+    // The trampoline can be passed around as a plain function pointer
+    let original: extern "system" fn(i64, i64) -> i64 = DetourNegate.trampoline().unwrap();
+    assert_eq!(original(2, 3), -6);
     Ok(())
   }
 
@@ -448,6 +452,7 @@ mod statik {
     let result = unsafe { DetourUninitialized.enable() };
     assert!(matches!(result, Err(Error::NotInitialized)));
     assert!(std::panic::catch_unwind(|| DetourUninitialized.call()).is_err());
+    assert!(DetourUninitialized.trampoline().is_none());
   }
 }
 

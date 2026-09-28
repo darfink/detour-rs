@@ -9,11 +9,12 @@
   whilst code is patched, moving any executing the patched instructions
   (EIP relocation). Thread suspension is supported on Windows, Apple
   platforms, Linux and Android (using a real-time signal, see
-  `set_suspend_signal`).
+  `linux::set_suspend_signal`).
 - `Detour`, a trait implemented by all detour types.
 - `Error::ThreadNotRelocatable`, `Error::ThreadsUnsupported` &
   `Error::Thread`.
-- `TypedDetour::trampoline`, returning the original function as `T`.
+- `TypedDetour::trampoline` & `StaticDetour::trampoline`, returning the
+  original function as `T`.
 - `OsError::raw_mach_error`.
 - `Clone`, `PartialEq` & `Eq` for `Error`.
 
@@ -28,6 +29,10 @@
   `fn(A) -> Ret`).
 - Static detours no longer take a lock nor clone an `Arc` per call. A replaced
   closure is released once no call is executing.
+
+- `Function` & `HookableWith` are sealed.
+- The `no_std` feature is only required on x86 (to configure `iced-x86`);
+  elsewhere, disabling `std` suffices. The `spin` dependency was removed.
 
 ### Removed
 

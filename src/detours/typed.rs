@@ -8,6 +8,16 @@ use core::marker::PhantomData;
 /// The same prototype is enforced for the target, the detour, and when
 /// invoking the original function using [`call`](#method.call).
 ///
+/// # Dropping
+///
+/// Once dropped, the detour is disabled (without suspending other threads)
+/// and its generated code is released. No other thread may execute the
+/// target's prolog, or the trampoline (e.g. via [`call`](#method.call)), at
+/// that moment. To disable a detour whilst threads are suspended, use a
+/// [`Transaction`](crate::Transaction) before dropping it. If the detour
+/// cannot be disabled (e.g. its target has been modified by a third party),
+/// its generated code is leaked instead.
+///
 /// # Example
 ///
 /// ```rust

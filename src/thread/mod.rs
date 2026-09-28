@@ -23,9 +23,9 @@ pub use self::imp::set_suspend_signal;
 
 /// A thread of the current process.
 ///
-/// Threads are identified by a platform-specific handle, which must remain
-/// valid (i.e. the thread must not be joined or detached and exit) until it
-/// is no longer used.
+/// Threads are identified by a platform-specific handle. Constructing a
+/// `Thread` has no effect, so it is safe; its validity is instead required
+/// by [`Transaction::commit`](crate::Transaction::commit), which is `unsafe`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Thread(pub(crate) imp::RawThread);
 
@@ -79,7 +79,10 @@ impl<T> From<&std::thread::JoinHandle<T>> for Thread {
 /// safe with regard to them.
 ///
 /// On Linux and Android, threads are suspended by a real-time signal (see
-/// [`set_suspend_signal`]), which must not be blocked by the threads.
+/// `linux::set_suspend_signal`). Threads blocking the signal cannot be
+/// suspended: `Only` fails, whilst `All` skips them (e.g. helper threads of
+/// the C library, which block all signals). Skipped threads are not
+/// protected, so they must not execute the patched instructions.
 #[derive(Clone, Copy, Debug)]
 #[non_exhaustive]
 pub enum Threads<'a> {
@@ -126,7 +129,11 @@ impl Suspended {
   }
 }
 
-#[cfg(all(test, any(windows, target_vendor = "apple", target_os = "linux", target_os = "android")))]
+#[cfg(all(
+  test,
+  feature = "std",
+  any(windows, target_vendor = "apple", target_os = "linux", target_os = "android")
+))]
 mod tests {
   use super::*;
   use core::arch::naked_asm;

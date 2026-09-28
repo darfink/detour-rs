@@ -2,7 +2,8 @@
 //! the signal on one thread affects all other suspensions).
 #![cfg(any(target_os = "linux", target_os = "android"))]
 
-use detour::{Error, Result, Thread, Threads, Transaction, TypedDetour, set_suspend_signal};
+use detour::linux::set_suspend_signal;
+use detour::{Error, Result, Thread, Threads, Transaction, TypedDetour};
 use std::sync::mpsc;
 
 #[inline(never)]

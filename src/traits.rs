@@ -1,7 +1,7 @@
 //! Traits describing detours and applicable functions.
 //!
-//! Several of the traits in this module are automatically implemented and
-//! should generally not be implemented by users of this library.
+//! The traits are sealed: they are implemented by this crate, and cannot be
+//! implemented elsewhere.
 
 /// Trait representing a function that can be used as a target or detour for
 /// detouring.
@@ -10,14 +10,16 @@
 /// calling conventions supported by the target (e.g. `extern "C"`,
 /// `extern "system"`, and `extern "thiscall"` on x86).
 ///
-/// Function pointers with higher-ranked lifetimes (e.g. `fn(&str)`) cannot
+/// Function pointers with higher-ranked lifetimes (e.g. `fn(&str)`) do not
 /// implement this trait; use [`RawDetour`](crate::RawDetour) for those.
+///
+/// This trait is sealed, and cannot be implemented outside of this crate.
 ///
 /// # Safety
 ///
 /// Implementors must be function pointers, compatible with the pointer
 /// returned by `to_ptr`.
-pub unsafe trait Function: Sized + Copy + Sync + 'static {
+pub unsafe trait Function: private::Sealed + Sized + Copy + Sync + 'static {
   /// The argument types as a tuple.
   type Arguments;
 
@@ -40,10 +42,17 @@ pub unsafe trait Function: Sized + Copy + Sync + 'static {
 
 /// Trait indicating that `Self` can be detoured by the given function `D`.
 ///
+/// This trait is sealed (since [`Function`] is).
+///
 /// # Safety
 ///
 /// `Self` and `D` must share the same signature and calling convention.
 pub unsafe trait HookableWith<D: Function>: Function {}
+
+pub(crate) mod private {
+  /// Prevents implementations outside of this crate.
+  pub trait Sealed {}
+}
 
 // SAFETY: A function is always compatible with itself.
 unsafe impl<T: Function> HookableWith<T> for T {}

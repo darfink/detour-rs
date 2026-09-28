@@ -4,7 +4,6 @@
 //! suspended thread may hold the allocator's lock.
 
 use crate::error::Result;
-use alloc::vec::Vec;
 
 #[cfg(target_vendor = "apple")]
 #[path = "apple.rs"]
@@ -12,9 +11,15 @@ mod imp;
 #[cfg(windows)]
 #[path = "windows.rs"]
 mod imp;
-#[cfg(not(any(windows, target_vendor = "apple")))]
+#[cfg(any(target_os = "linux", target_os = "android"))]
+#[path = "linux.rs"]
+mod imp;
+#[cfg(not(any(windows, target_vendor = "apple", target_os = "linux", target_os = "android")))]
 #[path = "unsupported.rs"]
 mod imp;
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub use self::imp::set_suspend_signal;
 
 /// A thread of the current process.
 ///
@@ -40,6 +45,14 @@ impl Thread {
   pub fn from_mach_port(port: u32) -> Self {
     Thread(port)
   }
+
+  /// Creates a thread from a POSIX thread (`pthread_t`).
+  ///
+  /// The thread must not exit (and be joined) whilst it is used.
+  #[cfg(any(target_os = "linux", target_os = "android"))]
+  pub fn from_pthread(thread: libc::pthread_t) -> Self {
+    Thread(thread)
+  }
 }
 
 #[cfg(feature = "std")]
@@ -64,6 +77,9 @@ impl<T> From<&std::thread::JoinHandle<T>> for Thread {
 /// Suspended threads that are executing code that is patched are moved
 /// accordingly (i.e. instruction pointer relocation), so the transaction is
 /// safe with regard to them.
+///
+/// On Linux and Android, threads are suspended by a real-time signal (see
+/// [`set_suspend_signal`]), which must not be blocked by the threads.
 #[derive(Clone, Copy, Debug)]
 #[non_exhaustive]
 pub enum Threads<'a> {
@@ -79,7 +95,7 @@ pub enum Threads<'a> {
 
 /// A set of suspended threads, which are resumed once dropped.
 pub(crate) struct Suspended {
-  threads: Vec<imp::Suspended>,
+  session: imp::Session,
 }
 
 impl Suspended {
@@ -88,17 +104,17 @@ impl Suspended {
   /// Once this returns, no heap allocations may be performed until the
   /// threads are resumed.
   pub fn new(threads: Threads<'_>) -> Result<Self> {
-    let threads = match threads {
-      Threads::None => Vec::new(),
+    let session = match threads {
+      Threads::None => imp::Session::default(),
       Threads::All => imp::suspend_all()?,
       Threads::Only(threads) => imp::suspend(threads)?,
     };
-    Ok(Suspended { threads })
+    Ok(Suspended { session })
   }
 
   /// Returns the suspended threads.
   pub fn threads(&mut self) -> &mut [imp::Suspended] {
-    &mut self.threads
+    &mut self.session
   }
 
   /// Applies all modified program counters.
@@ -106,6 +122,55 @@ impl Suspended {
   /// This may fail part way, but moving a thread is benign: it is only moved
   /// to equivalent code (of the original, or of a valid trampoline).
   pub fn apply(&mut self) -> Result<()> {
-    self.threads.iter_mut().try_for_each(imp::Suspended::apply)
+    self.session.iter_mut().try_for_each(imp::Suspended::apply)
+  }
+}
+
+#[cfg(all(test, any(windows, target_vendor = "apple", target_os = "linux", target_os = "android")))]
+mod tests {
+  use super::*;
+  use core::arch::naked_asm;
+
+  /// Spins forever.
+  #[unsafe(naked)]
+  extern "C" fn forever() -> i32 {
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    naked_asm!("2:", "pause", "jmp 2b");
+    #[cfg(target_arch = "aarch64")]
+    naked_asm!("2:", "yield", "b 2b");
+  }
+
+  /// Returns `42`.
+  #[unsafe(naked)]
+  extern "C" fn escape() -> i32 {
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    naked_asm!("mov eax, 42", "ret");
+    #[cfg(target_arch = "aarch64")]
+    naked_asm!("mov w0, #42", "ret");
+  }
+
+  #[test]
+  fn moves_suspended_threads() -> Result<()> {
+    let worker = std::thread::spawn(|| forever());
+    let threads = [Thread::from(&worker)];
+    let spin = forever as *const () as usize..forever as *const () as usize + 8;
+
+    loop {
+      let mut suspended = Suspended::new(Threads::Only(&threads))?;
+      let [thread] = suspended.threads() else {
+        panic!("the worker was not suspended")
+      };
+      if spin.contains(&thread.pc()) {
+        thread.set_pc(escape as *const () as usize);
+        suspended.apply()?;
+        break;
+      }
+      // The worker has not yet entered `forever`
+      drop(suspended);
+      std::thread::yield_now();
+    }
+
+    assert_eq!(worker.join().unwrap(), 42);
+    Ok(())
   }
 }

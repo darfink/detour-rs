@@ -107,6 +107,18 @@ impl OsError {
     OsError(Kind::Os(code as i32))
   }
 
+  /// Returns an error of the given `errno` code.
+  #[cfg(any(target_os = "linux", target_os = "android"))]
+  pub(crate) const fn from_errno(code: i32) -> Self {
+    OsError(Kind::Os(code))
+  }
+
+  /// Returns an error described by `message`.
+  #[cfg(any(target_os = "linux", target_os = "android"))]
+  pub(crate) const fn other(message: &'static str) -> Self {
+    OsError(Kind::Other(message))
+  }
+
   /// Returns the operating system error code (`errno` on Unix-like platforms,
   /// or `GetLastError` on Windows), if applicable.
   pub fn raw_os_error(&self) -> Option<i32> {

@@ -22,6 +22,9 @@ use mach2::{structs::x86_thread_state64_t as State, thread_status::x86_THREAD_ST
 
 pub(crate) type RawThread = thread_act_t;
 
+/// The suspended threads, resumed once dropped.
+pub(crate) type Session = Vec<Suspended>;
+
 #[cfg(feature = "std")]
 pub(super) fn from_pthread(thread: libc::pthread_t) -> Thread {
   // SAFETY: The thread is valid, as asserted by its join handle.
@@ -143,7 +146,7 @@ impl Drop for Suspended {
 /// The threads are enumerated repeatedly until no new threads appear. The
 /// kernel allocates the enumerated list using virtual memory (not the heap),
 /// so this is safe whilst threads are suspended.
-pub(super) fn suspend_all() -> Result<Vec<Suspended>> {
+pub(super) fn suspend_all() -> Result<Session> {
   // SAFETY: Returns the ports of the current task and thread.
   let (task, this) = unsafe { (mach_task_self(), mach_thread_self()) };
   let mut suspended: Vec<Suspended> = Vec::new();
@@ -195,7 +198,7 @@ pub(super) fn suspend_all() -> Result<Vec<Suspended>> {
 }
 
 /// Suspends the given threads, ignoring the current thread.
-pub(super) fn suspend(threads: &[Thread]) -> Result<Vec<Suspended>> {
+pub(super) fn suspend(threads: &[Thread]) -> Result<Session> {
   // SAFETY: Returns the ports of the current task and thread.
   let (task, this) = unsafe { (mach_task_self(), mach_thread_self()) };
   let mut suspended = Vec::with_capacity(threads.len());

@@ -158,10 +158,9 @@ fn main() -> detour::Result<()> {
   let add_hook = unsafe { TypedDetour::<fn(i32, i32) -> i32>::new(add, zero)? };
   let sub_hook = unsafe { TypedDetour::<fn(i32, i32) -> i32>::new(sub, zero)? };
 
-  let threads = if cfg!(any(windows, target_vendor = "apple")) { Threads::All } else { Threads::None };
   let mut transaction = Transaction::new();
   transaction.enable(&add_hook).enable(&sub_hook);
-  unsafe { transaction.commit(threads)? };
+  unsafe { transaction.commit(Threads::All)? };
 
   assert_eq!((add(2, 3), sub(2, 3)), (0, 0));
   Ok(())
@@ -232,9 +231,10 @@ On x86, `iced-x86` treats `std` and `no_std` as mutually exclusive, so the
   replaced may resume in the middle of the new jump. To avoid this, commit a
   [`Transaction`][transaction] with `Threads::All` (or selected threads): the
   threads are suspended, and any executing the patched instructions are moved
-  to equivalent code (EIP relocation). This is supported on Windows and Apple
-  platforms. On AArch64 a single aligned instruction is replaced atomically,
-  which avoids the issue in most cases.
+  to equivalent code (EIP relocation). This is supported on Windows, Apple
+  platforms, Linux and Android (using a real-time signal). On AArch64 a
+  single aligned instruction is replaced atomically, which avoids the issue
+  in most cases.
 - **Shared targets.** Multiple detours of the same target must be disabled in
   the reverse order they were enabled in; otherwise
   `Error::TargetModified` is returned.

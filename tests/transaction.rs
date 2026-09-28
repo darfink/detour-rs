@@ -116,7 +116,12 @@ fn requires_initialized_detours() -> Result<()> {
   Ok(())
 }
 
-#[cfg(not(any(windows, target_vendor = "apple")))]
+#[cfg(not(any(
+  windows,
+  target_vendor = "apple",
+  target_os = "linux",
+  target_os = "android"
+)))]
 #[test]
 fn threads_are_unsupported() -> Result<()> {
   #[inline(never)]
@@ -141,7 +146,12 @@ fn threads_are_unsupported() -> Result<()> {
 /// nearby), so relocation is tested using the absolute patch in unit tests.
 #[cfg(all(
   any(target_arch = "x86", target_arch = "x86_64"),
-  any(windows, target_vendor = "apple")
+  any(
+    windows,
+    target_vendor = "apple",
+    target_os = "linux",
+    target_os = "android"
+  )
 ))]
 mod suspension {
   use super::*;
@@ -222,6 +232,7 @@ mod suspension {
     fn wait(&self) {
       let calls = self.calls.load(Ordering::Relaxed);
       while self.calls.load(Ordering::Relaxed) == calls {
+        assert!(!self.handle.is_finished(), "worker thread panicked");
         std::thread::yield_now();
       }
     }
@@ -265,18 +276,20 @@ mod suspension {
     Ok(())
   }
 
+  /// Both modes share `spin`, so they run sequentially.
   #[test]
-  fn relocates_all_threads() -> Result<()> {
-    toggle_whilst_spinning(false)
-  }
-
-  #[test]
-  fn relocates_given_threads() -> Result<()> {
+  fn relocates_suspended_threads() -> Result<()> {
+    toggle_whilst_spinning(false)?;
     toggle_whilst_spinning(true)
   }
 }
 
-#[cfg(any(windows, target_vendor = "apple"))]
+#[cfg(any(
+  windows,
+  target_vendor = "apple",
+  target_os = "linux",
+  target_os = "android"
+))]
 #[test]
 fn ignores_the_current_thread() -> Result<()> {
   #[inline(never)]

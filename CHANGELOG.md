@@ -7,8 +7,9 @@
 - `Transaction`, which enables and disables several detours at once. It is
   applied completely or not at all, and can suspend other threads (`Threads`)
   whilst code is patched, moving any executing the patched instructions
-  (EIP relocation). Thread suspension is supported on Windows and Apple
-  platforms.
+  (EIP relocation). Thread suspension is supported on Windows, Apple
+  platforms, Linux and Android (using a real-time signal, see
+  `set_suspend_signal`).
 - `Detour`, a trait implemented by all detour types.
 - `Error::ThreadNotRelocatable`, `Error::ThreadsUnsupported` &
   `Error::Thread`.

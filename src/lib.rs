@@ -134,6 +134,8 @@ supported! {
   pub use detours::*;
   pub use error::{Error, OsError, Result};
   pub use thread::{Thread, Threads};
+  #[cfg(any(target_os = "linux", target_os = "android"))]
+  pub use thread::set_suspend_signal;
   pub use traits::{Function, HookableWith};
   pub use transaction::{Detour, Transaction};
 

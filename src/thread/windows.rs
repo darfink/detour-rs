@@ -24,6 +24,9 @@ use windows_sys::Win32::System::Diagnostics::Debug::CONTEXT_CONTROL_X86 as CONTE
 /// A `HANDLE`, stored as an integer so threads are `Send` & `Sync`.
 pub(crate) type RawThread = usize;
 
+/// The suspended threads, resumed once dropped.
+pub(crate) type Session = Vec<Suspended>;
+
 /// A thread context, which must be 16-byte aligned on x86-64.
 #[repr(C, align(16))]
 struct Context(CONTEXT);
@@ -137,7 +140,7 @@ impl Drop for Suspended {
 /// The threads are enumerated repeatedly until no new threads appear. A
 /// snapshot is allocated using virtual memory (not the process heap), so
 /// this is safe whilst threads are suspended.
-pub(super) fn suspend_all() -> Result<Vec<Suspended>> {
+pub(super) fn suspend_all() -> Result<Session> {
   const RIGHTS: u32 = THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT | THREAD_SET_CONTEXT;
 
   // SAFETY: These have no preconditions.
@@ -197,7 +200,7 @@ pub(super) fn suspend_all() -> Result<Vec<Suspended>> {
 }
 
 /// Suspends the given threads, ignoring the current thread.
-pub(super) fn suspend(threads: &[Thread]) -> Result<Vec<Suspended>> {
+pub(super) fn suspend(threads: &[Thread]) -> Result<Session> {
   // SAFETY: This has no preconditions.
   let current = unsafe { GetCurrentThreadId() };
   let mut suspended = Vec::with_capacity(threads.len());

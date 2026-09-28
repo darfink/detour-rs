@@ -52,7 +52,6 @@ pub(crate) mod private {
 /// }
 ///
 /// # fn main() -> Result<()> {
-/// # if cfg!(not(any(windows, target_vendor = "apple"))) { return Ok(()); }
 /// // SAFETY: The functions share the same signature.
 /// let (hook1, hook2) = unsafe {
 ///   (
@@ -102,9 +101,9 @@ impl<'a> Transaction<'a> {
   /// instruction that was rewritten when relocated),
   /// [`Error::ThreadNotRelocatable`] is returned.
   ///
-  /// Suspending threads is supported on Windows and Apple platforms; on other
-  /// platforms, [`Error::ThreadsUnsupported`] is returned unless
-  /// [`Threads::None`] is used.
+  /// Suspending threads is supported on Windows, Apple platforms, Linux and
+  /// Android; on other platforms, [`Error::ThreadsUnsupported`] is returned
+  /// unless [`Threads::None`] is used.
   ///
   /// # Safety
   ///

@@ -19,7 +19,11 @@ through a trampoline.
   Apple silicon).
 - Relocates branches and RIP/PC-relative instructions, supports hot-patching
   and NOP-padded functions, and reaches distant detours through relays.
-- Type-safe detours for any function pointer, including closures as detours.
+- Type-safe detours for any signature (including references), with closures
+  as detours.
+- Transactions: patch several functions at once, all or nothing, whilst other
+  threads are suspended. Threads caught executing the patched instructions
+  are moved to equivalent code (EIP relocation).
 
 ## Installation
 
@@ -140,9 +144,17 @@ fn main() -> detour::Result<()> {
 `RawDetour` accepts any pointer, e.g. for functions whose signature is only
 known at runtime.
 
-Several detours can be enabled or disabled at once with a
-[`Transaction`][transaction]. It is applied completely or not at all, and can
-suspend other threads whilst the code is patched:
+## Thread safety
+
+Enabling a detour overwrites the first instructions of the target. If another
+thread is executing those instructions at that moment, it may resume in the
+middle of the new jump, and crash. `enable` and `disable` do not guard
+against this, which is why they are `unsafe`.
+
+A [`Transaction`][transaction] does. It enables and disables several detours
+at once, whilst the chosen threads are suspended. It is applied completely or
+not at all: if one change fails, the others are reverted before any thread is
+resumed.
 
 ```rust
 use detour::{Threads, Transaction, TypedDetour};
@@ -174,6 +186,51 @@ fn main() -> detour::Result<()> {
 }
 ```
 
+`Threads::All` suspends every other thread of the process, and
+`Threads::Only` a chosen set (e.g. from a `JoinHandle`).
+
+### EIP relocation
+
+A suspended thread may be stopped within the instructions that are about to
+be overwritten. Its instruction pointer is then moved to the same instruction
+in the trampoline, which holds a copy of the original instructions:
+
+```text
+Before                                  After
+target:                                 target:
+  00400020  push rbp                      00400020  jmp detour
+> 00400021  mov rbp, rsp    <- thread     00400025  (rest of the overwritten bytes)
+  00400024  sub rsp, 16                   00400028  ...
+  00400028  ...
+                                        trampoline:
+                                          00a00000  push rbp
+                                        > 00a00001  mov rbp, rsp    <- thread
+                                          00a00004  sub rsp, 16
+                                          00a00008  jmp 00400028
+```
+
+The thread continues in the trampoline and returns to the target after the
+patch. When a detour is disabled, a thread within the trampoline needs no
+change, since the trampoline remains valid. A thread that has executed part
+of the patch (e.g. the short jump of a hot patch) is moved back to the start
+of the target.
+
+If a thread is stopped at an instruction that was rewritten when it was
+relocated (e.g. a branch expanded into several instructions), it cannot be
+moved. The transaction then fails with `Error::ThreadNotRelocatable`, and
+all of its changes are reverted.
+
+| Platform | How threads are suspended |
+|----------|---------------------------|
+| Windows | `SuspendThread` |
+| Apple platforms | `thread_suspend` |
+| Linux & Android | A real-time signal (see `linux::set_suspend_signal`) |
+| Others | Not supported (only `Threads::None`) |
+
+On AArch64, the patch is usually a single aligned instruction, which is
+written atomically. Suspending threads is still recommended there, since a
+patch may span several instructions (e.g. an absolute jump).
+
 ## Examples
 
 - [`messageboxw_detour`](./examples/messageboxw_detour.rs): a DLL that
@@ -204,9 +261,9 @@ $ target\debug\examples\launch_suspended.exe target\debug\examples\early_hook.dl
 | `x86-64`     | ✓       | ✓     | ✓     | Relays for detours beyond ±2 GiB |
 | `AArch64`    | ✓       | ✓     | ✓     | Relays for detours beyond ±128 MiB, BTI & PAC aware |
 
-Other Unix-like systems (e.g. FreeBSD, Android) are expected to work, but are
-not tested in CI. Instruction relocation uses [`iced-x86`][iced] on x86, and a
-built-in relocator on AArch64.
+Android is supported, including thread suspension. Other Unix-like systems
+(e.g. FreeBSD) are expected to work, but without thread suspension, and are
+not tested in CI.
 
 WebAssembly is not supported, and cannot be: its code is neither addressable
 nor writable at runtime, which inline detouring fundamentally requires.
@@ -236,20 +293,17 @@ detour = { version = "0.9.0", default-features = false, features = ["no_std"] }
   a function of another module (e.g. a system library), resolve its address
   at runtime (`dlsym`, `GetProcAddress`), since a direct reference may resolve
   to a local import stub instead.
-- **Other threads.** `enable` and `disable` do not suspend other threads. A
-  thread executing a target's first instructions at the exact moment they are
-  replaced may resume in the middle of the new jump. To avoid this, commit a
-  [`Transaction`][transaction] with `Threads::All` (or selected threads): the
-  threads are suspended, and any executing the patched instructions are moved
-  to equivalent code (EIP relocation). This is supported on Windows, Apple
-  platforms, Linux and Android (using a real-time signal). On AArch64 a
-  single aligned instruction is replaced atomically, which avoids the issue
-  in most cases.
+- **Other threads.** `enable` and `disable` do not suspend other threads; use
+  a `Transaction` (see [Thread safety](#thread-safety)).
+- **Blocked signals (Linux & Android).** Threads that block the suspend
+  signal cannot be suspended. `Threads::All` skips them (e.g. helper threads
+  of the C library), so they must not execute the patched instructions.
 - **Dropping detours.** A dropped detour is disabled without suspending
   threads, and its trampoline is released immediately. Disable it with a
   `Transaction` first if other threads may be executing the target.
-- **Return addresses.** Only the program counters of suspended threads are
-  relocated, not return addresses that refer to patched instructions.
+- **Return addresses.** Only the instruction pointers of suspended threads
+  are relocated, not return addresses that refer to patched instructions
+  (e.g. of a thread executing a function called from a target's prolog).
 - **Shared targets.** Multiple detours of the same target must be disabled in
   the reverse order they were enabled in; otherwise
   `Error::TargetModified` is returned.
@@ -295,21 +349,27 @@ preceded by a hot-patching area, in which case a 2-byte jump at the entry
 leads to the 5-byte jump placed in the area. On AArch64, a single `B`
 instruction is replaced instead.
 
-## Upgrading from 0.8
+Instructions are relocated with [`iced-x86`][iced] on x86, which rewrites
+relative branches and RIP-relative operands so they still reach the same
+addresses. On AArch64, a built-in relocator handles all PC-relative
+instructions. The offsets of the relocated instructions are recorded, which
+is what allows EIP relocation.
 
-- The `nightly` feature has been removed; all detours, including
-  `static_detour!`, work on stable Rust.
-- Static detour closures must be `Send + Sync`.
-- `RawDetour::trampoline` returns `*const ()` instead of `&()`.
-- `Error::RegionFailure` has been replaced by `Error::Memory(OsError)`
-  (convertible into `std::io::Error`), and `Error` is now `#[non_exhaustive]`.
-- Disabling a detour whose target has been modified since (e.g. by another,
-  later enabled, detour of the same target) fails with
-  `Error::TargetModified` instead of silently overwriting it.
-- `extern "cdecl"`, `"stdcall"`, `"fastcall"` & `"thiscall"` function
-  pointers are only supported on `x86`; `"win64"` & `"sysv64"` on `x86-64`.
+## Upgrading from 0.9
 
-See the [changelog](./CHANGELOG.md) for all changes.
+- `GenericDetour` is now `TypedDetour`, and `MemoryError` is now `OsError`.
+- `static_detour!` defines a handle type per static, with the same methods
+  as before. `StaticDetour` is no longer public; refer to the handle by the
+  static's name instead.
+- Some error variants were renamed: `InvalidCode` to `InvalidInstruction`,
+  `NoPatchArea` to `PatchAreaTooSmall`, and `OutOfMemory` to
+  `NoNearbyMemory`.
+- `Function` and `HookableWith` are sealed, and `Function` no longer has the
+  `Arguments`, `Output` and `Closure` associated types.
+- Without `std`, the `no_std` feature is only required on x86.
+
+See the [changelog](./CHANGELOG.md) for all changes, including those of
+earlier versions.
 
 ## Acknowledgements
 

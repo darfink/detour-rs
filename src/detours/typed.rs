@@ -1,3 +1,5 @@
+//! Type-safe detours, created at runtime.
+
 use crate::hook::Hook;
 use crate::error::Result;
 use crate::{Function, HookableWith};

@@ -1,4 +1,4 @@
-//! Traits describing detours and applicable functions.
+//! Traits describing the functions that can be detoured.
 //!
 //! The traits are sealed: they are implemented by this crate, and cannot be
 //! implemented elsewhere.

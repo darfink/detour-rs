@@ -24,9 +24,11 @@ pub(crate) mod private {
 /// A set of detours to enable and disable at once.
 ///
 /// When committed, the detours are toggled in the order they were added,
-/// optionally whilst other threads are suspended (see [`Threads`]). If any
-/// of them fails, all preceding changes are reverted, so a transaction is
-/// applied either completely, or not at all.
+/// optionally whilst other threads are suspended (see [`Threads`]). A
+/// suspended thread executing instructions that are patched is moved to
+/// equivalent code (known as EIP relocation). If any change fails, all
+/// preceding changes are reverted, so a transaction is applied either
+/// completely, or not at all.
 ///
 /// Only one transaction is committed at a time (as are all other code
 /// modifications performed by this crate).
@@ -97,9 +99,11 @@ impl<'a> Transaction<'a> {
   /// Commits the transaction, whilst `threads` are suspended.
   ///
   /// Suspended threads executing any patched instructions are moved to
-  /// equivalent code. If a thread cannot be moved (e.g. it is executing an
-  /// instruction that was rewritten when relocated),
-  /// [`Error::ThreadNotRelocatable`] is returned.
+  /// equivalent code: when enabling, to the same instruction in the
+  /// trampoline; when disabling, from the midst of the patch back to the
+  /// start of the target. If a thread cannot be moved (e.g. it is stopped at
+  /// an instruction that was rewritten when relocated),
+  /// [`Error::ThreadNotRelocatable`] is returned, and the transaction is reverted.
   ///
   /// Suspending threads is supported on Windows, Apple platforms, Linux and
   /// Android; on other platforms, [`Error::ThreadsUnsupported`] is returned

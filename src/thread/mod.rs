@@ -74,9 +74,9 @@ impl<T> From<&std::thread::JoinHandle<T>> for Thread {
 /// The threads to suspend whilst a [`Transaction`](crate::Transaction) is
 /// committed.
 ///
-/// Suspended threads that are executing code that is patched are moved
-/// accordingly (i.e. instruction pointer relocation), so the transaction is
-/// safe with regard to them.
+/// A suspended thread executing instructions that are patched is moved to
+/// equivalent code (known as EIP relocation), so the transaction is safe
+/// with regard to it.
 ///
 /// On Linux and Android, threads are suspended by a real-time signal (see
 /// `linux::set_suspend_signal`). Threads blocking the signal cannot be

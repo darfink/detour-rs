@@ -1,3 +1,5 @@
+//! `static_detour!` & `signature!`, and internal macros.
+
 /// Applies a `cfg` of the supported architectures to each item.
 macro_rules! supported {
   ($($item:item)*) => {

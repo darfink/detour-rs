@@ -1,3 +1,5 @@
+//! Untyped detours of raw pointers.
+
 use crate::hook::Hook;
 use crate::error::Result;
 

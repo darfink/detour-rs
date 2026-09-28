@@ -1,112 +1,132 @@
-//! A cross-platform detour library written in Rust.
+//! Cross-platform function detouring (inline hooking) at runtime.
 //!
-//! ## Intro
+//! A detour redirects a function (the *target*) to another function or
+//! closure (the *detour*). The first instructions of the target are replaced
+//! with a jump to the detour, and copied to a *trampoline*, through which the
+//! original function remains callable.
 //!
-//! This library provides a thread-safe, inline detouring functionality by
-//! disassembling and patching functions during runtime, using assembly opcodes
-//! allocated within executable memory. It modifies the target functions and
-//! replaces their prolog with an unconditional jump.
+//! # Detours
 //!
-//! Beyond the basic functionality this library handles several different edge
-//! cases:
+//! - [`static_detour!`]: defines a static, type-safe detour, which accepts a
+//!   closure as its detour. Any signature is supported, including references.
+//!   See [`example::Example`](struct@example::Example) for its methods.
+//! - [`TypedDetour`]: a type-safe detour created at runtime, whose detour is a
+//!   function with the same signature as the target. Signatures with
+//!   references are named with [`signature!`] first.
+//! - [`RawDetour`]: an untyped detour of raw pointers, e.g. for functions whose
+//!   signature is only known at runtime.
 //!
-//! - Relative branches (including `loop`/`jrcxz` and branches within the
-//!   prolog).
-//! - RIP-relative operands (x86-64) and PC-relative instructions (AArch64).
-//! - Detects NOP-padding.
-//! - Relay for large offsets (>2 GiB on x86-64, >128 MiB on AArch64).
-//! - Supports hot patching.
-//! - Preserves BTI/PAC landing pads (AArch64).
+//! ```rust
+//! use detour::static_detour;
 //!
-//! ## Detours
+//! static_detour! {
+//!   static Length: fn(&str) -> usize;
+//! }
 //!
-//! Three different types of detours are provided:
+//! #[inline(never)]
+//! fn length(text: &str) -> usize {
+//!   text.len()
+//! }
 //!
-//! - Static detours, defined with [`static_detour!`]: A static & type-safe
-//!   interface. Thanks to its static nature it can accept a closure as its
-//!   detour, but is required to be statically defined at compile time. Any
-//!   signature is supported, including references.
+//! # fn main() -> detour::Result<()> {
+//! // SAFETY: No other thread is executing `length`.
+//! unsafe { Length.initialize(length, |text| Length.call(text) * 2)?.enable()? };
 //!
-//! - [`TypedDetour`]: A type-safe interface — the same prototype is enforced
-//!   for both the target and the detour. It is also enforced when invoking the
-//!   original target. Signatures with references require [`signature!`].
+//! assert_eq!(length("abc"), 6);
+//! assert_eq!(Length.call("abc"), 3);
+//! # Ok(())
+//! # }
+//! ```
 //!
-//! - [`RawDetour`]: The underlying building block that the
-//!   others types abstract upon. It has no type-safety and interacts with raw
-//!   pointers. It should be avoided unless the signature is not known until
-//!   runtime.
+//! # Thread safety
 //!
-//! ## Platforms
+//! `enable` and `disable` do not suspend other threads. A thread executing
+//! the target's first instructions whilst they are replaced may resume in the
+//! middle of the new jump, so doing so is undefined behavior.
 //!
-//! - Architectures: `x86`, `x86-64` & `AArch64`.
-//! - Operating systems: Windows, Linux, macOS, and other Unix-like systems.
+//! A [`Transaction`] enables and disables several detours at once, applied
+//! completely or not at all, whilst the chosen [`Threads`] are suspended. A
+//! suspended thread stopped within the replaced instructions has its
+//! instruction pointer moved to the same instruction in the trampoline
+//! (known as *EIP relocation*). Suspending threads is supported on Windows,
+//! Apple platforms, Linux and Android.
 //!
-//! On macOS, code signing prevents making `__TEXT` writable; code is instead
-//! patched using copy-on-write or remapping of the affected pages. Executable
-//! memory is allocated with `MAP_JIT` on Apple silicon. Systems enforcing W^X
-//! are supported, as long as code pages may be re-protected.
+//! See [`Transaction::commit`] for the limitations. On Linux and Android,
+//! threads are suspended using a real-time signal (see
+//! `linux::set_suspend_signal`).
 //!
-//! ## Procedure
+//! # How it works
 //!
-//! To illustrate a detour on an x86 platform:
+//! To illustrate a detour on x86:
 //!
 //! ```c
-//! 0 int return_five() {
-//! 1     return 5;
+//! int return_five() {
+//!     return 5;
 //! 00400020 [b8 05 00 00 00] mov eax, 5
 //! 00400025 [c3]             ret
-//! 2 }
-//! 3
-//! 4 int detour_function() {
-//! 5     return 10;
-//! 00400040 [b8 0A 00 00 00] mov eax, 10
-//! 00400045 [c3]             ret
-//! 6 }
-//! ```
+//! }
 //!
-//! To detour `return_five` the library by default tries to replace five bytes
-//! with a relative jump (the optimal scenario), which works in this case.
-//! Executable memory will be allocated for the instruction and the function's
-//! prolog will be replaced.
-//!
-//! ```c
-//! 0 int return_five() {
-//! 1     return detour_function();
-//! 00400020 [e9 16 00 00 00] jmp 1b <detour_function>
-//! 00400025 [c3]             ret
-//! 2 }
-//! 3
-//! 4 int detour_function() {
-//! 5     return 10;
+//! int detour_function() {
+//!     return 10;
 //! 00400040 [b8 0a 00 00 00] mov eax, 10
 //! 00400045 [c3]             ret
-//! 6 }
+//! }
 //! ```
 //!
-//! Beyond what is shown here, a trampoline is also generated so the original
-//! function can be called regardless whether the function is hooked or not.
+//! The target's first instructions are disassembled, and relocated to a
+//! trampoline allocated near the target, followed by a jump back to the rest
+//! of the function. They are then replaced with a jump to the detour:
 //!
-//! ## Caveats
+//! ```c
+//! int return_five() {
+//!     return detour_function();
+//! 00400020 [e9 1b 00 00 00] jmp 00400040 <detour_function>
+//! 00400025 [c3]             ret
+//! }
+//! ```
 //!
-//! - `enable` and `disable` do not suspend other threads; doing so whilst
-//!   another thread executes the target's prolog is undefined behavior. A
-//!   [`Transaction`] can suspend threads (see [`Threads`]), and relocates the
-//!   instruction pointers of those executing patched instructions.
+//! Relocation handles relative branches (including branches within the
+//! replaced instructions), RIP-relative operands (x86-64) and all PC-relative
+//! instructions (AArch64). If the detour is out of reach of a relative jump
+//! (beyond ±2 GiB on x86-64, or ±128 MiB on AArch64), the jump leads to a
+//! *relay*, an absolute jump allocated near the target. Functions too small
+//! for the jump are supported if they are followed by padding, or preceded by
+//! a hot-patching area. On AArch64, BTI and PAC landing pads are preserved.
+//!
+//! # Platforms
+//!
+//! - Architectures: `x86`, `x86-64` & `AArch64`.
+//! - Operating systems: Windows, Linux, Android & macOS. Other Unix-like
+//!   systems (e.g. FreeBSD) are expected to work, without thread suspension.
+//!
+//! On macOS, code signing prevents making `__TEXT` writable, so code is
+//! patched by remapping the affected pages. Executable memory is allocated
+//! with `MAP_JIT` on Apple silicon. Systems enforcing W^X are supported, as
+//! long as code pages may be re-protected.
+//!
+//! # Caveats
+//!
+//! - Only calls that reach the target are detoured; inlined calls are not.
+//!   Mark your own targets `#[inline(never)]`.
+//! - A dropped detour is disabled without suspending threads, and its
+//!   trampoline is released immediately. Disable it with a [`Transaction`]
+//!   first if other threads may be executing the target or the trampoline.
 //! - Multiple detours of the same target must be disabled in the reverse order
 //!   they were enabled in; otherwise [`Error::TargetModified`] is returned.
 //! - Under Rosetta 2 (x86-64 code on Apple silicon), modifying code whilst
 //!   another thread executes the same memory page may intermittently raise
-//!   `SIGBUS`. This is a limitation of the translator; native Intel Macs are
-//!   not affected.
+//!   `SIGBUS`. This is a limitation of the translator.
 //!
-//! ## Features
+//! # Features
 //!
-//! - **std** (default): Uses the standard library for locking, and converts
-//!   [`OsError`] into [`std::io::Error`].
+//! - **std** (default): Uses the standard library for locking, and allows
+//!   converting [`OsError`] into `std::io::Error`, and a `JoinHandle` into a
+//!   [`Thread`].
 //!
 //! Without `std`, `#![no_std]` environments with a global allocator are
 //! supported, using spin locks. On x86, the `no_std` feature must be enabled
-//! instead, since `iced-x86` requires either its `std` or `no_std` feature:
+//! instead, since `iced-x86` requires either its `std` or its `no_std`
+//! feature:
 //!
 //! ```toml
 //! detour = { version = "0.9", default-features = false, features = ["no_std"] }

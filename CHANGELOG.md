@@ -17,8 +17,13 @@
   with explicit lifetimes (`for<'a> fn(&'a str) -> &'a str`). Static detours
   support them as is; for `TypedDetour`, the new `signature!` macro defines a
   type implementing `Function` for such a signature.
+- `TypedDetour::original`, returning the original function borrowed from the
+  detour (`Original` for function pointers), so it can be called safely for
+  any signature: `hook.original().call(..)`.
 - `TypedDetour::trampoline` & a `trampoline` method for static detours,
   returning the original function.
+- `Transaction::enable` & `disable` accept unsized detours, so different
+  detours can be grouped as `&dyn Detour`.
 - `OsError::raw_mach_error`.
 - `Clone`, `PartialEq` & `Eq` for `Error`.
 
@@ -33,6 +38,7 @@
   after it, with all of its methods (see `example::Example` in the
   documentation). `StaticDetour` is no longer public.
 - `TypedDetour::call` is now documented (shown once, for `fn(A) -> Ret`).
+- `Function` has an `Original` associated type.
 - Static detours no longer take a lock nor clone an `Arc` per call. A replaced
   closure is released once no call is executing.
 

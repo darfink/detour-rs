@@ -105,11 +105,44 @@ impl<T: Function> TypedDetour<T> {
     self.detour.is_enabled()
   }
 
+  /// Returns the original, undetoured function, borrowed from the detour.
+  ///
+  /// It can be called using its `call` method, regardless of whether the
+  /// detour is enabled or not. Unlike the [trampoline](Self::trampoline), it
+  /// cannot outlive the detour, so this is safe.
+  ///
+  /// ```rust
+  /// use detour::{TypedDetour, signature};
+  ///
+  /// signature! {
+  ///   struct Length(fn(&str) -> usize);
+  /// }
+  ///
+  /// #[inline(never)]
+  /// fn length(text: &str) -> usize {
+  ///   text.len()
+  /// }
+  ///
+  /// # fn main() -> detour::Result<()> {
+  /// let hook = unsafe { TypedDetour::new(Length(length), Length(|_| 0))? };
+  /// unsafe { hook.enable()? };
+  ///
+  /// assert_eq!(length("abc"), 0);
+  /// assert_eq!(hook.original().call("abc"), 3);
+  /// # Ok(())
+  /// # }
+  /// ```
+  pub fn original(&self) -> T::Original<'_> {
+    // SAFETY: The trampoline shares the target's signature, and remains valid
+    // whilst `self` is borrowed.
+    unsafe { T::from_ptr(self.trampoline_ptr()).__original() }
+  }
+
   /// Returns the trampoline, i.e. a function that invokes the original,
   /// undetoured target.
   ///
-  /// Prefer [`call`](#method.call), unless the original function must be
-  /// passed elsewhere (e.g. as a callback).
+  /// Prefer [`original`](Self::original), unless the original function must
+  /// be passed elsewhere (e.g. as a callback).
   ///
   /// # Safety
   ///
@@ -122,6 +155,42 @@ impl<T: Function> TypedDetour<T> {
   /// Returns a pointer to the generated trampoline.
   pub(crate) fn trampoline_ptr(&self) -> *const () {
     self.detour.trampoline()
+  }
+}
+
+/// The original function of a [`TypedDetour`], borrowed from it.
+///
+/// Returned by [`TypedDetour::original`] for function pointers. Its `call`
+/// method takes the same arguments as the function, and is `unsafe` if the
+/// function is.
+#[derive(Clone, Copy, Debug)]
+pub struct Original<'a, T> {
+  function: T,
+  phantom: PhantomData<&'a ()>,
+}
+
+impl<T> Original<'_, T> {
+  /// Wraps a function.
+  ///
+  /// # Safety
+  ///
+  /// The function must remain valid for the lifetime.
+  #[doc(hidden)]
+  pub unsafe fn __new(function: T) -> Self {
+    Original {
+      function,
+      phantom: PhantomData,
+    }
+  }
+
+  /// Returns the function.
+  ///
+  /// # Safety
+  ///
+  /// The function must not be used after the lifetime ends.
+  #[doc(hidden)]
+  pub unsafe fn __function(self) -> T {
+    self.function
   }
 }
 

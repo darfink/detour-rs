@@ -136,7 +136,7 @@ fn main() -> detour::Result<()> {
   unsafe { hook.enable()? };
 
   assert_eq!(length("detour"), 0);
-  assert_eq!(unsafe { hook.trampoline() }.call("detour"), 6);
+  assert_eq!(hook.original().call("detour"), 6);
   Ok(())
 }
 ```
@@ -359,8 +359,11 @@ is what allows EIP relocation.
 
 - `GenericDetour` is now `TypedDetour`, and `MemoryError` is now `OsError`.
 - `static_detour!` defines a handle type per static, with the same methods
-  as before. `StaticDetour` is no longer public; refer to the handle by the
-  static's name instead.
+  as before. `StaticDetour` is no longer public: code naming
+  `StaticDetour<T>` should name the static's type (e.g. `MyHook`) instead,
+  and different static detours can be grouped as `&dyn Detour`.
+- The original function of a `TypedDetour` is also available, borrowed, as
+  `hook.original()`.
 - Some error variants were renamed: `InvalidCode` to `InvalidInstruction`,
   `NoPatchArea` to `PatchAreaTooSmall`, and `OutOfMemory` to
   `NoNearbyMemory`.

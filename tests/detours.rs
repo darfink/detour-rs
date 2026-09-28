@@ -359,10 +359,12 @@ mod generic {
     unsafe { hook.enable()? };
     assert_eq!(length("abc"), 6);
 
+    assert_eq!(hook.original().call("abc"), 3);
+
     // SAFETY: The trampoline is not used after the detour is dropped.
-    let original = unsafe { hook.trampoline() };
-    assert_eq!(original.call("abc"), 3);
-    assert_eq!((original.0)("abcd"), 4);
+    let trampoline = unsafe { hook.trampoline() };
+    assert_eq!(trampoline.call("abc"), 3);
+    assert_eq!((trampoline.0)("abcd"), 4);
     Ok(())
   }
 
@@ -384,9 +386,42 @@ mod generic {
     unsafe {
       hook.enable()?;
       assert_eq!(*nth(&values, 0), 3);
-      assert_eq!(*hook.trampoline().call(&values, 0), 1);
+      assert_eq!(*hook.original().call(&values, 0), 1);
     }
     Ok(())
+  }
+
+  #[test]
+  fn original_of_function_pointers() -> Result<()> {
+    #[inline(never)]
+    fn square(value: i32) -> i32 {
+      std::hint::black_box(value) * value + unique!()
+    }
+
+    fn negate(value: i32) -> i32 {
+      -value
+    }
+
+    // SAFETY: The functions share the same signature.
+    let hook = unsafe { TypedDetour::<fn(i32) -> i32>::new(square, negate)? };
+    // SAFETY: No other thread is executing `square`.
+    unsafe { hook.enable()? };
+    let original = hook.original();
+    assert_eq!((square(3), original.call(3), hook.call(3)), (-3, 9, 9));
+    Ok(())
+  }
+
+  // Conditional attributes apply to the generated implementations too
+  detour::signature! {
+    #[cfg(any())]
+    struct Removed(fn(&str));
+
+    #[cfg_attr(all(), cfg(any()))]
+    struct RemovedByCfgAttr(fn(&Missing));
+
+    #[cfg_attr(all(), allow(dead_code), cfg(all()))]
+    #[cfg_attr(any(), derive(PartialEq))]
+    struct Kept(fn(&str));
   }
 
   #[test]
@@ -552,6 +587,36 @@ mod statik {
     assert_eq!(result, "c");
     assert_eq!(DetourSuffix.call(&text, "."), ".b.c");
     Ok(())
+  }
+
+  // Generated names do not shadow those of the signature
+  #[allow(non_camel_case_types, dead_code)]
+  struct Closure;
+  #[allow(dead_code)]
+  struct Function;
+
+  static_detour! {
+    static DetourShadowing: fn(&Closure, Function) -> Closure;
+
+    #[cfg(any())]
+    static DetourRemoved: fn(&Missing);
+  }
+
+  #[test]
+  fn generated_names_do_not_shadow_arguments() {
+    DetourShadowing.set_detour(|_, _| Closure);
+  }
+
+  #[test]
+  fn handles_can_be_grouped() {
+    let handles: [&dyn detour::Detour; 2] = [&DetourUninitialized, &DetourShadowing];
+    let mut transaction = detour::Transaction::new();
+    for handle in handles {
+      transaction.enable(handle);
+    }
+    // SAFETY: Uninitialized detours are rejected before any code is modified.
+    let result = unsafe { transaction.commit(detour::Threads::None) };
+    assert_eq!(result, Err(Error::NotInitialized));
   }
 
   #[test]

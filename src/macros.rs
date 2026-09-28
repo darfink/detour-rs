@@ -72,8 +72,12 @@ macro_rules! supported {
 macro_rules! static_detour {
   () => {};
 
-  (@parsed [[$($attr:tt)*] [$vis:vis] [$name:ident]] [$($lt:lifetime),*] [$($unsafety:tt)?]
-      [$($abi:tt)*] [$output:ty] [$(($argument_name:ident : $argument:ty))*]) => {
+  (@parsed [[$($attr:tt)*] $($names:tt)*] $($parts:tt)*) => {
+    $crate::__cfg_attrs!([$crate::static_detour] [] [$($attr)*] [[$($attr)*] $($names)*] $($parts)*);
+  };
+
+  (@emit [$($cfg:tt)*] [[$($attr:tt)*] [$vis:vis] [$name:ident]] [$($lt:lifetime),*]
+      [$($unsafety:tt)?] [$($abi:tt)*] [$output:ty] [$(($argument_name:ident : $argument:ty))*]) => {
     $($attr)*
     #[allow(non_camel_case_types)]
     #[derive(Clone, Copy)]
@@ -85,7 +89,7 @@ macro_rules! static_detour {
     #[allow(non_upper_case_globals)]
     $vis static $name: $name = $name { _private: () };
 
-    $($attr)*
+    $($cfg)*
     const _: () = {
       // SAFETY: The state is a single static.
       unsafe impl $crate::__private::StaticHandle for $name {
@@ -97,7 +101,7 @@ macro_rules! static_detour {
           #[inline(never)]
           $($unsafety)? $($abi)* fn __ffi_detour<$($lt),*>($($argument_name: $argument),*) -> $output {
             <$name as $crate::__private::StaticHandle>::__state($name)
-              .__with_detour(move |detour| detour($($argument_name),*))
+              .__with_detour(move |__detour| __detour($($argument_name),*))
           }
 
           // SAFETY: `Function` is a function pointer, and `__ffi_detour`
@@ -121,18 +125,17 @@ macro_rules! static_detour {
         /// # Safety
         ///
         /// See [`TypedDetour::new`]($crate::TypedDetour::new).
-        pub unsafe fn initialize<Closure>(
+        pub unsafe fn initialize(
           self,
           target: for<$($lt),*> $($unsafety)? $($abi)* fn($($argument),*) -> $output,
-          closure: Closure,
-        ) -> $crate::Result<Self>
-        where
-          Closure: for<$($lt),*> Fn($($argument),*) -> $output + Send + Sync + 'static,
-        {
-          let state = <Self as $crate::__private::StaticHandle>::__state(self);
+          closure: impl for<$($lt),*> Fn($($argument),*) -> $output + Send + Sync + 'static,
+        ) -> $crate::Result<Self> {
           // SAFETY: Forwarded from the caller.
-          unsafe { state.__initialize(target, $crate::__private::Box::new(closure))? };
-          Ok(self)
+          unsafe {
+            <Self as $crate::__private::StaticHandle>::__state(self)
+              .__initialize(target, $crate::__private::Box::new(closure))?
+          };
+          ::core::result::Result::Ok(self)
         }
 
         /// Calls the original function, regardless of whether it is
@@ -144,9 +147,10 @@ macro_rules! static_detour {
         #[track_caller]
         #[allow(unused_unsafe)]
         pub $($unsafety)? fn call<$($lt),*>(self, $($argument_name: $argument),*) -> $output {
-          let original = <Self as $crate::__private::StaticHandle>::__state(self).__original();
           // SAFETY: The caller upholds the target's contract (if `unsafe`).
-          unsafe { original($($argument_name),*) }
+          unsafe {
+            (<Self as $crate::__private::StaticHandle>::__state(self).__original())($($argument_name),*)
+          }
         }
 
         /// Replaces the detour closure, regardless of whether the detour is
@@ -154,10 +158,10 @@ macro_rules! static_detour {
         ///
         /// It may be called from within the detour itself. The previous
         /// closure is released once no thread is executing it.
-        pub fn set_detour<Closure>(self, closure: Closure)
-        where
-          Closure: for<$($lt),*> Fn($($argument),*) -> $output + Send + Sync + 'static,
-        {
+        pub fn set_detour(
+          self,
+          closure: impl for<$($lt),*> Fn($($argument),*) -> $output + Send + Sync + 'static,
+        ) {
           <Self as $crate::__private::StaticHandle>::__state(self)
             .__set_detour($crate::__private::Box::new(closure));
         }
@@ -202,9 +206,8 @@ macro_rules! static_detour {
       }
 
       impl ::core::fmt::Debug for $name {
-        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-          let state = <Self as $crate::__private::StaticHandle>::__state(*self);
-          ::core::fmt::Debug::fmt(state, f)
+        fn fmt(&self, __f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+          ::core::fmt::Debug::fmt(<Self as $crate::__private::StaticHandle>::__state(*self), __f)
         }
       }
     };
@@ -218,8 +221,8 @@ macro_rules! static_detour {
     $crate::static_detour!(@split $extra [$($signature)* $next] $($rest)*);
   };
 
-  ($(#[$attr:meta])* $vis:vis static $name:ident : $($rest:tt)*) => {
-    $crate::static_detour!(@split [[$(#[$attr])*] [$vis] [$name]] [] $($rest)*);
+  ($(#[$($attr:tt)*])* $vis:vis static $name:ident : $($rest:tt)*) => {
+    $crate::static_detour!(@split [[$(#[$($attr)*])*] [$vis] [$name]] [] $($rest)*);
   };
 }
 
@@ -232,9 +235,14 @@ macro_rules! static_detour {
 /// with a single function pointer field.
 ///
 /// Besides `Clone`, `Copy` and `Debug`, the type has a `call` method, which
-/// invokes the function (it is `unsafe` if the function is).
+/// invokes the function (it is `unsafe` if the function is). The original
+/// function of a detour is called with
+/// [`TypedDetour::original`](crate::TypedDetour::original), since
 /// [`TypedDetour::call`](crate::TypedDetour::call) is not available for such
-/// types, but the trampoline may be called instead.
+/// types.
+///
+/// Conditional attributes (`cfg` and `cfg_attr`) also apply to the generated
+/// implementations.
 ///
 /// For static detours, this is not needed: [`static_detour!`] supports any
 /// signature.
@@ -265,7 +273,7 @@ macro_rules! static_detour {
 /// unsafe { detour.enable()? };
 ///
 /// assert_eq!(length("abc"), 6);
-/// assert_eq!(unsafe { detour.trampoline() }.call("abc"), 3);
+/// assert_eq!(detour.original().call("abc"), 3);
 /// # Ok(())
 /// # }
 /// ```
@@ -275,8 +283,13 @@ macro_rules! static_detour {
 macro_rules! signature {
   () => {};
 
-  (@parsed [[$($attr:tt)*] [$vis:vis] [$name:ident] [$($field_vis:tt)*]] [$($lt:lifetime),*]
-      [$($unsafety:tt)?] [$($abi:tt)*] [$output:ty] [$(($argument_name:ident : $argument:ty))*]) => {
+  (@parsed [[$($attr:tt)*] $($names:tt)*] $($parts:tt)*) => {
+    $crate::__cfg_attrs!([$crate::signature] [] [$($attr)*] [[$($attr)*] $($names)*] $($parts)*);
+  };
+
+  (@emit [$($cfg:tt)*] [[$($attr:tt)*] [$vis:vis] [$name:ident] [$($field_vis:tt)*]]
+      [$($lt:lifetime),*] [$($unsafety:tt)?] [$($abi:tt)*] [$output:ty]
+      [$(($argument_name:ident : $argument:ty))*]) => {
     $($attr)*
     #[repr(transparent)]
     #[derive(Clone, Copy, Debug)]
@@ -284,24 +297,47 @@ macro_rules! signature {
       $($field_vis)* for<$($lt),*> $($unsafety)? $($abi)* fn($($argument),*) -> $output
     );
 
+    $($cfg)*
     const _: () = {
       impl $crate::__private::Sealed for $name {}
 
       // SAFETY: The type is a transparent function pointer.
       unsafe impl $crate::Function for $name {
-        unsafe fn from_ptr(ptr: *const ()) -> Self {
+        type Original<'__detour> = __DetourOriginal<'__detour>;
+
+        unsafe fn from_ptr(__ptr: *const ()) -> Self {
           // SAFETY: Function pointers and data pointers share representation
           // on all supported platforms; validity is guaranteed by the caller.
           $name(unsafe {
             ::core::mem::transmute::<
               *const (),
               for<$($lt),*> $($unsafety)? $($abi)* fn($($argument),*) -> $output,
-            >(ptr)
+            >(__ptr)
           })
         }
 
         fn to_ptr(&self) -> *const () {
           self.0 as *const ()
+        }
+
+        unsafe fn __original<'__detour>(self) -> __DetourOriginal<'__detour> {
+          // SAFETY: Forwarded from the caller.
+          __DetourOriginal(unsafe { $crate::Original::__new(self) })
+        }
+      }
+
+      /// The original function of a detour (see
+      /// [`TypedDetour::original`]($crate::TypedDetour::original)).
+      #[derive(Clone, Copy, Debug)]
+      pub struct __DetourOriginal<'__detour>($crate::Original<'__detour, $name>);
+
+      impl __DetourOriginal<'_> {
+        /// Calls the original function. It is `unsafe` if the function is.
+        #[allow(unused_unsafe)]
+        pub $($unsafety)? fn call<$($lt),*>(self, $($argument_name: $argument),*) -> $output {
+          // SAFETY: The function is only used within its lifetime, and the
+          // caller upholds its contract (if `unsafe`).
+          unsafe { (self.0.__function().0)($($argument_name),*) }
         }
       }
 
@@ -316,19 +352,58 @@ macro_rules! signature {
     };
   };
 
-  ($(#[$attr:meta])* $vis:vis struct $name:ident (pub($($restriction:tt)*) $($signature:tt)*);
+  ($(#[$($attr:tt)*])* $vis:vis struct $name:ident (pub($($restriction:tt)*) $($signature:tt)*);
       $($rest:tt)*) => {
     $crate::__signature!([$crate::signature]
-      [[$(#[$attr])*] [$vis] [$name] [pub($($restriction)*)]] $($signature)*);
+      [[$(#[$($attr)*])*] [$vis] [$name] [pub($($restriction)*)]] $($signature)*);
     $crate::signature!($($rest)*);
   };
-  ($(#[$attr:meta])* $vis:vis struct $name:ident (pub $($signature:tt)*); $($rest:tt)*) => {
-    $crate::__signature!([$crate::signature] [[$(#[$attr])*] [$vis] [$name] [pub]] $($signature)*);
+  ($(#[$($attr:tt)*])* $vis:vis struct $name:ident (pub $($signature:tt)*); $($rest:tt)*) => {
+    $crate::__signature!([$crate::signature] [[$(#[$($attr)*])*] [$vis] [$name] [pub]] $($signature)*);
     $crate::signature!($($rest)*);
   };
-  ($(#[$attr:meta])* $vis:vis struct $name:ident ($($signature:tt)*); $($rest:tt)*) => {
-    $crate::__signature!([$crate::signature] [[$(#[$attr])*] [$vis] [$name] []] $($signature)*);
+  ($(#[$($attr:tt)*])* $vis:vis struct $name:ident ($($signature:tt)*); $($rest:tt)*) => {
+    $crate::__signature!([$crate::signature] [[$(#[$($attr)*])*] [$vis] [$name] []] $($signature)*);
     $crate::signature!($($rest)*);
+  };
+}
+
+/// Keeps the conditional attributes (`cfg`, and the `cfg` parts of
+/// `cfg_attr`) of an item, and passes them to a macro, so its implementations
+/// are conditional as well:
+///
+/// `$callback! { @emit [attributes] $args... }`
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __cfg_attrs {
+  // The `cfg` attributes within a `cfg_attr`
+  (@inner $cb:tt $kept:tt $pred:tt [] [] $rest:tt $($args:tt)*) => {
+    $crate::__cfg_attrs!($cb $kept $rest $($args)*);
+  };
+  (@inner $cb:tt [$($kept:tt)*] [$pred:meta] [$($inner:tt)+] [] $rest:tt $($args:tt)*) => {
+    $crate::__cfg_attrs!($cb [$($kept)* #[cfg_attr($pred, $($inner)+)]] $rest $($args)*);
+  };
+  (@inner $cb:tt $kept:tt $pred:tt [$($inner:tt)*] [cfg $condition:tt $(, $($more:tt)*)?]
+      $rest:tt $($args:tt)*) => {
+    $crate::__cfg_attrs!(@inner $cb $kept $pred [$($inner)* cfg $condition,] [$($($more)*)?]
+      $rest $($args)*);
+  };
+  (@inner $cb:tt $kept:tt $pred:tt $inner:tt [$other:meta $(, $($more:tt)*)?]
+      $rest:tt $($args:tt)*) => {
+    $crate::__cfg_attrs!(@inner $cb $kept $pred $inner [$($($more)*)?] $rest $($args)*);
+  };
+
+  ([$($cb:tt)*] [$($kept:tt)*] [] $($args:tt)*) => {
+    $($cb)*! { @emit [$($kept)*] $($args)* }
+  };
+  ($cb:tt [$($kept:tt)*] [#[cfg $condition:tt] $($rest:tt)*] $($args:tt)*) => {
+    $crate::__cfg_attrs!($cb [$($kept)* #[cfg $condition]] [$($rest)*] $($args)*);
+  };
+  ($cb:tt $kept:tt [#[cfg_attr($pred:meta, $($inner:tt)*)] $($rest:tt)*] $($args:tt)*) => {
+    $crate::__cfg_attrs!(@inner $cb $kept [$pred] [] [$($inner)*] [$($rest)*] $($args)*);
+  };
+  ($cb:tt $kept:tt [#[$($other:tt)*] $($rest:tt)*] $($args:tt)*) => {
+    $crate::__cfg_attrs!($cb $kept [$($rest)*] $($args)*);
   };
 }
 
@@ -456,6 +531,8 @@ macro_rules! impl_hookable {
 
     // SAFETY: Implemented for function pointers only.
     unsafe impl<Ret: 'static, $($ty: 'static),*> Function for $fn_type {
+      type Original<'a> = $crate::Original<'a, Self>;
+
       unsafe fn from_ptr(ptr: *const ()) -> Self {
         // SAFETY: Function pointers and data pointers share representation on
         // all supported platforms; validity is guaranteed by the caller.
@@ -465,6 +542,25 @@ macro_rules! impl_hookable {
       fn to_ptr(&self) -> *const () {
         *self as *const ()
       }
+
+      unsafe fn __original<'a>(self) -> Self::Original<'a> {
+        // SAFETY: Forwarded from the caller.
+        unsafe { $crate::Original::__new(self) }
+      }
+    }
+
+    $($doc)*
+    impl<Ret: 'static, $($ty: 'static),*> $crate::Original<'_, $fn_type> {
+      /// Calls the original function.
+      ///
+      /// Available for all supported signatures, taking the same arguments
+      /// as the target. It is `unsafe` if the target is.
+      #[allow(unused_unsafe)]
+      pub $($unsafety)? fn call(self, $($nm : $ty),*) -> Ret {
+        // SAFETY: The trampoline is borrowed from its detour, and the caller
+        // upholds the target's contract (if `unsafe`).
+        unsafe { (self.__function())($($nm),*) }
+      }
     }
 
     $($doc)*
@@ -472,15 +568,13 @@ macro_rules! impl_hookable {
       /// Calls the original function, regardless of whether it is detoured or
       /// not.
       ///
-      /// Available for all supported signatures, taking the same arguments
-      /// as the target. It is `unsafe` if the target is.
+      /// Shorthand for [`original().call(..)`](Self::original). Available
+      /// for all supported signatures, taking the same arguments as the
+      /// target. It is `unsafe` if the target is.
+      #[allow(unused_unsafe)]
       pub $($unsafety)? fn call(&self, $($nm : $ty),*) -> Ret {
-        // SAFETY: The trampoline shares the target's signature, and remains
-        // valid for the lifetime of `self`.
-        unsafe {
-          let original = <$fn_type as Function>::from_ptr(self.trampoline_ptr());
-          original($($nm),*)
-        }
+        // SAFETY: Forwarded from the caller (if `unsafe`).
+        unsafe { self.original().call($($nm),*) }
       }
     }
 

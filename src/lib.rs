@@ -223,6 +223,65 @@ supported! {
 #[doc = include_str!("../README.md")]
 struct ReadmeDoctests;
 
+/// Code that must not compile, since it would be unsound.
+///
+/// A detour closure cannot require its arguments to outlive the call:
+///
+/// ```compile_fail,E0308
+/// detour::static_detour! {
+///   static Keep: fn(&str);
+/// }
+/// Keep.set_detour(|_: &'static str| {});
+/// ```
+///
+/// Nor return a reference of the wrong lifetime:
+///
+/// ```compile_fail
+/// detour::static_detour! {
+///   static Pick: for<'a> fn(&'a str, &str) -> &'a str;
+/// }
+/// Pick.set_detour(|_, other| other);
+/// ```
+///
+/// The original function of a typed detour cannot outlive it:
+///
+/// ```compile_fail,E0597
+/// detour::signature! {
+///   struct Length(fn(&str) -> usize);
+/// }
+/// fn length(text: &str) -> usize {
+///   text.len()
+/// }
+/// let original = {
+///   let hook = unsafe { detour::TypedDetour::new(Length(length), Length(|_| 0)) }.unwrap();
+///   hook.original()
+/// };
+/// ```
+///
+/// ```compile_fail,E0597
+/// fn square(value: i32) -> i32 {
+///   value * value
+/// }
+/// let original = {
+///   let hook =
+///     unsafe { detour::TypedDetour::<fn(i32) -> i32>::new(square, |x| x) }.unwrap();
+///   hook.original()
+/// };
+/// ```
+///
+/// Nor can the trampoline of a static detour's state that is not `'static`:
+///
+/// ```compile_fail,E0597
+/// type Closure = dyn Fn() + Send + Sync;
+/// fn ffi() {}
+/// let trampoline = {
+///   let state = unsafe { detour::__private::StaticDetour::<fn(), Closure>::__new(ffi) };
+///   state.__trampoline()
+/// };
+/// ```
+#[cfg(doctest)]
+struct CompileFailDoctests;
+
 #[cfg(test)]
 mod tests {
   use super::*;

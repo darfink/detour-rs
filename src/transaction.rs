@@ -85,13 +85,13 @@ impl<'a> Transaction<'a> {
   }
 
   /// Enables `detour` once committed.
-  pub fn enable(&mut self, detour: &'a impl Detour) -> &mut Self {
+  pub fn enable(&mut self, detour: &'a (impl Detour + ?Sized)) -> &mut Self {
     self.operations.push((detour.hook(), true));
     self
   }
 
   /// Disables `detour` once committed.
-  pub fn disable(&mut self, detour: &'a impl Detour) -> &mut Self {
+  pub fn disable(&mut self, detour: &'a (impl Detour + ?Sized)) -> &mut Self {
     self.operations.push((detour.hook(), false));
     self
   }

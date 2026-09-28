@@ -106,8 +106,9 @@ impl<F: Copy, C: ?Sized> StaticDetour<F, C> {
 
   /// Returns the trampoline, or `None` if the detour is not initialized.
   ///
-  /// The trampoline is valid for as long as `self` is alive.
-  pub fn __trampoline(&self) -> Option<F> {
+  /// The trampoline is released once `self` is dropped, so this requires a
+  /// state that is never dropped.
+  pub fn __trampoline(&'static self) -> Option<F> {
     // SAFETY: `F` is a function pointer (see `__new`), sharing the target's
     // signature.
     self.hook().map(|hook| unsafe { from_ptr(hook.trampoline()) })
@@ -119,7 +120,7 @@ impl<F: Copy, C: ?Sized> StaticDetour<F, C> {
   ///
   /// Panics if the detour is not initialized.
   #[track_caller]
-  pub fn __original(&self) -> F {
+  pub fn __original(&'static self) -> F {
     self.__trampoline().expect("static detour is not initialized")
   }
 

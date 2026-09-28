@@ -24,6 +24,13 @@
 /// Implementors must be function pointers, compatible with the pointer
 /// returned by `to_ptr`.
 pub unsafe trait Function: private::Sealed + Sized + Copy + Sync + 'static {
+  /// The original function of a detour, borrowed from it (see
+  /// [`TypedDetour::original`](crate::TypedDetour::original)).
+  ///
+  /// It has a `call` method, taking the same arguments as the function. This
+  /// is [`Original`](crate::Original) for function pointers.
+  type Original<'a>;
+
   /// Constructs a `Function` from an untyped pointer.
   ///
   /// # Safety
@@ -33,6 +40,14 @@ pub unsafe trait Function: private::Sealed + Sized + Copy + Sync + 'static {
 
   /// Returns an untyped pointer for this function.
   fn to_ptr(&self) -> *const ();
+
+  /// Wraps the function as its original.
+  ///
+  /// # Safety
+  ///
+  /// The function must remain valid for `'a`.
+  #[doc(hidden)]
+  unsafe fn __original<'a>(self) -> Self::Original<'a>;
 }
 
 /// Trait indicating that `Self` can be detoured by the given function `D`.

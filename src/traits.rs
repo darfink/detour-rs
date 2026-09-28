@@ -10,25 +10,20 @@
 /// calling conventions supported by the target (e.g. `extern "C"`,
 /// `extern "system"`, and `extern "thiscall"` on x86).
 ///
-/// Function pointers with higher-ranked lifetimes (e.g. `fn(&str)`) do not
-/// implement this trait; use [`RawDetour`](crate::RawDetour) for those.
+/// Function pointers with higher-ranked lifetimes (e.g. `fn(&str)`) cannot
+/// implement this trait generically. Instead, use [`signature!`] to define a
+/// type implementing it for such a signature.
 ///
-/// This trait is sealed, and cannot be implemented outside of this crate.
+/// This trait is sealed; it is only implemented by this crate, and by
+/// [`signature!`].
+///
+/// [`signature!`]: crate::signature
 ///
 /// # Safety
 ///
 /// Implementors must be function pointers, compatible with the pointer
 /// returned by `to_ptr`.
 pub unsafe trait Function: private::Sealed + Sized + Copy + Sync + 'static {
-  /// The argument types as a tuple.
-  type Arguments;
-
-  /// The return type.
-  type Output;
-
-  /// A closure type with a compatible signature (used by static detours).
-  type Closure: ?Sized + Send + Sync;
-
   /// Constructs a `Function` from an untyped pointer.
   ///
   /// # Safety
@@ -49,8 +44,8 @@ pub unsafe trait Function: private::Sealed + Sized + Copy + Sync + 'static {
 /// `Self` and `D` must share the same signature and calling convention.
 pub unsafe trait HookableWith<D: Function>: Function {}
 
-pub(crate) mod private {
-  /// Prevents implementations outside of this crate.
+pub mod private {
+  /// Prevents implementations outside of this crate (and its macros).
   pub trait Sealed {}
 }
 

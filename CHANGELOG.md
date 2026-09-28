@@ -13,8 +13,12 @@
 - `Detour`, a trait implemented by all detour types.
 - `Error::ThreadNotRelocatable`, `Error::ThreadsUnsupported` &
   `Error::Thread`.
-- `TypedDetour::trampoline` & `StaticDetour::trampoline`, returning the
-  original function as `T`.
+- Support for signatures with references (e.g. `fn(&str) -> usize`), also
+  with explicit lifetimes (`for<'a> fn(&'a str) -> &'a str`). Static detours
+  support them as is; for `TypedDetour`, the new `signature!` macro defines a
+  type implementing `Function` for such a signature.
+- `TypedDetour::trampoline` & a `trampoline` method for static detours,
+  returning the original function.
 - `OsError::raw_mach_error`.
 - `Clone`, `PartialEq` & `Eq` for `Error`.
 
@@ -25,8 +29,10 @@
 - Renamed error variants: `InvalidCode` to `InvalidInstruction`,
   `NoPatchArea` to `PatchAreaTooSmall`, and `OutOfMemory` to
   `NoNearbyMemory`.
-- `call`, `initialize` & `set_detour` are now documented (shown once, for
-  `fn(A) -> Ret`).
+- `static_detour!` defines a zero-sized, `Copy` handle type per static, named
+  after it, with all of its methods (see `example::Example` in the
+  documentation). `StaticDetour` is no longer public.
+- `TypedDetour::call` is now documented (shown once, for `fn(A) -> Ret`).
 - Static detours no longer take a lock nor clone an `Arc` per call. A replaced
   closure is released once no call is executing.
 
@@ -36,6 +42,7 @@
 
 ### Removed
 
+- `Function::Arguments`, `Function::Output` & `Function::Closure`.
 - `From<region::Error>` & `From<OsError>` implementations, keeping `region` a private
   dependency.
 
@@ -102,6 +109,7 @@ A comprehensive overhaul of the library.
 
 ### Removed
 
+- `Function::Arguments`, `Function::Output` & `Function::Closure`.
 - Dependencies: `cfg-if`, `generic-array`, `lazy_static`, `libudis86-sys`,
   `mmap-fixed`, `slice-pool`, `matches` & `winapi`.
 

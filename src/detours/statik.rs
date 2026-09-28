@@ -1,154 +1,127 @@
 use crate::error::{Error, Result};
+use crate::hook::Hook;
 use crate::sync::Mutex;
-use crate::{Function, TypedDetour};
 use alloc::boxed::Box;
 use alloc::vec::Vec;
+use core::marker::PhantomData;
 use core::sync::atomic::{AtomicPtr, AtomicUsize, Ordering};
-use core::{mem, ptr};
+use core::{fmt, mem, ptr};
 
-/// A type-safe static detour.
+/// The state of a static detour, defined by [`static_detour!`].
 ///
-/// To define a static detour, use the [`static_detour`](crate::static_detour)
-/// macro. Since its detour is a closure, it is created using
-/// [`initialize`](#method.initialize) instead of a constructor.
+/// `F` is the function pointer type, and `C` the (unsized) closure type of
+/// the detour. It is an implementation detail of the generated handles.
 ///
-/// # Example
-///
-/// ```rust
-/// use std::error::Error;
-/// use detour::static_detour;
-///
-/// static_detour! {
-///   static Test: fn(i32) -> i32;
-/// }
-///
-/// #[inline(never)]
-/// fn add5(val: i32) -> i32 {
-///   val + 5
-/// }
-///
-/// fn add10(val: i32) -> i32 {
-///   val + 10
-/// }
-///
-/// fn main() -> Result<(), Box<dyn Error>> {
-///   // Replace the 'add5' function with 'add10' (can also be a closure)
-///   unsafe { Test.initialize(add5, add10)? };
-///
-///   assert_eq!(add5(1), 6);
-///   assert_eq!(Test.call(1), 6);
-///
-///   unsafe { Test.enable()? };
-///
-///   // The original function is detoured to 'add10'
-///   assert_eq!(add5(1), 11);
-///
-///   // The original function can still be invoked using 'call'
-///   assert_eq!(Test.call(1), 6);
-///
-///   // It is also possible to change the detour whilst hooked
-///   Test.set_detour(|val| val - 5);
-///   assert_eq!(add5(5), 0);
-///
-///   unsafe { Test.disable()? };
-///
-///   assert_eq!(add5(1), 6);
-///   Ok(())
-/// }
-/// ```
-pub struct StaticDetour<T: Function> {
+/// [`static_detour!`]: crate::static_detour
+#[doc(hidden)]
+pub struct StaticDetour<F, C: ?Sized> {
   // The active closure, or null if not yet initialized.
-  closure: AtomicPtr<Box<T::Closure>>,
+  closure: AtomicPtr<Box<C>>,
   // The number of calls currently executing a closure.
   active_calls: AtomicUsize,
   // Replaced closures, which may still be executing.
-  retired: Mutex<Vec<Box<Box<T::Closure>>>>,
-  // Set once, and never released (statics are never dropped)
-  detour: AtomicPtr<TypedDetour<T>>,
-  ffi: T,
+  retired: Mutex<Vec<Box<Box<C>>>>,
+  // Set once, and never released whilst `self` is alive
+  hook: AtomicPtr<Hook>,
+  ffi: F,
+  // The closures are shared between threads.
+  phantom: PhantomData<Box<C>>,
 }
 
-impl<T: Function> StaticDetour<T> {
-  /// Create a new static detour.
-  #[doc(hidden)]
-  pub const fn __new(ffi: T) -> Self {
+impl<F: Copy, C: ?Sized> StaticDetour<F, C> {
+  /// Creates the state of a static detour, redirecting to `ffi`.
+  ///
+  /// # Safety
+  ///
+  /// `F` must be a function pointer, and `ffi` must invoke the closure using
+  /// [`StaticDetour::__with_detour`].
+  pub const unsafe fn __new(ffi: F) -> Self {
     StaticDetour {
       closure: AtomicPtr::new(ptr::null_mut()),
       active_calls: AtomicUsize::new(0),
       retired: Mutex::new(Vec::new()),
-      detour: AtomicPtr::new(ptr::null_mut()),
+      hook: AtomicPtr::new(ptr::null_mut()),
       ffi,
+      phantom: PhantomData,
     }
   }
 
-  /// Creates the detour; see `initialize`.
-  pub(crate) unsafe fn initialize_shared(
-    &self,
-    target: T,
-    closure: Box<T::Closure>,
-  ) -> Result<&Self> {
-    if self.get().is_some() {
+  /// Creates the hook of `target`, detoured to `closure`.
+  ///
+  /// # Safety
+  ///
+  /// `target` must be a function compatible with `F` (see
+  /// [`TypedDetour::new`](crate::TypedDetour::new)).
+  pub unsafe fn __initialize(&self, target: F, closure: Box<C>) -> Result<()> {
+    if self.hook().is_some() {
       return Err(Error::AlreadyInitialized);
     }
 
     // SAFETY: The target is compatible with the generated FFI function.
-    let detour = Box::into_raw(Box::new(unsafe { TypedDetour::new(target, self.ffi)? }));
+    let hook = unsafe { Hook::new(to_ptr(target), to_ptr(self.ffi))? };
+    let hook = Box::into_raw(Box::new(hook));
 
     // Another thread may have raced to initialize the detour
     let result =
       self
-        .detour
-        .compare_exchange(ptr::null_mut(), detour, Ordering::AcqRel, Ordering::Acquire);
+        .hook
+        .compare_exchange(ptr::null_mut(), hook, Ordering::AcqRel, Ordering::Acquire);
     if result.is_err() {
-      // SAFETY: The detour was never shared.
-      drop(unsafe { Box::from_raw(detour) });
+      // SAFETY: The hook was never shared.
+      drop(unsafe { Box::from_raw(hook) });
       return Err(Error::AlreadyInitialized);
     }
-    self.set_detour_shared(closure);
-    Ok(self)
+    self.__set_detour(closure);
+    Ok(())
   }
 
   /// Enables the detour.
   ///
   /// # Safety
   ///
-  /// See [`TypedDetour::enable`].
-  pub unsafe fn enable(&self) -> Result<()> {
-    let detour = self.get().ok_or(Error::NotInitialized)?;
+  /// See [`TypedDetour::enable`](crate::TypedDetour::enable).
+  pub unsafe fn __enable(&self) -> Result<()> {
+    let hook = self.hook().ok_or(Error::NotInitialized)?;
     // SAFETY: Forwarded from the caller.
-    unsafe { detour.enable() }
+    unsafe { hook.enable() }
   }
 
   /// Disables the detour.
   ///
   /// # Safety
   ///
-  /// See [`TypedDetour::enable`].
-  pub unsafe fn disable(&self) -> Result<()> {
-    let detour = self.get().ok_or(Error::NotInitialized)?;
+  /// See [`TypedDetour::enable`](crate::TypedDetour::enable).
+  pub unsafe fn __disable(&self) -> Result<()> {
+    let hook = self.hook().ok_or(Error::NotInitialized)?;
     // SAFETY: Forwarded from the caller.
-    unsafe { detour.disable() }
-  }
-
-  /// Returns the trampoline, i.e. a function that invokes the original,
-  /// undetoured target, or `None` if the detour is not initialized.
-  ///
-  /// Prefer [`call`](#method.call), unless the original function must be
-  /// passed elsewhere (e.g. as a callback, or to foreign code). Since static
-  /// detours are never dropped, the trampoline remains valid forever.
-  pub fn trampoline(&'static self) -> Option<T> {
-    let detour = self.get()?;
-    // SAFETY: The trampoline is released once `self` is dropped, which never
-    // happens to a `'static` reference.
-    Some(unsafe { detour.trampoline() })
+    unsafe { hook.disable() }
   }
 
   /// Returns whether the detour is enabled or not.
-  pub fn is_enabled(&self) -> bool {
-    self.get().is_some_and(TypedDetour::is_enabled)
+  pub fn __is_enabled(&self) -> bool {
+    self.hook().is_some_and(Hook::is_enabled)
   }
 
-  /// Replaces the detour closure; see `set_detour`.
+  /// Returns the trampoline, or `None` if the detour is not initialized.
+  ///
+  /// The trampoline is valid for as long as `self` is alive.
+  pub fn __trampoline(&self) -> Option<F> {
+    // SAFETY: `F` is a function pointer (see `__new`), sharing the target's
+    // signature.
+    self.hook().map(|hook| unsafe { from_ptr(hook.trampoline()) })
+  }
+
+  /// Returns the trampoline.
+  ///
+  /// # Panics
+  ///
+  /// Panics if the detour is not initialized.
+  #[track_caller]
+  pub fn __original(&self) -> F {
+    self.__trampoline().expect("static detour is not initialized")
+  }
+
+  /// Replaces the detour closure.
   ///
   /// The previous closure may still be executing on another thread (or be the
   /// caller), so it is retired and released once no call is in progress.
@@ -157,7 +130,7 @@ impl<T: Function> StaticDetour<T> {
   /// consistent. A call increments `active_calls` before loading `closure`,
   /// so if `active_calls` is observed as zero after a closure was swapped out,
   /// every call that may have loaded it has completed.
-  pub(crate) fn set_detour_shared(&self, closure: Box<T::Closure>) {
+  pub fn __set_detour(&self, closure: Box<C>) {
     let previous = self.closure.swap(Box::into_raw(Box::new(closure)), Ordering::SeqCst);
 
     let released = {
@@ -182,10 +155,11 @@ impl<T: Function> StaticDetour<T> {
 
   /// Invokes `call` with the active detour closure.
   ///
+  /// # Panics
+  ///
   /// Panics if the static detour has not yet been initialized.
-  #[doc(hidden)]
   #[inline]
-  pub fn __with_detour<R>(&self, call: impl FnOnce(&T::Closure) -> R) -> R {
+  pub fn __with_detour<R>(&self, call: impl FnOnce(&C) -> R) -> R {
     struct Active<'a>(&'a AtomicUsize);
 
     impl Drop for Active<'_> {
@@ -198,35 +172,45 @@ impl<T: Function> StaticDetour<T> {
     let _active = Active(&self.active_calls);
 
     // SAFETY: The closure is only released once no call is active (see
-    // `set_detour_shared`), or when `self` is dropped.
+    // `__set_detour`), or when `self` is dropped.
     let closure = unsafe { self.closure.load(Ordering::SeqCst).as_ref() }
       .expect("static detour closure is not initialized");
     call(closure)
   }
 
-  /// Returns the detour, if initialized.
-  fn get(&self) -> Option<&TypedDetour<T>> {
-    // SAFETY: The pointer is either null, or a detour that is never released
+  /// Returns the hook, if initialized.
+  pub(crate) fn hook(&self) -> Option<&Hook> {
+    // SAFETY: The pointer is either null, or a hook that is never released
     // whilst `self` is alive.
-    unsafe { self.detour.load(Ordering::Acquire).as_ref() }
-  }
-
-  /// Returns a pointer to the generated trampoline.
-  pub(crate) fn trampoline_ptr(&self) -> *const () {
-    self
-      .get()
-      .expect("static detour is not initialized")
-      .trampoline_ptr()
+    unsafe { self.hook.load(Ordering::Acquire).as_ref() }
   }
 }
 
-impl<T: Function> Drop for StaticDetour<T> {
+/// Converts a function pointer into an untyped pointer.
+fn to_ptr<F: Copy>(function: F) -> *const () {
+  const { assert!(mem::size_of::<F>() == mem::size_of::<*const ()>()) };
+  // SAFETY: `F` is a function pointer, of the same size as a data pointer.
+  unsafe { mem::transmute_copy(&function) }
+}
+
+/// Converts an untyped pointer into a function pointer.
+///
+/// # Safety
+///
+/// `F` must be a function pointer, compatible with the function at `ptr`.
+unsafe fn from_ptr<F: Copy>(ptr: *const ()) -> F {
+  const { assert!(mem::size_of::<F>() == mem::size_of::<*const ()>()) };
+  // SAFETY: See above.
+  unsafe { mem::transmute_copy(&ptr) }
+}
+
+impl<F, C: ?Sized> Drop for StaticDetour<F, C> {
   fn drop(&mut self) {
-    // The detour is disabled first, so no closure can be executing.
-    let detour = *self.detour.get_mut();
-    if !detour.is_null() {
-      // SAFETY: The detour is exclusively owned by `self`.
-      drop(unsafe { Box::from_raw(detour) });
+    // The hook is disabled first, so no closure can be executing.
+    let hook = *self.hook.get_mut();
+    if !hook.is_null() {
+      // SAFETY: The hook is exclusively owned by `self`.
+      drop(unsafe { Box::from_raw(hook) });
     }
 
     let closure = *self.closure.get_mut();
@@ -237,21 +221,41 @@ impl<T: Function> Drop for StaticDetour<T> {
   }
 }
 
-impl<T: Function> crate::transaction::private::Sealed for StaticDetour<T> {
-  fn hook(&self) -> Option<&crate::hook::Hook> {
-    self.get().and_then(|detour| detour.hook())
-  }
-}
-
-impl<T: Function> crate::Detour for StaticDetour<T> {}
-
-impl<T: Function> core::fmt::Debug for StaticDetour<T> {
-  fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+impl<F, C: ?Sized> fmt::Debug for StaticDetour<F, C> {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    // SAFETY: See `hook`.
+    let hook = unsafe { self.hook.load(Ordering::Acquire).as_ref() };
     f.debug_struct("StaticDetour")
-      .field("detour", &self.get())
+      .field("hook", &hook)
       .finish_non_exhaustive()
   }
 }
+
+/// A handle to a [`StaticDetour`], generated by [`static_detour!`].
+///
+/// # Safety
+///
+/// `__state` must always return the same detour.
+///
+/// [`static_detour!`]: crate::static_detour
+#[doc(hidden)]
+pub unsafe trait StaticHandle: Copy {
+  /// The function pointer type.
+  type Function: Copy + 'static;
+  /// The closure type.
+  type Closure: ?Sized + 'static;
+
+  /// Returns the state of the detour.
+  fn __state(self) -> &'static StaticDetour<Self::Function, Self::Closure>;
+}
+
+impl<H: StaticHandle> crate::transaction::private::Sealed for H {
+  fn hook(&self) -> Option<&Hook> {
+    self.__state().hook()
+  }
+}
+
+impl<H: StaticHandle> crate::Detour for H {}
 
 #[cfg(test)]
 mod tests {
@@ -285,25 +289,26 @@ mod tests {
 
   #[test]
   fn replaced_closures_are_released_when_inactive() {
-    let detour = StaticDetour::<fn(u32) -> u32>::__new(original);
+    // SAFETY: The hook is never created, so the FFI function is never used.
+    let detour = unsafe { StaticDetour::<fn(u32) -> u32, Closure>::__new(original) };
     let released = Arc::new(AtomicUsize::new(0));
 
-    detour.set_detour_shared(tracked(1, &released));
+    detour.__set_detour(tracked(1, &released));
     assert_eq!(detour.__with_detour(|closure| closure(1)), 2);
 
-    detour.set_detour_shared(tracked(2, &released));
+    detour.__set_detour(tracked(2, &released));
     assert_eq!(released.load(Ordering::SeqCst), 1);
 
     // A closure replaced whilst executing remains valid until it returns
     detour.__with_detour(|closure| {
-      detour.set_detour_shared(tracked(3, &released));
+      detour.__set_detour(tracked(3, &released));
       assert_eq!(closure(1), 3);
     });
     assert_eq!(released.load(Ordering::SeqCst), 1);
     assert_eq!(detour.__with_detour(|closure| closure(1)), 4);
 
     // Retired closures are released upon the next inactive replacement
-    detour.set_detour_shared(tracked(4, &released));
+    detour.__set_detour(tracked(4, &released));
     assert_eq!(released.load(Ordering::SeqCst), 3);
 
     drop(detour);
@@ -314,10 +319,11 @@ mod tests {
   fn concurrent_replacement() {
     const REPLACEMENTS: u32 = 1000;
 
-    let detour = StaticDetour::<fn(u32) -> u32>::__new(original);
+    // SAFETY: The hook is never created, so the FFI function is never used.
+    let detour = unsafe { StaticDetour::<fn(u32) -> u32, Closure>::__new(original) };
     let released = Arc::new(AtomicUsize::new(0));
     let done = AtomicBool::new(false);
-    detour.set_detour_shared(tracked(0, &released));
+    detour.__set_detour(tracked(0, &released));
 
     thread::scope(|scope| {
       for _ in 0..4 {
@@ -329,13 +335,13 @@ mod tests {
       }
 
       for value in 1..REPLACEMENTS {
-        detour.set_detour_shared(tracked(value, &released));
+        detour.__set_detour(tracked(value, &released));
       }
       done.store(true, Ordering::Relaxed);
     });
 
     // All closures but the active one are released once no call is active
-    detour.set_detour_shared(tracked(0, &released));
+    detour.__set_detour(tracked(0, &released));
     assert_eq!(released.load(Ordering::SeqCst), REPLACEMENTS as usize);
   }
 }

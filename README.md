@@ -78,7 +78,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 | Type | Detour | Type safety | Defined |
 |------|--------|-------------|---------|
-| [`StaticDetour`][static] | Function or closure | Enforced | Statically, with `static_detour!` |
+| [`static_detour!`][static] | Function or closure | Enforced | Statically |
 | [`TypedDetour`][typed] | Function | Enforced | At runtime |
 | [`RawDetour`][raw] | Function | None (raw pointers) | At runtime |
 
@@ -107,11 +107,16 @@ fn main() -> detour::Result<()> {
 }
 ```
 
-`RawDetour` accepts any pointer, e.g. for functions only known at runtime, or
-signatures the typed detours cannot express, such as reference arguments:
+Signatures with references, such as `fn(&str) -> usize`, are supported by
+`static_detour!` as is. For `TypedDetour`, name the signature with
+[`signature!`][signature] first:
 
 ```rust
-use detour::RawDetour;
+use detour::{TypedDetour, signature};
+
+signature! {
+  struct Length(fn(&str) -> usize);
+}
 
 #[inline(never)]
 fn length(text: &str) -> usize {
@@ -123,15 +128,17 @@ fn zero(_: &str) -> usize {
 }
 
 fn main() -> detour::Result<()> {
-  let hook = unsafe { RawDetour::new(length as *const (), zero as *const ())? };
+  let hook = unsafe { TypedDetour::new(Length(length), Length(zero))? };
   unsafe { hook.enable()? };
 
-  let original: fn(&str) -> usize = unsafe { std::mem::transmute(hook.trampoline()) };
   assert_eq!(length("detour"), 0);
-  assert_eq!(original("detour"), 6);
+  assert_eq!(unsafe { hook.trampoline() }.call("detour"), 6);
   Ok(())
 }
 ```
+
+`RawDetour` accepts any pointer, e.g. for functions whose signature is only
+known at runtime.
 
 Several detours can be enabled or disabled at once with a
 [`Transaction`][transaction]. It is applied completely or not at all, and can
@@ -317,7 +324,8 @@ derivative code of his work.
 [crate]: https://crates.io/crates/detour
 [docs-shield]: https://img.shields.io/badge/docs-crates-green.svg?style=for-the-badge
 [docs]: https://docs.rs/detour/
-[static]: https://docs.rs/detour/latest/detour/struct.StaticDetour.html
+[static]: https://docs.rs/detour/latest/detour/macro.static_detour.html
+[signature]: https://docs.rs/detour/latest/detour/macro.signature.html
 [typed]: https://docs.rs/detour/latest/detour/struct.TypedDetour.html
 [raw]: https://docs.rs/detour/latest/detour/struct.RawDetour.html
 [transaction]: https://docs.rs/detour/latest/detour/struct.Transaction.html

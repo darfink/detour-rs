@@ -58,7 +58,6 @@ mod raw {
 
   #[test]
   fn reference_arguments() -> Result<()> {
-    // Functions with higher-ranked lifetimes are only supported by raw detours
     #[inline(never)]
     fn length(value: &str) -> usize {
       std::hint::black_box(value).len()
@@ -338,12 +337,64 @@ mod generic {
     Ok(())
   }
 
+  detour::signature! {
+    struct Length(fn(&str) -> usize);
+    pub(crate) struct First(pub(crate) for<'a> unsafe extern "C" fn(&'a [u8; 3], usize) -> &'a u8);
+  }
+
+  #[test]
+  fn reference_arguments() -> Result<()> {
+    #[inline(never)]
+    fn length(value: &str) -> usize {
+      std::hint::black_box(value).len() + unique!() as usize
+    }
+
+    fn double(value: &str) -> usize {
+      value.len() * 2
+    }
+
+    // SAFETY: The functions share the same signature.
+    let hook = unsafe { TypedDetour::new(Length(length), Length(double))? };
+    // SAFETY: No other thread is executing `length`.
+    unsafe { hook.enable()? };
+    assert_eq!(length("abc"), 6);
+
+    // SAFETY: The trampoline is not used after the detour is dropped.
+    let original = unsafe { hook.trampoline() };
+    assert_eq!(original.call("abc"), 3);
+    assert_eq!((original.0)("abcd"), 4);
+    Ok(())
+  }
+
+  #[test]
+  fn returned_references() -> Result<()> {
+    #[inline(never)]
+    unsafe extern "C" fn nth(values: &[u8; 3], index: usize) -> &u8 {
+      &std::hint::black_box(values)[index]
+    }
+
+    unsafe extern "C" fn last(values: &[u8; 3], _: usize) -> &u8 {
+      &values[2]
+    }
+
+    // SAFETY: The functions share the same signature.
+    let hook = unsafe { TypedDetour::new(First(nth), First(last))? };
+    let values = [1, 2, 3];
+    // SAFETY: No other thread is executing `nth`, and it has no preconditions.
+    unsafe {
+      hook.enable()?;
+      assert_eq!(*nth(&values, 0), 3);
+      assert_eq!(*hook.trampoline().call(&values, 0), 1);
+    }
+    Ok(())
+  }
+
   #[test]
   fn is_send_and_sync() {
     fn assert<T: Send + Sync>() {}
     assert::<TypedDetour<fn()>>();
     assert::<RawDetour>();
-    assert::<detour::StaticDetour<fn()>>();
+    assert::<super::statik::DetourAdd>();
   }
 }
 
@@ -443,6 +494,72 @@ mod statik {
     let original: extern "system" fn(i64, i64) -> i64 = DetourNegate.trampoline().unwrap();
     assert_eq!(original(2, 3), -6);
     Ok(())
+  }
+
+  static_detour! {
+    static DetourLength: fn(&str) -> usize;
+    static DetourSuffix: for<'a> fn(&'a str, &str) -> &'a str;
+  }
+
+  #[test]
+  fn reference_arguments() -> Result<()> {
+    #[inline(never)]
+    fn length(value: &str) -> usize {
+      std::hint::black_box(value).len() + unique!() as usize
+    }
+
+    // SAFETY: No other thread is executing `length`.
+    unsafe {
+      DetourLength
+        .initialize(length, |value| DetourLength.call(value) * 2)?
+        .enable()?;
+    }
+    assert_eq!(length("abc"), 6);
+
+    // The arguments are not required to be `'static`
+    let owned = String::from("abcd");
+    assert_eq!(length(&owned), 8);
+
+    DetourLength.set_detour(str::len);
+    assert_eq!(length("abc"), 3);
+
+    let original: fn(&str) -> usize = DetourLength.trampoline().unwrap();
+    assert_eq!(original("ab"), 2);
+    Ok(())
+  }
+
+  #[test]
+  fn returned_references() -> Result<()> {
+    #[inline(never)]
+    fn suffix<'a>(value: &'a str, _: &str) -> &'a str {
+      &std::hint::black_box(value)[1..]
+    }
+
+    // SAFETY: No other thread is executing `suffix`.
+    unsafe {
+      DetourSuffix
+        .initialize(suffix, |value, separator| {
+          value.rsplit(separator).next().unwrap_or(value)
+        })?
+        .enable()?;
+    }
+
+    let text = String::from("a.b.c");
+    let result = {
+      let separator = String::from(".");
+      suffix(&text, &separator)
+    };
+    assert_eq!(result, "c");
+    assert_eq!(DetourSuffix.call(&text, "."), ".b.c");
+    Ok(())
+  }
+
+  #[test]
+  fn handles_are_copy() {
+    fn enabled(detour: impl detour::Detour + Copy + std::fmt::Debug) -> String {
+      format!("{detour:?}")
+    }
+    assert!(enabled(DetourUninitialized).contains("StaticDetour"));
   }
 
   #[test]

@@ -18,8 +18,9 @@
   support them as is; for `TypedDetour`, the new `signature!` macro defines a
   type implementing `Function` for such a signature.
 - `TypedDetour::original`, returning the original function borrowed from the
-  detour (`Original` for function pointers), so it can be called safely for
-  any signature: `hook.original().call(..)`.
+  detour (`Original` for function pointers), for any signature:
+  `hook.original().call(..)`. Obtaining it is safe, and so is calling it,
+  unless the signature is `unsafe`.
 - `TypedDetour::trampoline` & a `trampoline` method for static detours,
   returning the original function.
 - `Transaction::enable` & `disable` accept unsized detours, so different

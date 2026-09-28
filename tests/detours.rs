@@ -419,6 +419,12 @@ mod generic {
     #[cfg_attr(all(), cfg(any()))]
     struct RemovedByCfgAttr(fn(&Missing));
 
+    #[cfg_attr(all(), cfg_attr(all(), cfg(any())))]
+    struct RemovedByNestedCfgAttr(fn(&Missing));
+
+    #[cfg_attr(all(), allow(dead_code), cfg_attr(any(), cfg(any())))]
+    struct KeptByNestedCfgAttr(fn(&str));
+
     #[cfg_attr(all(), allow(dead_code), cfg(all()))]
     #[cfg_attr(any(), derive(PartialEq))]
     struct Kept(fn(&str));
@@ -600,6 +606,9 @@ mod statik {
 
     #[cfg(any())]
     static DetourRemoved: fn(&Missing);
+
+    #[cfg_attr(all(), cfg_attr(all(), cfg(any())))]
+    static DetourRemovedByNestedCfgAttr: fn(&Missing);
   }
 
   #[test]

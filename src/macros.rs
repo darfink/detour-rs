@@ -369,7 +369,7 @@ macro_rules! signature {
 }
 
 /// Keeps the conditional attributes (`cfg`, and the `cfg` parts of
-/// `cfg_attr`) of an item, and passes them to a macro, so its implementations
+/// `cfg_attr`, including nested ones) of an item, and passes them to a macro, so its implementations
 /// are conditional as well:
 ///
 /// `$callback! { @emit [attributes] $args... }`
@@ -387,6 +387,14 @@ macro_rules! __cfg_attrs {
       $rest:tt $($args:tt)*) => {
     $crate::__cfg_attrs!(@inner $cb $kept $pred [$($inner)* cfg $condition,] [$($($more)*)?]
       $rest $($args)*);
+  };
+  // A nested `cfg_attr(q, ..)` within `cfg_attr(p, ..)` is equivalent to
+  // `cfg_attr(all(p, q), ..)`, which is filtered as any other attribute
+  (@inner $cb:tt $kept:tt [$pred:meta] $inner:tt
+      [cfg_attr($nested:meta, $($nested_inner:tt)*) $(, $($more:tt)*)?]
+      [$($rest:tt)*] $($args:tt)*) => {
+    $crate::__cfg_attrs!(@inner $cb $kept [$pred] $inner [$($($more)*)?]
+      [#[cfg_attr(all($pred, $nested), $($nested_inner)*)] $($rest)*] $($args)*);
   };
   (@inner $cb:tt $kept:tt $pred:tt $inner:tt [$other:meta $(, $($more:tt)*)?]
       $rest:tt $($args:tt)*) => {

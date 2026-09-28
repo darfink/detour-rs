@@ -23,6 +23,11 @@
 ///
 /// Implementors must be function pointers, compatible with the pointer
 /// returned by `to_ptr`.
+///
+/// `Original<'a>` must not allow the function to be invoked beyond `'a`,
+/// neither directly nor by extracting it, without `unsafe` code; callers
+/// rely on this to release the function once `'a` ends. Invoking an `unsafe`
+/// function through it must require `unsafe` as well.
 pub unsafe trait Function: private::Sealed + Sized + Copy + Sync + 'static {
   /// The original function of a detour, borrowed from it (see
   /// [`TypedDetour::original`](crate::TypedDetour::original)).
@@ -45,7 +50,8 @@ pub unsafe trait Function: private::Sealed + Sized + Copy + Sync + 'static {
   ///
   /// # Safety
   ///
-  /// The function must remain valid for `'a`.
+  /// The function must remain valid for `'a` (see the trait's safety
+  /// contract).
   #[doc(hidden)]
   unsafe fn __original<'a>(self) -> Self::Original<'a>;
 }

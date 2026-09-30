@@ -1,6 +1,8 @@
 //! Tests of the Linux suspend signal (in a separate process, since blocking
 //! the signal on one thread affects all other suspensions).
-#![cfg(any(target_os = "linux", target_os = "android"))]
+//!
+//! `Thread::from(&JoinHandle)` requires the `std` feature.
+#![cfg(all(feature = "std", any(target_os = "linux", target_os = "android")))]
 
 use detour::linux::set_suspend_signal;
 use detour::{Error, Result, Thread, Threads, Transaction, TypedDetour};

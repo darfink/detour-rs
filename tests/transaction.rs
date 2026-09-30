@@ -144,7 +144,9 @@ fn threads_are_unsupported() -> Result<()> {
 ///
 /// On AArch64, a single instruction is patched (unless no memory is available
 /// nearby), so relocation is tested using the absolute patch in unit tests.
+/// `Thread::from(&JoinHandle)` requires the `std` feature.
 #[cfg(all(
+  feature = "std",
   any(target_arch = "x86", target_arch = "x86_64"),
   any(
     windows,

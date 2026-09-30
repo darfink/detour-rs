@@ -1,6 +1,6 @@
 [package]
 name = "detour"
-version = "0.9.0"
+version = "0.10.0"
 authors = ["Elliott Linder <elliott.darfink@gmail.com>"]
 description = "A cross-platform function detouring (inline hooking) library for x86, x86-64 and AArch64"
 documentation = "https://docs.rs/detour"

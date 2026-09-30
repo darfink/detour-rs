@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-09-30
+
+Thread-safe transactions with EIP relocation, and support for reference
+arguments.
+
 ### Added
 
 - `Transaction`, which enables and disables several detours at once. It is
@@ -120,5 +125,6 @@ A comprehensive overhaul of the library.
 - Dependencies: `cfg-if`, `generic-array`, `lazy_static`, `libudis86-sys`,
   `mmap-fixed`, `slice-pool`, `matches` & `winapi`.
 
-[unreleased]: https://github.com/darfink/detour-rs/compare/v0.9.0...HEAD
+[unreleased]: https://github.com/darfink/detour-rs/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/darfink/detour-rs/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/darfink/detour-rs/compare/v0.8.0...v0.9.0

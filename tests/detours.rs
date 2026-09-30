@@ -572,8 +572,10 @@ mod statik {
   #[test]
   fn returned_references() -> Result<()> {
     #[inline(never)]
-    fn suffix<'a>(value: &'a str, _: &str) -> &'a str {
-      &std::hint::black_box(value)[1..]
+    fn suffix<'a>(value: &'a str, separator: &str) -> &'a str {
+      // Every argument must be used; otherwise the optimizer may omit it
+      // from calls, and the detour would receive an undefined value
+      &std::hint::black_box(value)[std::hint::black_box(separator).len()..]
     }
 
     // SAFETY: No other thread is executing `suffix`.

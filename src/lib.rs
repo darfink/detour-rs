@@ -107,7 +107,10 @@
 //! # Caveats
 //!
 //! - Only calls that reach the target are detoured; inlined calls are not.
-//!   Mark your own targets `#[inline(never)]`.
+//!   Mark your own targets `#[inline(never)]`. Calls to a function of the
+//!   same crate may also be optimized in other ways (e.g. an unused argument
+//!   may not be passed at all), so the detour must not rely on more than the
+//!   target does.
 //! - A dropped detour is disabled without suspending threads, and its
 //!   trampoline is released immediately. Disable it with a [`Transaction`]
 //!   first if other threads may be executing the target or the trampoline.

@@ -289,7 +289,10 @@ detour = { version = "0.10.0", default-features = false, features = ["no_std"] }
 ## Caveats
 
 - **Inlined calls cannot be detoured.** Only calls that actually jump to the
-  target are redirected; mark your own targets `#[inline(never)]`. To detour
+  target are redirected; mark your own targets `#[inline(never)]`. Calls to a
+  function of your own crate may also be optimized in other ways (e.g. an
+  unused argument may not be passed at all), so the detour must not rely on
+  more than the target does. Functions of other modules are not affected. To detour
   a function of another module (e.g. a system library), resolve its address
   at runtime (`dlsym`, `GetProcAddress`), since a direct reference may resolve
   to a local import stub instead.

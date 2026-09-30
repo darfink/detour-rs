@@ -19,11 +19,20 @@ use core::ptr;
 use core::sync::atomic::{AtomicI32, AtomicPtr, AtomicU32, AtomicUsize, Ordering};
 use libc::{c_long, pid_t, timespec, ucontext_t};
 
-pub(crate) type RawThread = libc::pthread_t;
+/// A `pthread_t`, stored as an integer (it is a pointer on some C libraries,
+/// e.g. musl), so `Thread` is `Send + Sync` on all targets.
+pub(crate) type RawThread = usize;
 
+/// Creates a thread from a `pthread_t` as an integer (as returned by
+/// `JoinHandleExt::as_pthread_t`, which is not a pointer on musl).
 #[cfg(feature = "std")]
-pub(super) fn from_pthread(thread: libc::pthread_t) -> Thread {
+pub(super) fn from_pthread(thread: usize) -> Thread {
   Thread(thread)
+}
+
+/// Returns the `pthread_t` of a thread.
+fn pthread(thread: Thread) -> libc::pthread_t {
+  thread.0 as libc::pthread_t
 }
 
 /// The maximum time to wait for a thread to handle the suspend signal.
@@ -589,8 +598,8 @@ pub(super) fn suspend(threads: &[Thread]) -> Result<Session> {
   let mut session = Session::new(threads.len());
   for thread in threads {
     // SAFETY: Comparing thread identifiers has no preconditions.
-    if unsafe { libc::pthread_equal(thread.0, current) } == 0 {
-      session.request(0, Some(thread.0))?;
+    if unsafe { libc::pthread_equal(pthread(*thread), current) } == 0 {
+      session.request(0, Some(pthread(*thread)))?;
     }
   }
   session.wait(0..session.count)?;

@@ -51,7 +51,7 @@ impl Thread {
   /// The thread must not exit (and be joined) whilst it is used.
   #[cfg(any(target_os = "linux", target_os = "android"))]
   pub fn from_pthread(thread: libc::pthread_t) -> Self {
-    Thread(thread)
+    Thread(thread as usize)
   }
 }
 
@@ -63,7 +63,12 @@ impl<T> From<&std::thread::JoinHandle<T>> for Thread {
       use std::os::windows::io::AsRawHandle;
       Thread::from_raw_handle(handle.as_raw_handle())
     }
-    #[cfg(unix)]
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    {
+      use std::os::unix::thread::JoinHandleExt;
+      imp::from_pthread(handle.as_pthread_t() as usize)
+    }
+    #[cfg(all(unix, not(any(target_os = "linux", target_os = "android"))))]
     {
       use std::os::unix::thread::JoinHandleExt;
       imp::from_pthread(handle.as_pthread_t())

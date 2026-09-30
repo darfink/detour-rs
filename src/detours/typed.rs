@@ -65,7 +65,9 @@ impl<T: Function> TypedDetour<T> {
   /// # Safety
   ///
   /// The target must be a function (e.g. not a Rust-ABI function that has
-  /// been inlined into all of its callers) with the declared signature.
+  /// been inlined into all of its callers) with the declared signature. Its
+  /// callers must pass every argument the detour uses: calls to a function of
+  /// the same crate may omit arguments the target itself does not use.
   pub unsafe fn new<D>(target: T, detour: D) -> Result<Self>
   where
     T: HookableWith<D>,

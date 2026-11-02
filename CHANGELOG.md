@@ -7,6 +7,17 @@
 - `Detour::is_enabled`, so detours grouped as `&dyn Detour` can be
   inspected.
 
+### Changed
+
+- Detours of the same target are chained, and can be enabled and disabled in
+  any order (previously, they had to be disabled in reverse order). The
+  target calls the most recently enabled detour, whose original function is
+  the detour enabled before it. Detours created whilst another detour of the
+  same target is enabled now share its original code, and
+  `Error::TargetModified` is only returned if a third party modified it.
+- The trampoline of a detour is a jump to its original function, which may
+  change as other detours of the same target are enabled or disabled.
+
 ### Fixed
 
 - Suspending a thread listed more than once in `Threads::Only` timed out on

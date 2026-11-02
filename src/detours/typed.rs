@@ -107,7 +107,8 @@ impl<T: Function> TypedDetour<T> {
     self.detour.is_enabled()
   }
 
-  /// Returns the original, undetoured function, borrowed from the detour.
+  /// Returns the original function, borrowed from the detour (see
+  /// [chaining](crate#detours-of-the-same-target)).
   ///
   /// It can be called using its `call` method, regardless of whether the
   /// detour is enabled or not. Unlike the [trampoline](Self::trampoline), it
@@ -140,8 +141,8 @@ impl<T: Function> TypedDetour<T> {
     unsafe { T::from_ptr(self.trampoline_ptr()).__original() }
   }
 
-  /// Returns the trampoline, i.e. a function that invokes the original,
-  /// undetoured target.
+  /// Returns the trampoline, i.e. a function that invokes the original
+  /// function (see [`original`](Self::original)).
   ///
   /// Prefer [`original`](Self::original), unless the original function must
   /// be passed elsewhere (e.g. as a callback).

@@ -1,4 +1,11 @@
 //! The architecture-independent implementation of a detour.
+//!
+//! The detours of a target share a site: its original code, and a trampoline.
+//! The enabled detours of a site form a chain, in the order they were enabled.
+//! The target branches to the last one, whose original function (its link)
+//! branches to the one enabled before it, and so on, until the trampoline is
+//! reached. Each link is an indirect jump through a pointer, so detours can be
+//! enabled and disabled in any order.
 
 use crate::arch;
 use crate::error::{Error, Result};
@@ -6,22 +13,102 @@ use crate::memory::{self, CodeBlock, Protections};
 use crate::thread::Threads;
 use crate::transaction;
 use alloc::boxed::Box;
+use alloc::vec::Vec;
 use core::fmt;
 use core::mem::ManuallyDrop;
 use core::ops::Range;
-use core::sync::atomic::{AtomicBool, Ordering};
+use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+
+/// All sites with detours, guarded by the global patch lock.
+pub(crate) struct Registry {
+  sites: Vec<Site>,
+}
+
+// SAFETY: The links of a site are only accessed whilst the lock is held, and
+// remain valid whilst they are part of a chain (see `Site::chain`).
+unsafe impl Send for Registry {}
+
+impl Registry {
+  pub const fn new() -> Self {
+    Registry { sites: Vec::new() }
+  }
+
+  /// Returns the site of `target`, which must exist.
+  fn site(&mut self, target: usize) -> &mut Site {
+    self
+      .sites
+      .iter_mut()
+      .find(|site| site.target == target)
+      .expect("the site of a hook exists")
+  }
+
+  /// Reserves capacity for enabling `count` more detours of `hook`'s target,
+  /// so that no allocation is required whilst threads are suspended.
+  pub(crate) fn reserve(&mut self, hook: &Hook, count: usize) {
+    self.site(hook.target).chain.reserve(count);
+  }
+}
+
+/// The detours of a target.
+struct Site {
+  target: usize,
+  /// See [`arch::Site`].
+  code: arch::Site,
+  /// The links of the enabled detours, in the order they were enabled. They
+  /// are owned by their hooks, which remove them before being dropped.
+  chain: Vec<*const Link>,
+  /// The number of hooks of the site.
+  hooks: usize,
+}
+
+/// The part of a hook referenced by its site (boxed, so its address is
+/// stable).
+struct Link {
+  /// The detour, i.e. the destination of the link enabled after this one.
+  detour: usize,
+  /// The bytes redirecting the target to the detour (or its relay).
+  patched: Box<[u8]>,
+  /// The destination of the link: the next detour of the chain, or the
+  /// trampoline.
+  next: AtomicUsize,
+}
+
+/// How enabling or disabling a hook changes the target's code.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Change {
+  /// The original code is replaced (the first detour is enabled).
+  Patch,
+  /// The original code is restored (the last detour is disabled).
+  Restore,
+  /// The target is redirected to another detour; threads are unaffected.
+  Redirect,
+  /// Only links are updated.
+  Relink,
+}
+
+/// How to revert an applied operation (see [`Hook::revert`]).
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum Undo {
+  /// The hook was enabled.
+  Enabled,
+  /// The hook was disabled, from `position` of the chain, linked to `next`.
+  Disabled { position: usize, next: usize },
+}
 
 /// The building block of all detour types.
 pub struct Hook {
   target: usize,
-  detour: *const (),
   patch_address: *mut u8,
+  /// The original code of the target.
   original: Box<[u8]>,
-  patched: Box<[u8]>,
-  /// See [`arch::Parts::relocated`].
+  /// See [`arch::Site::relocated`].
   relocated: Box<[(u32, u32)]>,
-  // Released manually, since the target may still refer to them
-  trampoline: ManuallyDrop<CodeBlock>,
+  /// The site's trampoline.
+  trampoline: usize,
+  link: Box<Link>,
+  // Released manually, since the target or other detours may still refer to
+  // them
+  stub: ManuallyDrop<CodeBlock>,
   relay: ManuallyDrop<Option<CodeBlock>>,
   enabled: AtomicBool,
 }
@@ -44,26 +131,60 @@ impl Hook {
       return Err(Error::SameAddress);
     }
 
-    let _lock = memory::patch_lock();
+    let mut registry = memory::patch_lock();
 
     if !memory::is_executable(target)? || !memory::is_executable(detour)? {
       return Err(Error::NotExecutable);
     }
 
-    // SAFETY: The target has been verified to be executable.
-    let parts = unsafe { arch::build(target, detour)? };
+    // Detours of the same target share its site (and original code)
+    let existing = registry.sites.iter().position(|site| site.target == target as usize);
+    let (new, redirect) = match existing {
+      Some(index) => {
+        let code = &registry.sites[index].code;
+        (None, arch::redirect(code.patch_address, code.layout, detour)?)
+      },
+      None => {
+        // SAFETY: The target has been verified to be executable.
+        let (site, redirect) = unsafe { arch::build(target, detour)? };
+        (Some(site), redirect)
+      },
+    };
+    let code = new.as_ref().unwrap_or_else(|| &registry.sites[existing.unwrap()].code);
 
-    Ok(Hook {
+    let link = Box::new(Link {
+      detour: detour as usize,
+      patched: redirect.patched.into_boxed_slice(),
+      next: AtomicUsize::new(code.trampoline.address()),
+    });
+    let stub_code = arch::link(link.next.as_ptr());
+    let mut stub = memory::allocate_near(target as usize, usize::MAX, stub_code.len())?;
+    // SAFETY: The stub has just been allocated, and cannot be executing.
+    unsafe { stub.write(&stub_code)? };
+
+    let hook = Hook {
       target: target as usize,
-      detour,
-      patch_address: parts.patch_address,
-      original: parts.original.into_boxed_slice(),
-      patched: parts.patched.into_boxed_slice(),
-      relocated: parts.relocated.into_boxed_slice(),
-      trampoline: ManuallyDrop::new(parts.trampoline),
-      relay: ManuallyDrop::new(parts.relay),
+      patch_address: code.patch_address,
+      original: code.original.clone().into_boxed_slice(),
+      relocated: code.relocated.clone().into_boxed_slice(),
+      trampoline: code.trampoline.address(),
+      link,
+      stub: ManuallyDrop::new(stub),
+      relay: ManuallyDrop::new(redirect.relay),
       enabled: AtomicBool::new(false),
-    })
+    };
+
+    match (new, existing) {
+      (Some(code), _) => registry.sites.push(Site {
+        target: target as usize,
+        code,
+        chain: Vec::new(),
+        hooks: 1,
+      }),
+      (None, Some(index)) => registry.sites[index].hooks += 1,
+      (None, None) => unreachable!(),
+    }
+    Ok(hook)
   }
 
   /// Enables the hook.
@@ -83,96 +204,203 @@ impl Hook {
     self.enabled.load(Ordering::SeqCst)
   }
 
-  /// Returns a pointer to the trampoline (i.e. the callable original).
+  /// Returns a pointer to the hook's original function: the detour enabled
+  /// before it (of the same target), or the trampoline.
   pub fn trampoline(&self) -> *const () {
-    self.trampoline.as_ptr().cast()
+    self.stub.as_ptr().cast()
   }
 
   /// Returns the range of patched bytes.
   fn patch_range(&self) -> Range<usize> {
     let start = self.patch_address as usize;
-    start..start + self.patched.len()
+    start..start + self.original.len()
   }
 
-  /// Queries the protection of the patched bytes (see [`Hook::write`]).
+  /// Queries the protection of the patched bytes (see [`Hook::apply`]).
   pub(crate) fn protections(&self) -> Result<Protections> {
-    Protections::query(self.patch_address, self.patched.len())
+    Protections::query(self.patch_address, self.original.len())
   }
 
-  /// Writes the code of the enabled or disabled state, without allocating.
+  /// Returns how enabling or disabling the hook changes the target's code.
+  pub(crate) fn change(&self, registry: &mut Registry, enable: bool) -> Change {
+    let chain = &registry.site(self.target).chain;
+    let is_last = chain.last() == Some(&(&*self.link as *const Link));
+    match (enable, chain.len()) {
+      (true, 0) => Change::Patch,
+      (true, _) => Change::Redirect,
+      (false, 1) => Change::Restore,
+      (false, _) if is_last => Change::Redirect,
+      (false, _) => Change::Relink,
+    }
+  }
+
+  /// Enables or disables the hook, returning how to revert it if applied.
   ///
-  /// The caller must hold the global patch lock.
-  ///
-  /// If an error is returned, the code may still have been written, in which
-  /// case the hook's state is updated nonetheless.
+  /// The operation may be applied despite an error (e.g. if the code was
+  /// written, but its protection could not be restored). The caller must hold
+  /// the global patch lock, and must not allocate if threads are suspended
+  /// (see [`Registry::reserve`]).
   ///
   /// # Safety
   ///
   /// No thread may execute the patched bytes whilst they are written.
-  pub(crate) unsafe fn write(&self, enable: bool, protections: &Protections) -> Result<()> {
-    let (expected, replacement) = if enable {
-      (&self.original, &self.patched)
+  pub(crate) unsafe fn apply(
+    &self,
+    registry: &mut Registry,
+    enable: bool,
+    protections: &Protections,
+  ) -> (Option<Undo>, Result<()>) {
+    let site = registry.site(self.target);
+    let link: *const Link = &*self.link;
+    let trampoline = site.code.trampoline.address();
+
+    if enable {
+      // SAFETY: Links are valid whilst chained.
+      let last = site.chain.last().map(|&last| unsafe { &*last });
+      // Calls to the original function are forwarded before the target is
+      // redirected
+      self.link.next.store(last.map_or(trampoline, |last| last.detour), Ordering::SeqCst);
+
+      let expected = last.map_or(&*self.original, |last| &*last.patched);
+      // SAFETY: Forwarded from the caller.
+      let (written, result) = unsafe { self.replace(expected, &self.link.patched, protections) };
+      if !written {
+        self.link.next.store(trampoline, Ordering::SeqCst);
+        return (None, result);
+      }
+      site.chain.push(link);
+      self.enabled.store(true, Ordering::SeqCst);
+      return (Some(Undo::Enabled), result);
+    }
+
+    let position =
+      site.chain.iter().position(|&other| other == link).expect("an enabled hook is chained");
+    let next = self.link.next.load(Ordering::SeqCst);
+    let mut result = Ok(());
+
+    if position + 1 == site.chain.len() {
+      // The target is redirected to the previous detour (or restored)
+      let previous = position.checked_sub(1).map(|index| site.chain[index]);
+      // SAFETY: Links are valid whilst chained.
+      let replacement = previous.map_or(&*self.original, |previous| unsafe { &*(*previous).patched });
+      let written;
+      // SAFETY: Forwarded from the caller.
+      (written, result) = unsafe { self.replace(&self.link.patched, replacement, protections) };
+      if !written {
+        return (None, result);
+      }
+      site.chain.pop();
     } else {
-      (&self.patched, &self.original)
+      // The detour enabled after this one bypasses it
+      // SAFETY: Links are valid whilst chained.
+      unsafe { &*site.chain[position + 1] }.next.store(next, Ordering::SeqCst);
+      site.chain.remove(position);
+    }
+
+    self.link.next.store(trampoline, Ordering::SeqCst);
+    self.enabled.store(false, Ordering::SeqCst);
+    (Some(Undo::Disabled { position, next }), result)
+  }
+
+  /// Reverts an operation applied by [`Hook::apply`], which must have been
+  /// the last one applied to the site. Errors are ignored, as are by a
+  /// failing transaction.
+  ///
+  /// # Safety
+  ///
+  /// See [`Hook::apply`].
+  pub(crate) unsafe fn revert(&self, registry: &mut Registry, undo: Undo, protections: &Protections) {
+    let Undo::Disabled { position, next } = undo else {
+      // SAFETY: Forwarded from the caller.
+      let _ = unsafe { self.apply(registry, false, protections) };
+      return;
     };
 
-    // Refuse to overwrite code that has been modified by someone else, e.g.
-    // another detour of the same target that was enabled after this one.
+    let site = registry.site(self.target);
+    let link: *const Link = &*self.link;
+    self.link.next.store(next, Ordering::SeqCst);
+
+    if position == site.chain.len() {
+      // SAFETY: Links are valid whilst chained.
+      let last = site.chain.last().map(|&last| unsafe { &*last });
+      let expected = last.map_or(&*self.original, |last| &*last.patched);
+      // SAFETY: Forwarded from the caller.
+      let (written, _) = unsafe { self.replace(expected, &self.link.patched, protections) };
+      if !written {
+        self.link.next.store(site.code.trampoline.address(), Ordering::SeqCst);
+        return;
+      }
+    } else {
+      // SAFETY: Links are valid whilst chained.
+      unsafe { &*site.chain[position] }.next.store(self.link.detour, Ordering::SeqCst);
+    }
+
+    // The capacity remains from the removal, so this does not allocate
+    site.chain.insert(position, link);
+    self.enabled.store(true, Ordering::SeqCst);
+  }
+
+  /// Replaces `expected` with `replacement` at the patch address, returning
+  /// whether `replacement` was written (possibly despite an error).
+  ///
+  /// # Safety
+  ///
+  /// See [`Hook::apply`].
+  unsafe fn replace(&self, expected: &[u8], replacement: &[u8], protections: &Protections) -> (bool, Result<()>) {
+    // Refuse to overwrite code that has been modified by someone else
     // SAFETY: The patch area is readable (it was read upon creation).
-    let current = unsafe { core::slice::from_raw_parts(self.patch_address, expected.len()) };
-    if current != &expected[..] {
-      return Err(Error::TargetModified);
+    let current = || unsafe { core::slice::from_raw_parts(self.patch_address, expected.len()) };
+    if current() != expected {
+      return (false, Err(Error::TargetModified));
     }
 
     // SAFETY: The replacement is either the original code, or a branch to a
     // detour that has been verified during creation.
     let result = unsafe { memory::patch_code(self.patch_address, replacement, protections) };
-
     // The code may have been written despite an error (e.g. if the protection
-    // could not be restored), so the state follows the code. Otherwise the
-    // trampoline could be released whilst the target still branches to it.
-    // SAFETY: See above.
-    let current = unsafe { core::slice::from_raw_parts(self.patch_address, replacement.len()) };
-    if current == &replacement[..] {
-      self.enabled.store(enable, Ordering::SeqCst);
-    }
-    result
+    // could not be restored), in which case the state must follow the code.
+    // Otherwise the trampoline could be released whilst still in use.
+    (current() == replacement, result)
   }
 
-  /// Returns where a suspended thread at `pc` must resume, once the hook is
-  /// enabled or disabled, or `None` if it is unaffected.
+  /// Returns where a suspended thread at `pc` must resume, once the target's
+  /// code is patched or restored (see [`Change`]), or `None` if it is
+  /// unaffected.
   ///
-  /// - Enabling: a thread executing the instructions that are overwritten is
+  /// - Patching: a thread executing the instructions that are overwritten is
   ///   moved to their equivalent in the trampoline.
-  /// - Disabling: a thread in the midst of the patch (having executed part of
+  /// - Restoring: a thread in the midst of the patch (having executed part of
   ///   it, e.g. the short jump of a hot patch) is moved to the start of the
   ///   target. The trampoline remains valid, so threads executing it are
   ///   unaffected.
-  pub(crate) fn relocate(&self, pc: usize, enable: bool) -> Result<Option<usize>> {
+  pub(crate) fn relocate(&self, pc: usize, change: Change) -> Result<Option<usize>> {
     let patch = self.patch_range();
     if !patch.contains(&pc) {
       return Ok(None);
     }
 
-    if enable {
-      // The padding preceding a hot-patched function is never executed
-      if pc < self.target {
-        return Ok(None);
-      }
-      let offset = (pc - self.target) as u32;
-      self
-        .relocated
-        .iter()
-        .find(|(original, _)| *original == offset)
-        .map(|&(_, relocated)| Some(self.trampoline.address() + relocated as usize))
-        .ok_or(Error::ThreadNotRelocatable)
-    } else if pc == patch.start.max(self.target) {
+    match change {
+      Change::Patch => {
+        // The padding preceding a hot-patched function is never executed
+        if pc < self.target {
+          return Ok(None);
+        }
+        let offset = (pc - self.target) as u32;
+        self
+          .relocated
+          .iter()
+          .find(|(original, _)| *original == offset)
+          .map(|&(_, relocated)| Some(self.trampoline + relocated as usize))
+          .ok_or(Error::ThreadNotRelocatable)
+      },
       // The thread has yet to execute the patch; the original is restored
-      Ok(None)
-    } else {
+      Change::Restore if pc == patch.start.max(self.target) => Ok(None),
       // Any executed part of the patch (e.g. `AUTIASP`) is redone by the
       // target's prolog (e.g. `PACIASP`)
-      Ok(Some(self.target))
+      Change::Restore => Ok(Some(self.target)),
+      // Patches of the same target have the same layout, so a thread in the
+      // midst of one continues with the other
+      Change::Redirect | Change::Relink => Ok(None),
     }
   }
 }
@@ -181,16 +409,29 @@ impl Drop for Hook {
   /// Disables the hook, if enabled.
   fn drop(&mut self) {
     // SAFETY: Restoring the original code is always valid.
-    if unsafe { self.disable() }.is_ok() {
-      // SAFETY: The target no longer refers to the generated code, and the
-      // fields are never accessed again.
-      unsafe {
-        ManuallyDrop::drop(&mut self.trampoline);
-        ManuallyDrop::drop(&mut self.relay);
-      }
+    if unsafe { self.disable() }.is_err() {
+      // The target or other detours may still branch to the generated code,
+      // so it is intentionally leaked (along with the site).
+      return;
     }
-    // Otherwise the target may still branch to the trampoline or relay, so
-    // their memory is intentionally leaked.
+
+    let mut registry = memory::patch_lock();
+    let index = registry
+      .sites
+      .iter()
+      .position(|site| site.target == self.target)
+      .expect("the site of a hook exists");
+    registry.sites[index].hooks -= 1;
+    let site = (registry.sites[index].hooks == 0).then(|| registry.sites.swap_remove(index));
+    drop(registry);
+    drop(site);
+
+    // SAFETY: Neither the target nor other detours refer to the generated
+    // code, and the fields are never accessed again.
+    unsafe {
+      ManuallyDrop::drop(&mut self.stub);
+      ManuallyDrop::drop(&mut self.relay);
+    }
   }
 }
 
@@ -198,7 +439,7 @@ impl fmt::Debug for Hook {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     f.debug_struct("Hook")
       .field("target", &(self.target as *const ()))
-      .field("detour", &self.detour)
+      .field("detour", &(self.link.detour as *const ()))
       .field("trampoline", &self.trampoline())
       .field("enabled", &self.is_enabled())
       .finish()
@@ -207,6 +448,7 @@ impl fmt::Debug for Hook {
 
 #[cfg(test)]
 mod tests {
+  use super::Change;
   use crate::transaction::private::Sealed;
   use crate::{RawDetour, Result};
   use core::arch::naked_asm;
@@ -234,19 +476,19 @@ mod tests {
 
     let detour = detour(ret5)?;
     let hook = detour.hook().unwrap();
-    let (target, trampoline) = (ret5 as *const () as usize, hook.trampoline() as usize);
+    let (target, trampoline) = (ret5 as *const () as usize, hook.trampoline);
 
     // Enabling moves threads executing the overwritten instructions
-    assert_eq!(hook.relocate(target, true), Ok(Some(trampoline)));
-    assert_eq!(hook.relocate(target + 1, true), Ok(Some(trampoline + 1)));
-    assert_eq!(hook.relocate(target + 2, true), Err(crate::Error::ThreadNotRelocatable));
-    assert_eq!(hook.relocate(target + 5, true), Ok(None));
-    assert_eq!(hook.relocate(target - 1, true), Ok(None));
+    assert_eq!(hook.relocate(target, Change::Patch), Ok(Some(trampoline)));
+    assert_eq!(hook.relocate(target + 1, Change::Patch), Ok(Some(trampoline + 1)));
+    assert_eq!(hook.relocate(target + 2, Change::Patch), Err(crate::Error::ThreadNotRelocatable));
+    assert_eq!(hook.relocate(target + 5, Change::Patch), Ok(None));
+    assert_eq!(hook.relocate(target - 1, Change::Patch), Ok(None));
 
     // Disabling only moves threads in the midst of the patch
-    assert_eq!(hook.relocate(target, false), Ok(None));
-    assert_eq!(hook.relocate(target + 1, false), Ok(Some(target)));
-    assert_eq!(hook.relocate(trampoline + 1, false), Ok(None));
+    assert_eq!(hook.relocate(target, Change::Restore), Ok(None));
+    assert_eq!(hook.relocate(target + 1, Change::Restore), Ok(Some(target)));
+    assert_eq!(hook.relocate(trampoline + 1, Change::Restore), Ok(None));
     Ok(())
   }
 
@@ -268,16 +510,16 @@ mod tests {
     let target: unsafe extern "C" fn() -> i32 = unsafe { core::mem::transmute(target) };
     let detour = detour(target)?;
     let hook = detour.hook().unwrap();
-    let (target, trampoline) = (target as *const () as usize, hook.trampoline() as usize);
+    let (target, trampoline) = (target as *const () as usize, hook.trampoline);
 
     // The padding is never executed, and only the first instruction is patched
-    assert_eq!(hook.relocate(target - 5, true), Ok(None));
-    assert_eq!(hook.relocate(target, true), Ok(Some(trampoline)));
-    assert_eq!(hook.relocate(target + 2, true), Ok(None));
+    assert_eq!(hook.relocate(target - 5, Change::Patch), Ok(None));
+    assert_eq!(hook.relocate(target, Change::Patch), Ok(Some(trampoline)));
+    assert_eq!(hook.relocate(target + 2, Change::Patch), Ok(None));
 
     // A thread having executed the short jump restarts at the target
-    assert_eq!(hook.relocate(target - 5, false), Ok(Some(target)));
-    assert_eq!(hook.relocate(target, false), Ok(None));
+    assert_eq!(hook.relocate(target - 5, Change::Restore), Ok(Some(target)));
+    assert_eq!(hook.relocate(target, Change::Restore), Ok(None));
     Ok(())
   }
 
@@ -291,12 +533,12 @@ mod tests {
 
     let detour = detour(ret5)?;
     let hook = detour.hook().unwrap();
-    let (target, trampoline) = (ret5 as *const () as usize, hook.trampoline() as usize);
+    let (target, trampoline) = (ret5 as *const () as usize, hook.trampoline);
 
     // A single instruction is patched
-    assert_eq!(hook.relocate(target, true), Ok(Some(trampoline)));
-    assert_eq!(hook.relocate(target + 4, true), Ok(None));
-    assert_eq!(hook.relocate(target, false), Ok(None));
+    assert_eq!(hook.relocate(target, Change::Patch), Ok(Some(trampoline)));
+    assert_eq!(hook.relocate(target + 4, Change::Patch), Ok(None));
+    assert_eq!(hook.relocate(target, Change::Restore), Ok(None));
     Ok(())
   }
 
@@ -320,16 +562,16 @@ mod tests {
     crate::arch::FORCE_FAR.set(false);
     let detour = detour?;
     let hook = detour.hook().unwrap();
-    let (target, trampoline) = (add5 as *const () as usize, hook.trampoline() as usize);
+    let (target, trampoline) = (add5 as *const () as usize, hook.trampoline);
 
     // Four instructions are replaced, each relocated to a single instruction
-    assert_eq!(hook.relocate(target + 8, true), Ok(Some(trampoline + 8)));
-    assert_eq!(hook.relocate(target + 12, true), Ok(Some(trampoline + 12)));
-    assert_eq!(hook.relocate(target + 16, true), Ok(None));
+    assert_eq!(hook.relocate(target + 8, Change::Patch), Ok(Some(trampoline + 8)));
+    assert_eq!(hook.relocate(target + 12, Change::Patch), Ok(Some(trampoline + 12)));
+    assert_eq!(hook.relocate(target + 16, Change::Patch), Ok(None));
 
     // A thread in the midst of the absolute jump restarts at the target
-    assert_eq!(hook.relocate(target, false), Ok(None));
-    assert_eq!(hook.relocate(target + 4, false), Ok(Some(target)));
+    assert_eq!(hook.relocate(target, Change::Restore), Ok(None));
+    assert_eq!(hook.relocate(target + 4, Change::Restore), Ok(Some(target)));
     Ok(())
   }
 
@@ -355,17 +597,17 @@ mod tests {
   fn state_follows_code_written_despite_errors() -> Result<()> {
     let detour = detour(ret5)?;
     let hook = detour.hook().unwrap();
-    let _lock = crate::memory::patch_lock();
+    let mut registry = crate::memory::patch_lock();
     let protections = hook.protections()?;
 
     for enable in [true, false] {
-      crate::memory::FAIL_AFTER_WRITE.set(true);
+      crate::memory::FAIL_AFTER_WRITE.set(Some(0));
       // SAFETY: No other thread is executing `ret5`.
-      let result = unsafe { hook.write(enable, &protections) };
-      crate::memory::FAIL_AFTER_WRITE.set(false);
+      let (undo, result) = unsafe { hook.apply(&mut registry, enable, &protections) };
+      crate::memory::FAIL_AFTER_WRITE.set(None);
 
       // The code was written, so the state is updated nonetheless
-      assert!(result.is_err());
+      assert!(undo.is_some() && result.is_err());
       assert_eq!(hook.is_enabled(), enable);
       // SAFETY: `ret5` has no preconditions.
       assert_eq!(unsafe { ret5() }, if enable { 10 } else { 5 });
@@ -379,10 +621,10 @@ mod tests {
     let mut transaction = crate::Transaction::new();
     transaction.enable(&detour);
 
-    crate::memory::FAIL_AFTER_WRITE.set(true);
+    crate::memory::FAIL_AFTER_WRITE.set(Some(0));
     // SAFETY: No other thread is executing `ret6`.
     let result = unsafe { transaction.commit(crate::Threads::None) };
-    crate::memory::FAIL_AFTER_WRITE.set(false);
+    crate::memory::FAIL_AFTER_WRITE.set(None);
 
     // Both the write and its revert fail, but the code is reverted
     assert!(result.is_err());

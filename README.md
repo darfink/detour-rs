@@ -21,6 +21,8 @@ through a trampoline.
   and NOP-padded functions, and reaches distant detours through relays.
 - Type-safe detours for any signature (including references), with closures
   as detours.
+- Several detours of the same target are chained, and can be enabled and
+  disabled in any order.
 - Transactions: patch several functions at once, all or nothing, whilst other
   threads are suspended. Threads caught executing the patched instructions
   are moved to equivalent code (EIP relocation).
@@ -143,6 +145,14 @@ fn main() -> detour::Result<()> {
 
 `RawDetour` accepts any pointer, e.g. for functions whose signature is only
 known at runtime.
+
+## Detours of the same target
+
+Several detours of the same target are chained. The target calls the most
+recently enabled detour, and its original function is the detour enabled
+before it, and so on, until the target's original code is reached. Detours
+can be enabled and disabled in any order: a disabled detour is removed from
+the chain, and its original function is the target's original code.
 
 ## Thread safety
 
@@ -307,9 +317,6 @@ detour = { version = "0.10.0", default-features = false, features = ["no_std"] }
 - **Return addresses.** Only the instruction pointers of suspended threads
   are relocated, not return addresses that refer to patched instructions
   (e.g. of a thread executing a function called from a target's prolog).
-- **Shared targets.** Multiple detours of the same target must be disabled in
-  the reverse order they were enabled in; otherwise
-  `Error::TargetModified` is returned.
 - **Rosetta 2.** Under Rosetta 2 (x86-64 code on Apple silicon), modifying
   code whilst another thread executes the same memory page may intermittently
   raise `SIGBUS`. Native Intel Macs and native Apple silicon code are not

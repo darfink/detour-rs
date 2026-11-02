@@ -6,7 +6,7 @@
 //! preceding the function is used. Detours further away than ±2 GiB (x86-64)
 //! are reached via a relay, an absolute jump allocated near the target.
 
-use super::Parts;
+use super::{Redirect, Site};
 use crate::error::{Error, Result};
 use crate::memory::{self, CodeBlock};
 use iced_x86::{
@@ -40,15 +40,20 @@ const JMP_REL8_LEN: usize = 2;
 /// An upper bound for the size of a single relocated instruction.
 const MAX_RELOCATED_LEN: usize = 24;
 
-/// Creates a detour of `target` to `detour`.
+/// How a target is patched.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct Layout {
+  /// Whether the jump resides in the hot-patch area preceding the target.
+  hot_patch: bool,
+}
+
+/// Prepares the site of `target`, and redirects it to `detour`.
 ///
 /// # Safety
 ///
 /// `target` must point to executable code.
-pub(crate) unsafe fn build(target: *const (), detour: *const ()) -> Result<Parts> {
+pub(crate) unsafe fn build(target: *const (), detour: *const ()) -> Result<(Site, Redirect)> {
   let target = target as usize;
-  let detour = detour as usize;
-
   let prolog = Prolog::decode(target, JMP_REL32_LEN)?;
 
   // Determine the area to patch with a jump to the detour
@@ -64,17 +69,32 @@ pub(crate) unsafe fn build(target: *const (), detour: *const ()) -> Result<Parts
       return Err(Error::PatchAreaTooSmall);
     };
 
-  let patch_address = if hot_patch {
-    target - JMP_REL32_LEN
-  } else {
-    target
-  };
-  let patch_len = JMP_REL32_LEN + if hot_patch { JMP_REL8_LEN } else { 0 };
+  let layout = Layout { hot_patch };
+  let (patch_address, patch_len) = layout.patch_area(target);
 
   // Relocated references to the patched bytes would observe the detour jump
   if prolog.references_memory(patch_address..patch_address + patch_len) {
     return Err(Error::UnsupportedInstruction);
   }
+
+  let redirect = redirect(patch_address as *mut u8, layout, detour)?;
+  // SAFETY: The patch area has been verified to be readable.
+  let original = unsafe { slice::from_raw_parts(patch_address as *const u8, patch_len) }.to_vec();
+  let (trampoline, relocated) = prolog.relocate(target)?;
+
+  let site = Site {
+    patch_address: patch_address as *mut u8,
+    original,
+    trampoline,
+    relocated,
+    layout,
+  };
+  Ok((site, redirect))
+}
+
+/// Redirects the site patched at `patch_address` to `detour`.
+pub(crate) fn redirect(patch_address: *mut u8, layout: Layout, detour: *const ()) -> Result<Redirect> {
+  let (patch_address, detour) = (patch_address as usize, detour as usize);
 
   // A relay is required if the detour is out of reach for a `rel32`
   let jump_end = patch_address + JMP_REL32_LEN;
@@ -91,26 +111,48 @@ pub(crate) unsafe fn build(target: *const (), detour: *const ()) -> Result<Parts
   let destination = relay.as_ref().map_or(detour, CodeBlock::address);
   let displacement = rel32(jump_end, destination).ok_or(Error::NoNearbyMemory)?;
 
-  let mut patched = Vec::with_capacity(patch_len);
+  let mut patched = Vec::with_capacity(JMP_REL32_LEN + JMP_REL8_LEN);
   patched.push(0xE9);
   patched.extend_from_slice(&displacement.to_le_bytes());
-  if hot_patch {
+  if layout.hot_patch {
     // A short jump from the target to the hot-patch area preceding it
-    patched.extend_from_slice(&[0xEB, (-(patch_len as i8)) as u8]);
+    patched.extend_from_slice(&[0xEB, (-((JMP_REL32_LEN + JMP_REL8_LEN) as i8)) as u8]);
   }
 
-  // SAFETY: The patch area has been verified to be readable.
-  let original = unsafe { slice::from_raw_parts(patch_address as *const u8, patch_len) }.to_vec();
-  let (trampoline, relocated) = prolog.relocate(target)?;
+  Ok(Redirect { patched, relay })
+}
 
-  Ok(Parts {
-    patch_address: patch_address as *mut u8,
-    original,
-    patched,
-    trampoline,
-    relocated,
-    relay,
-  })
+/// Returns code jumping to the address stored at `pointer`.
+///
+/// It is the entry point of a function, so a scratch register that holds no
+/// argument (`r11`) may be clobbered.
+pub(crate) fn link(pointer: *const usize) -> Vec<u8> {
+  #[cfg(target_arch = "x86_64")]
+  {
+    // mov r11, imm64; jmp qword ptr [r11]
+    let mut code = vec![0x49, 0xBB];
+    code.extend_from_slice(&(pointer as u64).to_le_bytes());
+    code.extend_from_slice(&[0x41, 0xFF, 0x23]);
+    code
+  }
+  #[cfg(target_arch = "x86")]
+  {
+    // jmp dword ptr [abs32]
+    let mut code = vec![0xFF, 0x25];
+    code.extend_from_slice(&(pointer as u32).to_le_bytes());
+    code
+  }
+}
+
+impl Layout {
+  /// Returns the address and length of the patched bytes of `target`.
+  fn patch_area(self, target: usize) -> (usize, usize) {
+    if self.hot_patch {
+      (target - JMP_REL32_LEN, JMP_REL32_LEN + JMP_REL8_LEN)
+    } else {
+      (target, JMP_REL32_LEN)
+    }
+  }
 }
 
 /// The instructions of a target that are replaced by the detour jump.
@@ -223,7 +265,7 @@ impl Prolog {
   /// Relocates the prolog to a trampoline allocated close to `target`.
   ///
   /// Returns the trampoline, and the offsets of the relocated instructions
-  /// (see [`Parts::relocated`]).
+  /// (see [`Site::relocated`]).
   fn relocate(&self, target: usize) -> Result<(CodeBlock, Vec<(u32, u32)>)> {
     let mut instructions = self.instructions.clone();
 

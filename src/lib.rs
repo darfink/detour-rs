@@ -38,6 +38,14 @@
 //! # }
 //! ```
 //!
+//! # Detours of the same target
+//!
+//! Several detours of the same target are chained. The target calls the most
+//! recently enabled detour, and its original function is the detour enabled
+//! before it, and so on, until the target's original code is reached. Detours
+//! can be enabled and disabled in any order: a disabled detour is removed from
+//! the chain, and its original function is the target's original code.
+//!
 //! # Thread safety
 //!
 //! `enable` and `disable` do not suspend other threads. A thread executing
@@ -114,8 +122,6 @@
 //! - A dropped detour is disabled without suspending threads, and its
 //!   trampoline is released immediately. Disable it with a [`Transaction`]
 //!   first if other threads may be executing the target or the trampoline.
-//! - Multiple detours of the same target must be disabled in the reverse order
-//!   they were enabled in; otherwise [`Error::TargetModified`] is returned.
 //! - Under Rosetta 2 (x86-64 code on Apple silicon), modifying code whilst
 //!   another thread executes the same memory page may intermittently raise
 //!   `SIGBUS`. This is a limitation of the translator.
@@ -315,19 +321,16 @@ mod tests {
     // SAFETY: No other thread is executing `add`.
     unsafe { hook2.enable()? };
 
-    // This will call the previous hook's detour
+    // The original function of the second detour is the first detour
     assert_eq!(hook2.call(5, 5), 0);
     assert_eq!(add(10, 5), 2);
 
-    // The first hook cannot be disabled before the second
+    // Detours can be disabled in any order
     // SAFETY: No other thread is executing `add`.
-    let result = unsafe { hook1.disable() };
-    assert!(matches!(result, Err(Error::TargetModified)));
-    // SAFETY: No other thread is executing `add`.
-    unsafe {
-      hook2.disable()?;
-      hook1.disable()?;
-    }
+    unsafe { hook1.disable()? };
+    assert_eq!((add(10, 5), hook2.call(10, 5)), (2, 15));
+    // SAFETY: See above.
+    unsafe { hook2.disable()? };
     assert_eq!(add(10, 5), 15);
     Ok(())
   }

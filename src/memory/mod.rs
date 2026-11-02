@@ -4,22 +4,25 @@
 pub(crate) use self::alloc::{CodeBlock, allocate_near};
 
 use crate::error::{Error, Result};
+use crate::hook::Registry;
 use crate::sync::Mutex;
+use core::ops::DerefMut;
 
 mod alloc;
 #[cfg(target_vendor = "apple")]
 mod apple;
 
-/// Serializes all code modifications performed by this crate.
+/// Serializes all code modifications performed by this crate, and guards the
+/// registry of detoured targets.
 ///
 /// Creating, enabling, and disabling detours all read or write code that other
 /// detours may also touch (e.g. two detours sharing a target, or relocated
 /// code residing in a shared page).
-static PATCH_LOCK: Mutex<()> = Mutex::new(());
+static PATCH_LOCK: Mutex<Registry> = Mutex::new(Registry::new());
 
 /// Acquires the global patch lock, which is held until the guard is dropped.
 #[must_use]
-pub(crate) fn patch_lock() -> impl Sized {
+pub(crate) fn patch_lock() -> impl DerefMut<Target = Registry> {
   PATCH_LOCK.lock()
 }
 
@@ -177,8 +180,10 @@ pub(crate) unsafe fn patch_code(
   if result.is_ok() {
     flush_instruction_cache(address, bytes.len());
     #[cfg(test)]
-    if FAIL_AFTER_WRITE.get() {
-      return Err(Error::Memory(crate::error::OsError::other("simulated failure")));
+    match FAIL_AFTER_WRITE.get() {
+      Some(0) => return Err(Error::Memory(crate::error::OsError::other("simulated failure"))),
+      Some(count) => FAIL_AFTER_WRITE.set(Some(count - 1)),
+      None => {},
     }
   }
   result
@@ -187,8 +192,9 @@ pub(crate) unsafe fn patch_code(
 #[cfg(test)]
 std::thread_local! {
   /// Fails code patches (for the current thread) after the code is written,
-  /// as if the protection could not be restored.
-  pub(crate) static FAIL_AFTER_WRITE: core::cell::Cell<bool> = const { core::cell::Cell::new(false) };
+  /// as if the protection could not be restored, once the given number of
+  /// patches has succeeded.
+  pub(crate) static FAIL_AFTER_WRITE: core::cell::Cell<Option<usize>> = const { core::cell::Cell::new(None) };
 }
 
 /// Ensures that modified code is visible to instruction fetches.

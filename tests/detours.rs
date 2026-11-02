@@ -1,5 +1,5 @@
 //! Tests of the public API.
-use detour::{Error, RawDetour, Result, TypedDetour, static_detour};
+use detour::{Error, RawDetour, Result, Threads, Transaction, TypedDetour, static_detour};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -730,5 +730,74 @@ fn detours_can_be_grouped() -> Result<()> {
 
   let detours: [&dyn Detour; 2] = [&Grouped, &typed];
   assert_eq!(detours.map(|detour| detour.is_enabled()), [false, true]);
+  Ok(())
+}
+
+#[test]
+fn detours_of_the_same_target_are_chained() -> Result<()> {
+  use detour::Detour;
+
+  static_detour! {
+    static First: fn(i32) -> i32;
+    static Second: fn(i32) -> i32;
+    static Third: fn(i32) -> i32;
+  }
+
+  #[inline(never)]
+  fn digits(value: i32) -> i32 {
+    std::hint::black_box(value) + unique!()
+  }
+
+  // Each detour appends its digit, and calls its original function
+  // SAFETY: The closures share the signature of `digits`.
+  unsafe {
+    First.initialize(digits, |value| First.call(value * 10 + 1))?;
+    Second.initialize(digits, |value| Second.call(value * 10 + 2))?;
+    Third.initialize(digits, |value| Third.call(value * 10 + 3))?;
+  }
+  let detours: [&dyn Detour; 3] = [&First, &Second, &Third];
+  let orders = [
+    [0, 1, 2],
+    [0, 2, 1],
+    [1, 0, 2],
+    [1, 2, 0],
+    [2, 0, 1],
+    [2, 1, 0],
+  ];
+
+  // The digits of the enabled detours, the most recently enabled first
+  let expected = |enabled: &[usize]| {
+    enabled
+      .iter()
+      .rev()
+      .fold(0, |value, &index| value * 10 + index as i32 + 1)
+  };
+
+  for enable in orders {
+    for disable in orders {
+      let mut enabled = Vec::new();
+      for index in enable {
+        let mut transaction = Transaction::new();
+        transaction.enable(detours[index]);
+        // SAFETY: No other thread is executing `digits`.
+        unsafe { transaction.commit(Threads::None)? };
+        enabled.push(index);
+        assert_eq!(digits(0), expected(&enabled));
+      }
+
+      for index in disable {
+        let mut transaction = Transaction::new();
+        transaction.disable(detours[index]);
+        // SAFETY: See above.
+        unsafe { transaction.commit(Threads::None)? };
+        enabled.retain(|&other| other != index);
+        assert_eq!(
+          digits(0),
+          expected(&enabled),
+          "enabled {enable:?}, disabled {disable:?}"
+        );
+      }
+    }
+  }
   Ok(())
 }

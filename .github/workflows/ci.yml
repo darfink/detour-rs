@@ -76,8 +76,9 @@ jobs:
             cargo test &&
             cargo test --no-default-features --features no_std &&
             cargo build --example early_hook --example early_target &&
-            LD_PRELOAD=target/debug/examples/libearly_hook.so target/debug/examples/early_target |
-              grep -q "intercepted the process ID query"'
+            output=$(LD_PRELOAD=target/debug/examples/libearly_hook.so target/debug/examples/early_target 2>&1) &&
+            echo "$output" &&
+            echo "$output" | grep -q "intercepted the process ID query"'
 
   no-std:
     name: no_std executable (${{ matrix.os }})

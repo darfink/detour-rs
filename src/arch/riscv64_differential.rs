@@ -182,12 +182,6 @@ unsafe extern "C" fn exit() {
   )
 }
 
-/// Makes code written by this thread visible to its instruction fetches.
-fn fence_i() {
-  // SAFETY: `FENCE.I` only synchronizes the instruction & data streams.
-  unsafe { core::arch::asm!(".insn i 0x0F, 1, x0, x0, 0", options(nostack, preserves_flags)) };
-}
-
 /// Encoders, independent of the relocator's.
 mod insn {
   fn bit(value: u32, index: u32) -> u32 {
@@ -383,7 +377,8 @@ impl Region {
     // SAFETY: The range is within the mapping, which is writable, and not
     // being executed.
     unsafe { core::ptr::copy_nonoverlapping(code.as_ptr(), address as *mut u8, code.len()) };
-    fence_i();
+    // On all harts, since the thread may migrate
+    crate::memory::flush_instruction_cache(address as *const u8, code.len());
   }
 
   /// Restores the slots spanning `start..end`.

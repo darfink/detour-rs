@@ -138,7 +138,9 @@ impl Protections {
 /// Overwrites existing (typically read-only) code at `address` with `bytes`.
 ///
 /// The memory protection is restored to `protections` afterwards, and the
-/// instruction cache is invalidated for the modified range. This does not
+/// instruction cache is invalidated for the modified range. The code may have
+/// been written even if an error is returned (e.g. if the protection could
+/// not be restored). This does not
 /// allocate, so it may be used whilst other threads are suspended.
 ///
 /// # Safety
@@ -174,8 +176,19 @@ pub(crate) unsafe fn patch_code(
 
   if result.is_ok() {
     flush_instruction_cache(address, bytes.len());
+    #[cfg(test)]
+    if FAIL_AFTER_WRITE.get() {
+      return Err(Error::Memory(crate::error::OsError::other("simulated failure")));
+    }
   }
   result
+}
+
+#[cfg(test)]
+std::thread_local! {
+  /// Fails code patches (for the current thread) after the code is written,
+  /// as if the protection could not be restored.
+  pub(crate) static FAIL_AFTER_WRITE: core::cell::Cell<bool> = const { core::cell::Cell::new(false) };
 }
 
 /// Ensures that modified code is visible to instruction fetches.

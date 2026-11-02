@@ -173,8 +173,12 @@ pub(crate) unsafe fn commit(operations: &[(&Hook, bool)], threads: Threads<'_>) 
 
       // SAFETY: Unsuspended threads do not execute the patch (as guaranteed
       // by the caller), and suspended threads are moved below.
-      unsafe { hook.write(enable, &protections[index])? };
-      applied.push(index);
+      let written = unsafe { hook.write(enable, &protections[index]) };
+      // Code written despite an error is reverted as well
+      if hook.is_enabled() == enable {
+        applied.push(index);
+      }
+      written?;
 
       for thread in suspended.threads() {
         if let Some(pc) = hook.relocate(thread.pc(), enable)? {

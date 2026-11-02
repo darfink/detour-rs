@@ -114,7 +114,7 @@ impl OsError {
   }
 
   /// Returns an error described by `message`.
-  #[cfg(any(target_os = "linux", target_os = "android"))]
+  #[cfg(any(target_os = "linux", target_os = "android", test))]
   pub(crate) const fn other(message: &'static str) -> Self {
     OsError(Kind::Other(message))
   }

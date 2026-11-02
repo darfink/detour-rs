@@ -103,6 +103,9 @@ impl Hook {
   ///
   /// The caller must hold the global patch lock.
   ///
+  /// If an error is returned, the code may still have been written, in which
+  /// case the hook's state is updated nonetheless.
+  ///
   /// # Safety
   ///
   /// No thread may execute the patched bytes whilst they are written.
@@ -123,9 +126,17 @@ impl Hook {
 
     // SAFETY: The replacement is either the original code, or a branch to a
     // detour that has been verified during creation.
-    unsafe { memory::patch_code(self.patch_address, replacement, protections)? };
-    self.enabled.store(enable, Ordering::SeqCst);
-    Ok(())
+    let result = unsafe { memory::patch_code(self.patch_address, replacement, protections) };
+
+    // The code may have been written despite an error (e.g. if the protection
+    // could not be restored), so the state follows the code. Otherwise the
+    // trampoline could be released whilst the target still branches to it.
+    // SAFETY: See above.
+    let current = unsafe { core::slice::from_raw_parts(self.patch_address, replacement.len()) };
+    if current == &replacement[..] {
+      self.enabled.store(enable, Ordering::SeqCst);
+    }
+    result
   }
 
   /// Returns where a suspended thread at `pc` must resume, once the hook is
@@ -319,6 +330,65 @@ mod tests {
     // A thread in the midst of the absolute jump restarts at the target
     assert_eq!(hook.relocate(target, false), Ok(None));
     assert_eq!(hook.relocate(target + 4, false), Ok(Some(target)));
+    Ok(())
+  }
+
+  /// Returns `5`.
+  #[unsafe(naked)]
+  unsafe extern "C" fn ret5() -> i32 {
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    naked_asm!("mov eax, 5", "ret");
+    #[cfg(target_arch = "aarch64")]
+    naked_asm!("mov w0, #5", "ret");
+  }
+
+  /// See [`ret5`] (each test detours its own target).
+  #[unsafe(naked)]
+  unsafe extern "C" fn ret6() -> i32 {
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    naked_asm!("mov eax, 6", "ret");
+    #[cfg(target_arch = "aarch64")]
+    naked_asm!("mov w0, #6", "ret");
+  }
+
+  #[test]
+  fn state_follows_code_written_despite_errors() -> Result<()> {
+    let detour = detour(ret5)?;
+    let hook = detour.hook().unwrap();
+    let _lock = crate::memory::patch_lock();
+    let protections = hook.protections()?;
+
+    for enable in [true, false] {
+      crate::memory::FAIL_AFTER_WRITE.set(true);
+      // SAFETY: No other thread is executing `ret5`.
+      let result = unsafe { hook.write(enable, &protections) };
+      crate::memory::FAIL_AFTER_WRITE.set(false);
+
+      // The code was written, so the state is updated nonetheless
+      assert!(result.is_err());
+      assert_eq!(hook.is_enabled(), enable);
+      // SAFETY: `ret5` has no preconditions.
+      assert_eq!(unsafe { ret5() }, if enable { 10 } else { 5 });
+    }
+    Ok(())
+  }
+
+  #[test]
+  fn transactions_revert_code_written_despite_errors() -> Result<()> {
+    let detour = detour(ret6)?;
+    let mut transaction = crate::Transaction::new();
+    transaction.enable(&detour);
+
+    crate::memory::FAIL_AFTER_WRITE.set(true);
+    // SAFETY: No other thread is executing `ret6`.
+    let result = unsafe { transaction.commit(crate::Threads::None) };
+    crate::memory::FAIL_AFTER_WRITE.set(false);
+
+    // Both the write and its revert fail, but the code is reverted
+    assert!(result.is_err());
+    assert!(!detour.is_enabled());
+    // SAFETY: `ret6` has no preconditions.
+    assert_eq!(unsafe { ret6() }, 6);
     Ok(())
   }
 }

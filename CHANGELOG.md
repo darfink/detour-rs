@@ -8,6 +8,10 @@
   Linux & Android.
 - A static detour could be enabled and called by another thread whilst it was
   being initialized, before its closure was set (aborting the process).
+- If code was patched, but its memory protection could not be restored, the
+  detour was considered unchanged. It was neither reverted by a transaction,
+  nor disabled when dropped, so its trampoline could be released whilst still
+  in use.
 
 ## [0.10.0] - 2026-09-30
 

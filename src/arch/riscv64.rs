@@ -662,3 +662,11 @@ mod tests {
     );
   }
 }
+
+#[cfg(test)]
+#[path = "riscv64_oracle.rs"]
+mod oracle;
+
+#[cfg(all(test, target_arch = "riscv64", target_os = "linux"))]
+#[path = "riscv64_differential.rs"]
+mod differential;

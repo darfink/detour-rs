@@ -125,20 +125,21 @@ pub(crate) fn redirect(patch_address: *mut u8, layout: Layout, detour: *const ()
 /// Returns code jumping to the address stored at `pointer`.
 ///
 /// It is the entry point of a function, so a scratch register that holds no
-/// argument (`r11`) may be clobbered.
+/// argument (`r11`) may be clobbered. It begins with a landing pad, since it
+/// is called indirectly (a `nop` unless indirect branch tracking is enforced).
 pub(crate) fn link(pointer: *const usize) -> Vec<u8> {
   #[cfg(target_arch = "x86_64")]
   {
-    // mov r11, imm64; jmp qword ptr [r11]
-    let mut code = vec![0x49, 0xBB];
+    // endbr64; mov r11, imm64; jmp qword ptr [r11]
+    let mut code = vec![0xF3, 0x0F, 0x1E, 0xFA, 0x49, 0xBB];
     code.extend_from_slice(&(pointer as u64).to_le_bytes());
     code.extend_from_slice(&[0x41, 0xFF, 0x23]);
     code
   }
   #[cfg(target_arch = "x86")]
   {
-    // jmp dword ptr [abs32]
-    let mut code = vec![0xFF, 0x25];
+    // endbr32; jmp dword ptr [abs32]
+    let mut code = vec![0xF3, 0x0F, 0x1E, 0xFB, 0xFF, 0x25];
     code.extend_from_slice(&(pointer as u32).to_le_bytes());
     code
   }

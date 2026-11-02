@@ -155,6 +155,14 @@ pub(crate) unsafe fn patch_code(
   bytes: &[u8],
   protections: &Protections,
 ) -> Result<()> {
+  #[cfg(test)]
+  {
+    let failing = FAIL_BEFORE_WRITE.replace(FAIL_BEFORE_WRITE.get() >> 1);
+    if failing & 1 != 0 {
+      return Err(Error::Memory(crate::error::OsError::other("simulated failure")));
+    }
+  }
+
   // SAFETY: The requested protection is a superset of the existing one.
   let result = match unsafe {
     region::protect(address, bytes.len(), region::Protection::READ_WRITE_EXECUTE)
@@ -195,6 +203,10 @@ std::thread_local! {
   /// as if the protection could not be restored, once the given number of
   /// patches has succeeded.
   pub(crate) static FAIL_AFTER_WRITE: core::cell::Cell<Option<usize>> = const { core::cell::Cell::new(None) };
+
+  /// Fails code patches (for the current thread) before the code is written:
+  /// bit `n` fails the `n`-th subsequent patch.
+  pub(crate) static FAIL_BEFORE_WRITE: core::cell::Cell<u64> = const { core::cell::Cell::new(0) };
 }
 
 /// Ensures that modified code is visible to instruction fetches.

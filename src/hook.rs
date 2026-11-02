@@ -91,8 +91,8 @@ pub(crate) enum Change {
 pub(crate) enum Undo {
   /// The hook was enabled.
   Enabled,
-  /// The hook was disabled, from `position` of the chain, linked to `next`.
-  Disabled { position: usize, next: usize },
+  /// The hook was disabled, from `position` of the chain.
+  Disabled { position: usize },
 }
 
 /// The building block of all detour types.
@@ -105,9 +105,9 @@ pub struct Hook {
   relocated: Box<[(u32, u32)]>,
   /// The site's trampoline.
   trampoline: usize,
-  link: Box<Link>,
   // Released manually, since the target or other detours may still refer to
   // them
+  link: ManuallyDrop<Box<Link>>,
   stub: ManuallyDrop<CodeBlock>,
   relay: ManuallyDrop<Option<CodeBlock>>,
   enabled: AtomicBool,
@@ -168,7 +168,7 @@ impl Hook {
       original: code.original.clone().into_boxed_slice(),
       relocated: code.relocated.clone().into_boxed_slice(),
       trampoline: code.trampoline.address(),
-      link,
+      link: ManuallyDrop::new(link),
       stub: ManuallyDrop::new(stub),
       relay: ManuallyDrop::new(redirect.relay),
       enabled: AtomicBool::new(false),
@@ -224,7 +224,7 @@ impl Hook {
   /// Returns how enabling or disabling the hook changes the target's code.
   pub(crate) fn change(&self, registry: &mut Registry, enable: bool) -> Change {
     let chain = &registry.site(self.target).chain;
-    let is_last = chain.last() == Some(&(&*self.link as *const Link));
+    let is_last = chain.last() == Some(&(&**self.link as *const Link));
     match (enable, chain.len()) {
       (true, 0) => Change::Patch,
       (true, _) => Change::Redirect,
@@ -251,7 +251,7 @@ impl Hook {
     protections: &Protections,
   ) -> (Option<Undo>, Result<()>) {
     let site = registry.site(self.target);
-    let link: *const Link = &*self.link;
+    let link: *const Link = &**self.link;
     let trampoline = site.code.trampoline.address();
 
     if enable {
@@ -299,35 +299,42 @@ impl Hook {
 
     self.link.next.store(trampoline, Ordering::SeqCst);
     self.enabled.store(false, Ordering::SeqCst);
-    (Some(Undo::Disabled { position, next }), result)
+    (Some(Undo::Disabled { position }), result)
   }
 
-  /// Reverts an operation applied by [`Hook::apply`], which must have been
-  /// the last one applied to the site. Errors are ignored, as are by a
-  /// failing transaction.
+  /// Reverts an operation applied by [`Hook::apply`]. Operations are
+  /// reverted in reverse order, and errors are ignored (as are by a failing
+  /// transaction). A revert may fail as well, so the chain is not assumed to
+  /// be in its state prior to the operation.
   ///
   /// # Safety
   ///
   /// See [`Hook::apply`].
   pub(crate) unsafe fn revert(&self, registry: &mut Registry, undo: Undo, protections: &Protections) {
-    let Undo::Disabled { position, next } = undo else {
-      // SAFETY: Forwarded from the caller.
-      let _ = unsafe { self.apply(registry, false, protections) };
+    let Undo::Disabled { position } = undo else {
+      // Unless the revert of a subsequent operation (disabling it) failed
+      if self.is_enabled() {
+        // SAFETY: Forwarded from the caller.
+        let _ = unsafe { self.apply(registry, false, protections) };
+      }
       return;
     };
 
     let site = registry.site(self.target);
-    let link: *const Link = &*self.link;
-    self.link.next.store(next, Ordering::SeqCst);
+    let link: *const Link = &**self.link;
+    let trampoline = site.code.trampoline.address();
+    // Fewer detours remain if reverting a preceding operation failed
+    let position = position.min(site.chain.len());
+    // SAFETY: Links are valid whilst chained.
+    let previous = position.checked_sub(1).map(|index| unsafe { &*site.chain[index] });
+    self.link.next.store(previous.map_or(trampoline, |previous| previous.detour), Ordering::SeqCst);
 
     if position == site.chain.len() {
-      // SAFETY: Links are valid whilst chained.
-      let last = site.chain.last().map(|&last| unsafe { &*last });
-      let expected = last.map_or(&*self.original, |last| &*last.patched);
+      let expected = previous.map_or(&*self.original, |previous| &*previous.patched);
       // SAFETY: Forwarded from the caller.
       let (written, _) = unsafe { self.replace(expected, &self.link.patched, protections) };
       if !written {
-        self.link.next.store(site.code.trampoline.address(), Ordering::SeqCst);
+        self.link.next.store(trampoline, Ordering::SeqCst);
         return;
       }
     } else {
@@ -411,7 +418,8 @@ impl Drop for Hook {
     // SAFETY: Restoring the original code is always valid.
     if unsafe { self.disable() }.is_err() {
       // The target or other detours may still branch to the generated code,
-      // so it is intentionally leaked (along with the site).
+      // and the chain refers to the link, so they are intentionally leaked
+      // (along with the site).
       return;
     }
 
@@ -429,6 +437,7 @@ impl Drop for Hook {
     // SAFETY: Neither the target nor other detours refer to the generated
     // code, and the fields are never accessed again.
     unsafe {
+      ManuallyDrop::drop(&mut self.link);
       ManuallyDrop::drop(&mut self.stub);
       ManuallyDrop::drop(&mut self.relay);
     }

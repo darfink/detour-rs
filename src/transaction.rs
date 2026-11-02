@@ -244,7 +244,7 @@ pub(crate) unsafe fn commit(operations: &[(&Hook, bool)], threads: Threads<'_>) 
 mod tests {
   use super::*;
   use crate::RawDetour;
-  use crate::memory::FAIL_AFTER_WRITE;
+  use crate::memory::{FAIL_AFTER_WRITE, FAIL_BEFORE_WRITE};
   use core::arch::naked_asm;
 
   type FnRet = unsafe extern "C" fn() -> i32;
@@ -347,5 +347,84 @@ mod tests {
     unsafe { transaction.commit(Threads::None)? };
     assert_eq!(state(), (3, [6, 6, 1]));
     Ok(())
+  }
+
+  #[test]
+  fn reverts_chains_despite_failing_reverts() -> Result<()> {
+    #[unsafe(naked)]
+    unsafe extern "C" fn ret7() -> i32 {
+      #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+      naked_asm!("mov eax, 7", "ret");
+      #[cfg(target_arch = "aarch64")]
+      naked_asm!("mov w0, #7", "ret");
+    }
+
+    #[unsafe(naked)]
+    unsafe extern "C" fn ret8() -> i32 {
+      #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+      naked_asm!("mov eax, 8", "ret");
+      #[cfg(target_arch = "aarch64")]
+      naked_asm!("mov w0, #8", "ret");
+    }
+
+    let (first, second, other) = (detour(ret7, ret1)?, detour(ret7, ret2)?, detour(ret8, ret3)?);
+    let mut transaction = Transaction::new();
+    transaction.enable(&first).enable(&second);
+    // SAFETY: No other thread is executing the targets.
+    unsafe { transaction.commit(Threads::None)? };
+
+    // Patches: disabling `second` & `first` (succeed), enabling `other`
+    // (fails), and reverting `first` (fails) & `second` (succeeds)
+    let mut transaction = Transaction::new();
+    transaction.disable(&second).disable(&first).enable(&other);
+    FAIL_BEFORE_WRITE.set(0b01100);
+    // SAFETY: See above.
+    let result = unsafe { transaction.commit(Threads::None) };
+    FAIL_BEFORE_WRITE.set(0);
+    assert!(result.is_err());
+
+    // Only `second` is enabled again, and it calls the original function
+    assert_eq!(hooks_enabled(&[&first, &second, &other]), [false, true, false]);
+    // SAFETY: The targets have no preconditions.
+    assert_eq!(unsafe { (ret7(), ret8()) }, (2, 8));
+    assert_eq!(call(&second), 7);
+    Ok(())
+  }
+
+  #[test]
+  fn retains_detours_failing_to_drop() -> Result<()> {
+    #[unsafe(naked)]
+    unsafe extern "C" fn ret9() -> i32 {
+      #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+      naked_asm!("mov eax, 9", "ret");
+      #[cfg(target_arch = "aarch64")]
+      naked_asm!("mov w0, #9", "ret");
+    }
+
+    let (first, second) = (detour(ret9, ret1)?, detour(ret9, ret2)?);
+    let mut transaction = Transaction::new();
+    transaction.enable(&first).enable(&second);
+    // SAFETY: No other thread is executing `ret9`.
+    unsafe { transaction.commit(Threads::None)? };
+
+    // Restoring the target fails, so `second` remains chained (and leaked)
+    // SAFETY: The trampoline shares the signature of `FnRet`.
+    let original: FnRet = unsafe { core::mem::transmute(second.trampoline()) };
+    FAIL_BEFORE_WRITE.set(1);
+    drop(second);
+    FAIL_BEFORE_WRITE.set(0);
+    // SAFETY: The targets have no preconditions.
+    assert_eq!(unsafe { (ret9(), original()) }, (2, 1));
+
+    // Unlinking `first` updates the leaked link
+    // SAFETY: See above.
+    unsafe { first.disable()? };
+    // SAFETY: See above.
+    assert_eq!(unsafe { (ret9(), original()) }, (2, 9));
+    Ok(())
+  }
+
+  fn hooks_enabled<const N: usize>(hooks: &[&RawDetour; N]) -> [bool; N] {
+    hooks.map(|hook| hook.is_enabled())
   }
 }

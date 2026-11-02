@@ -4,7 +4,12 @@
 macro_rules! supported {
   ($($item:item)*) => {
     $(
-      #[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64"))]
+      #[cfg(any(
+        target_arch = "x86",
+        target_arch = "x86_64",
+        target_arch = "aarch64",
+        all(target_arch = "riscv64", target_os = "linux")
+      ))]
       $item
     )*
   };
@@ -192,8 +197,8 @@ macro_rules! static_detour {
         }
 
         /// Returns the trampoline, i.e. a function that invokes the
-        /// original, undetoured target, or `None` if the detour is not
-        /// initialized.
+        /// original function (see [chaining]($crate#detours-of-the-same-target)),
+        /// or `None` if the detour is not initialized.
         ///
         /// Prefer `call`, unless the original function must be passed
         /// elsewhere (e.g. as a callback, or to foreign code). Since static

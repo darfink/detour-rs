@@ -6,6 +6,8 @@
 const RET10: &[u8] = &[0xB8, 0x0A, 0x00, 0x00, 0x00, 0xC3]; // mov eax, 10; ret
 #[cfg(target_arch = "aarch64")]
 const RET10: &[u8] = &[0x40, 0x01, 0x80, 0x52, 0xC0, 0x03, 0x5F, 0xD6]; // mov w0, #10; ret
+#[cfg(target_arch = "riscv64")]
+const RET10: &[u8] = &[0x13, 0x05, 0xA0, 0x00, 0x67, 0x80, 0x00, 0x00]; // li a0, 10; ret
 
 /// Creates a function returning `10`, located at least `distance` bytes after
 /// `near` (i.e. beyond the reach of a relative branch).
@@ -85,13 +87,50 @@ fn clear_cache(address: usize, len: usize) {
     unsafe { sys_icache_invalidate(address as *mut _, len) };
   }
 
-  #[cfg(all(target_arch = "aarch64", not(target_vendor = "apple")))]
+  // `__clear_cache` is unavailable when statically linking musl
+  #[cfg(all(
+    target_arch = "aarch64",
+    any(target_os = "linux", target_os = "android")
+  ))]
+  {
+    use std::arch::asm;
+
+    let ctr: u64;
+    // SAFETY: CTR_EL0 is readable from user space.
+    unsafe { asm!("mrs {}, ctr_el0", out(reg) ctr, options(nomem, nostack)) };
+    let (data_line, instruction_line) = (4 << ((ctr >> 16) & 0xF), 4 << (ctr & 0xF));
+
+    for line in (address & !(data_line - 1)..address + len).step_by(data_line) {
+      // SAFETY: Cleaning a cache line of a mapped range has no side effects.
+      unsafe { asm!("dc cvau, {}", in(reg) line, options(nostack)) };
+    }
+    // SAFETY: Barrier.
+    unsafe { asm!("dsb ish", options(nostack)) };
+    for line in (address & !(instruction_line - 1)..address + len).step_by(instruction_line) {
+      // SAFETY: Invalidating a cache line of a mapped range has no side effects.
+      unsafe { asm!("ic ivau, {}", in(reg) line, options(nostack)) };
+    }
+    // SAFETY: Barriers.
+    unsafe { asm!("dsb ish", "isb", options(nostack)) };
+  }
+
+  #[cfg(all(
+    target_arch = "aarch64",
+    not(any(target_vendor = "apple", target_os = "linux", target_os = "android"))
+  ))]
   {
     unsafe extern "C" {
       fn __clear_cache(start: *mut core::ffi::c_char, end: *mut core::ffi::c_char);
     }
     // SAFETY: The range is mapped.
     unsafe { __clear_cache(address as *mut _, (address + len) as *mut _) };
+  }
+
+  #[cfg(target_arch = "riscv64")]
+  {
+    const SYS_RISCV_FLUSH_ICACHE: libc::c_long = 259;
+    // SAFETY: Flushing an arbitrary range of the current process is benign.
+    unsafe { libc::syscall(SYS_RISCV_FLUSH_ICACHE, address, address + len, 0) };
   }
 
   let _ = (address, len);

@@ -22,6 +22,9 @@ jobs:
           - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu }
           - { os: ubuntu-latest, target: i686-unknown-linux-gnu, packages: gcc-multilib }
           - { os: ubuntu-24.04-arm, target: aarch64-unknown-linux-gnu }
+          # Statically linked, so the `cdylib` examples cannot be built
+          - { os: ubuntu-latest, target: x86_64-unknown-linux-musl, musl: true }
+          - { os: ubuntu-24.04-arm, target: aarch64-unknown-linux-musl, musl: true }
           - { os: windows-latest, target: x86_64-pc-windows-msvc }
           - { os: windows-latest, target: i686-pc-windows-msvc }
           - { os: windows-latest, target: x86_64-pc-windows-gnu }
@@ -40,10 +43,11 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.target }}
-      - run: cargo test --target ${{ matrix.target }} ${{ matrix.test-args }}
-      - run: cargo test --target ${{ matrix.target }} --release ${{ matrix.test-args }}
-      - run: cargo test --target ${{ matrix.target }} --no-default-features --features no_std ${{ matrix.test-args }}
+      - run: cargo test --target ${{ matrix.target }} ${{ matrix.musl && '--lib --tests' || '' }} ${{ matrix.test-args }}
+      - run: cargo test --target ${{ matrix.target }} ${{ matrix.musl && '--lib --tests' || '' }} --release ${{ matrix.test-args }}
+      - run: cargo test --target ${{ matrix.target }} ${{ matrix.musl && '--lib --tests' || '' }} --no-default-features --features no_std ${{ matrix.test-args }}
       - name: Run the early hook example
+        if: ${{ !matrix.musl }}
         shell: bash
         run: |
           cargo build --target ${{ matrix.target }} --example early_hook --example early_target --example launch_suspended
@@ -56,6 +60,25 @@ jobs:
           echo "$output"
           grep -q "intercepted the process ID query" <<< "$output"
           grep -q "process id:" <<< "$output"
+
+  riscv64:
+    name: Test (riscv64gc-unknown-linux-gnu, QEMU)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-qemu-action@v3
+        with:
+          platforms: riscv64
+      # There are no RISC-V runners, so the tests run emulated (slowly)
+      - name: Test
+        run: |
+          docker run --rm --platform linux/riscv64 -v "$PWD":/src -w /src rust:latest sh -c '
+            cargo test &&
+            cargo test --no-default-features --features no_std &&
+            cargo build --example early_hook --example early_target &&
+            output=$(LD_PRELOAD=target/debug/examples/libearly_hook.so target/debug/examples/early_target 2>&1) &&
+            echo "$output" &&
+            echo "$output" | grep -q "intercepted the process ID query"'
 
   no-std:
     name: no_std executable (${{ matrix.os }})
@@ -88,8 +111,8 @@ jobs:
       matrix:
         target:
           - x86_64-unknown-freebsd
-          - x86_64-unknown-linux-musl
           - aarch64-linux-android
+          - riscv64gc-unknown-linux-musl
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
@@ -106,15 +129,28 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
-          targets: x86_64-pc-windows-msvc, aarch64-apple-darwin, aarch64-unknown-linux-gnu, i686-unknown-linux-gnu
+          targets: x86_64-pc-windows-msvc, aarch64-apple-darwin, aarch64-unknown-linux-gnu, i686-unknown-linux-gnu, riscv64gc-unknown-linux-gnu
       - run: cargo check --target x86_64-pc-windows-msvc --lib --no-default-features --features no_std
       - run: cargo fmt --check
       - run: |
-          for target in x86_64-unknown-linux-gnu x86_64-pc-windows-msvc aarch64-apple-darwin aarch64-unknown-linux-gnu i686-unknown-linux-gnu; do
+          for target in x86_64-unknown-linux-gnu x86_64-pc-windows-msvc aarch64-apple-darwin aarch64-unknown-linux-gnu i686-unknown-linux-gnu riscv64gc-unknown-linux-gnu; do
             cargo clippy --target "$target" --all-targets
             cargo clippy --target "$target" --lib --no-default-features --features no_std
           done
       - run: cargo doc --no-deps
+
+  semver:
+    name: Semver (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # The public API differs between platforms (e.g. `Thread` constructors)
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v5
+      # Compares the public API against the latest release on crates.io
+      - uses: obi1kenobi/cargo-semver-checks-action@v2
 
   msrv:
     name: MSRV

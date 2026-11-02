@@ -43,7 +43,7 @@ impl CodeBlock {
   }
 
   /// Returns the capacity of the block, in bytes.
-  #[cfg_attr(target_arch = "aarch64", allow(dead_code))]
+  #[cfg_attr(any(target_arch = "aarch64", target_arch = "riscv64"), allow(dead_code))]
   pub fn len(&self) -> usize {
     self.len
   }
@@ -458,6 +458,8 @@ mod tests {
     let code: &[u8] = &[0xB8, 0x2A, 0x00, 0x00, 0x00, 0xC3]; // mov eax, 42; ret
     #[cfg(target_arch = "aarch64")]
     let code: &[u8] = &[0x40, 0x05, 0x80, 0x52, 0xC0, 0x03, 0x5F, 0xD6]; // mov w0, #42; ret
+    #[cfg(target_arch = "riscv64")]
+    let code: &[u8] = &[0x13, 0x05, 0xA0, 0x02, 0x67, 0x80, 0x00, 0x00]; // li a0, 42; ret
 
     let origin = allocated_code_is_executable as *const () as usize;
     let mut block = allocate_near(origin, DISTANCE, code.len())?;

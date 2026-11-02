@@ -2,7 +2,7 @@
 name = "detour"
 version = "0.10.0"
 authors = ["Elliott Linder <elliott.darfink@gmail.com>"]
-description = "A cross-platform function detouring (inline hooking) library for x86, x86-64 and AArch64"
+description = "A cross-platform function detouring (inline hooking) library for x86, x86-64, AArch64 and RISC-V"
 documentation = "https://docs.rs/detour"
 homepage = "https://github.com/darfink/detour-rs"
 repository = "https://github.com/darfink/detour-rs"
@@ -26,7 +26,7 @@ no_std = ["iced-x86/no_std"]
 
 [dependencies]
 
-[target.'cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64"))'.dependencies]
+[target.'cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64", target_arch = "riscv64"))'.dependencies]
 region = { version = "4.0.1", default-features = false }
 
 [target.'cfg(any(target_arch = "x86", target_arch = "x86_64"))'.dependencies]
@@ -41,6 +41,13 @@ mach2 = { version = ">=0.4.2, <0.8", default-features = false }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61.0", features = ["Win32_Foundation", "Win32_System_Diagnostics_Debug", "Win32_System_Diagnostics_ToolHelp", "Win32_System_Kernel", "Win32_System_Threading"] }
+
+[dev-dependencies]
+# A reference decoder, to check the AArch64 relocator's classification.
+yaxpeax-arch = { version = "0.3.2", default-features = false }
+yaxpeax-arm = { version = "0.5.0", default-features = false, features = ["std"] }
+# A reference decoder, to check the RV64 relocator's classification.
+raki = "1.3.2"
 
 [target.'cfg(unix)'.dev-dependencies]
 libc = "0.2.172"
@@ -77,4 +84,4 @@ rust_2018_idioms = { level = "warn", priority = -1 }
 undocumented_unsafe_blocks = "warn"
 
 [package.metadata.docs.rs]
-targets = ["x86_64-unknown-linux-gnu", "i686-unknown-linux-gnu", "aarch64-unknown-linux-gnu", "x86_64-pc-windows-msvc", "aarch64-apple-darwin"]
+targets = ["x86_64-unknown-linux-gnu", "i686-unknown-linux-gnu", "aarch64-unknown-linux-gnu", "riscv64gc-unknown-linux-gnu", "x86_64-pc-windows-msvc", "aarch64-apple-darwin"]

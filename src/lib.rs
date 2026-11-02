@@ -38,6 +38,14 @@
 //! # }
 //! ```
 //!
+//! # Detours of the same target
+//!
+//! Several detours of the same target are chained. The target calls the most
+//! recently enabled detour, and its original function is the detour enabled
+//! before it, and so on, until the target's original code is reached. Detours
+//! can be enabled and disabled in any order: a disabled detour is removed from
+//! the chain, and its original function is the target's original code.
+//!
 //! # Thread safety
 //!
 //! `enable` and `disable` do not suspend other threads. A thread executing
@@ -87,17 +95,23 @@
 //!
 //! Relocation handles relative branches (including branches within the
 //! replaced instructions), RIP-relative operands (x86-64) and all PC-relative
-//! instructions (AArch64). If the detour is out of reach of a relative jump
-//! (beyond ±2 GiB on x86-64, or ±128 MiB on AArch64), the jump leads to a
-//! *relay*, an absolute jump allocated near the target. Functions too small
-//! for the jump are supported if they are followed by padding, or preceded by
-//! a hot-patching area. On AArch64, BTI and PAC landing pads are preserved.
+//! instructions (AArch64 & RISC-V). If the detour is out of reach of a
+//! relative jump (beyond ±2 GiB on x86-64 & RISC-V, or ±128 MiB on AArch64),
+//! the jump leads to a *relay*, an absolute jump allocated near the target.
+//! Functions too small for the jump are supported if they are followed by
+//! padding, or preceded by a hot-patching area. On AArch64, BTI and PAC
+//! landing pads are preserved.
 //!
 //! # Platforms
 //!
-//! - Architectures: `x86`, `x86-64` & `AArch64`.
+//! - Architectures: `x86`, `x86-64`, `AArch64` & RISC-V 64 (Linux only).
 //! - Operating systems: Windows, Linux, Android & macOS. Other Unix-like
 //!   systems (e.g. FreeBSD) are expected to work, without thread suspension.
+//!
+//! On RISC-V, the patch (`AUIPC` & `JALR`) clobbers `t1`, which holds no
+//! value upon function entry, and spans several instructions, so it is not
+//! written atomically. The control-flow integrity extensions (`Zicfilp` &
+//! `Zicfiss`) are not supported.
 //!
 //! On macOS, code signing prevents making `__TEXT` writable, so code is
 //! patched by remapping the affected pages. Executable memory is allocated
@@ -114,8 +128,6 @@
 //! - A dropped detour is disabled without suspending threads, and its
 //!   trampoline is released immediately. Disable it with a [`Transaction`]
 //!   first if other threads may be executing the target or the trampoline.
-//! - Multiple detours of the same target must be disabled in the reverse order
-//!   they were enabled in; otherwise [`Error::TargetModified`] is returned.
 //! - Under Rosetta 2 (x86-64 code on Apple silicon), modifying code whilst
 //!   another thread executes the same memory page may intermittently raise
 //!   `SIGBUS`. This is a limitation of the translator.
@@ -154,11 +166,19 @@ compile_error!(
    `iced-x86` requires one of them"
 );
 
-#[cfg(not(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")))]
+#[cfg(not(any(
+  target_arch = "x86",
+  target_arch = "x86_64",
+  target_arch = "aarch64",
+  target_arch = "riscv64"
+)))]
 compile_error!(
-  "detour only supports x86, x86-64 and AArch64 targets; inline detours are not possible on \
-   architectures without addressable, writable code (e.g. WebAssembly)"
+  "detour only supports x86, x86-64, AArch64 and RISC-V 64 targets; inline detours are not \
+   possible on architectures without addressable, writable code (e.g. WebAssembly)"
 );
+
+#[cfg(all(target_arch = "riscv64", not(target_os = "linux")))]
+compile_error!("detour only supports RISC-V 64 on Linux");
 
 #[macro_use]
 mod macros;
@@ -315,19 +335,16 @@ mod tests {
     // SAFETY: No other thread is executing `add`.
     unsafe { hook2.enable()? };
 
-    // This will call the previous hook's detour
+    // The original function of the second detour is the first detour
     assert_eq!(hook2.call(5, 5), 0);
     assert_eq!(add(10, 5), 2);
 
-    // The first hook cannot be disabled before the second
+    // Detours can be disabled in any order
     // SAFETY: No other thread is executing `add`.
-    let result = unsafe { hook1.disable() };
-    assert!(matches!(result, Err(Error::TargetModified)));
-    // SAFETY: No other thread is executing `add`.
-    unsafe {
-      hook2.disable()?;
-      hook1.disable()?;
-    }
+    unsafe { hook1.disable()? };
+    assert_eq!((add(10, 5), hook2.call(10, 5)), (2, 15));
+    // SAFETY: See above.
+    unsafe { hook2.disable()? };
     assert_eq!(add(10, 5), 15);
     Ok(())
   }

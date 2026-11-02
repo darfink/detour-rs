@@ -9,8 +9,41 @@ use alloc::vec::Vec;
 /// A detour, which can be part of a [`Transaction`].
 ///
 /// This is implemented by all detour types, and cannot be implemented
-/// outside of this crate.
-pub trait Detour: private::Sealed {}
+/// outside of this crate. Different detours can be grouped as `&dyn Detour`:
+///
+/// ```rust
+/// use detour::{Detour, TypedDetour, static_detour};
+///
+/// static_detour! {
+///   static Unused: fn(i32) -> i32;
+/// }
+///
+/// #[inline(never)]
+/// fn add5(val: i32) -> i32 {
+///   val + 5
+/// }
+///
+/// fn add10(val: i32) -> i32 {
+///   val + 10
+/// }
+///
+/// # fn main() -> detour::Result<()> {
+/// let hook = unsafe { TypedDetour::<fn(i32) -> i32>::new(add5, add10)? };
+/// unsafe { hook.enable()? };
+///
+/// let detours: [&dyn Detour; 2] = [&hook, &Unused];
+/// assert_eq!(detours.map(|detour| detour.is_enabled()), [true, false]);
+/// # Ok(())
+/// # }
+/// ```
+pub trait Detour: private::Sealed {
+  /// Returns whether the detour is enabled or not.
+  ///
+  /// An uninitialized static detour is not enabled.
+  fn is_enabled(&self) -> bool {
+    self.hook().is_some_and(Hook::is_enabled)
+  }
+}
 
 pub(crate) mod private {
   use crate::hook::Hook;
@@ -150,13 +183,16 @@ impl core::fmt::Debug for Transaction<'_> {
 ///
 /// See [`Transaction::commit`].
 pub(crate) unsafe fn commit(operations: &[(&Hook, bool)], threads: Threads<'_>) -> Result<()> {
-  let _lock = memory::patch_lock();
+  let mut registry = memory::patch_lock();
 
   // Everything requiring allocations is prepared before threads are suspended
   let protections = operations
     .iter()
     .map(|(hook, _)| hook.protections())
     .collect::<Result<Vec<_>>>()?;
+  for (hook, _) in operations {
+    registry.reserve(hook, operations.len());
+  }
   let mut applied = Vec::with_capacity(operations.len());
 
   let mut suspended = Suspended::new(threads)?;
@@ -167,17 +203,22 @@ pub(crate) unsafe fn commit(operations: &[(&Hook, bool)], threads: Threads<'_>) 
       }
 
       // Verify that all threads can be moved, before modifying any code
+      let change = hook.change(&mut registry, enable);
       for thread in suspended.threads() {
-        hook.relocate(thread.pc(), enable)?;
+        hook.relocate(thread.pc(), change)?;
       }
 
       // SAFETY: Unsuspended threads do not execute the patch (as guaranteed
       // by the caller), and suspended threads are moved below.
-      unsafe { hook.write(enable, &protections[index])? };
-      applied.push(index);
+      let (undo, result) = unsafe { hook.apply(&mut registry, enable, &protections[index]) };
+      // An operation applied despite an error is reverted as well
+      if let Some(undo) = undo {
+        applied.push((index, undo));
+      }
+      result?;
 
       for thread in suspended.threads() {
-        if let Some(pc) = hook.relocate(thread.pc(), enable)? {
+        if let Some(pc) = hook.relocate(thread.pc(), change)? {
           thread.set_pc(pc);
         }
       }
@@ -186,15 +227,216 @@ pub(crate) unsafe fn commit(operations: &[(&Hook, bool)], threads: Threads<'_>) 
   })();
 
   if result.is_err() {
-    for &index in applied.iter().rev() {
-      let (hook, enable) = operations[index];
-      // SAFETY: Reverts code written above. It cannot have been modified
-      // since, so this does not fail unless the system call does.
-      let _ = unsafe { hook.write(!enable, &protections[index]) };
+    for &(index, undo) in applied.iter().rev() {
+      // SAFETY: Reverts the operations applied above, in reverse order. The
+      // code cannot have been modified since, so this does not fail unless
+      // the system call does.
+      unsafe { operations[index].0.revert(&mut registry, undo, &protections[index]) };
     }
   }
 
   // The threads are resumed before the vectors are released
   drop(suspended);
   result
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use crate::RawDetour;
+  use crate::memory::{FAIL_AFTER_WRITE, FAIL_BEFORE_WRITE};
+  use core::arch::naked_asm;
+
+  type FnRet = unsafe extern "C" fn() -> i32;
+
+  extern "C" fn ret1() -> i32 {
+    1
+  }
+
+  extern "C" fn ret2() -> i32 {
+    2
+  }
+
+  extern "C" fn ret3() -> i32 {
+    3
+  }
+
+  /// Detours `target` to `detour`.
+  fn detour(target: FnRet, detour: extern "C" fn() -> i32) -> Result<RawDetour> {
+    // SAFETY: Both functions share the same signature.
+    unsafe { RawDetour::new(target as *const (), detour as *const ()) }
+  }
+
+  /// Calls the original function of `detour`.
+  fn call(detour: &RawDetour) -> i32 {
+    // SAFETY: The trampoline shares the signature of `FnRet`.
+    unsafe { core::mem::transmute::<*const (), FnRet>(detour.trampoline())() }
+  }
+
+  /// Commits `transaction`, failing once `writes` code patches have succeeded.
+  fn commit_failing(transaction: Transaction<'_>, writes: usize) -> Result<()> {
+    FAIL_AFTER_WRITE.set(Some(writes));
+    // SAFETY: No other thread is executing the targets.
+    let result = unsafe { transaction.commit(Threads::None) };
+    FAIL_AFTER_WRITE.set(None);
+    result
+  }
+
+  #[test]
+  fn reverts_all_changes_on_failure() -> Result<()> {
+    #[unsafe(naked)]
+    unsafe extern "C" fn ret4() -> i32 {
+      #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+      naked_asm!("mov eax, 4", "ret");
+      #[cfg(target_arch = "aarch64")]
+      naked_asm!("mov w0, #4", "ret");
+      #[cfg(target_arch = "riscv64")]
+      naked_asm!(".option push", ".option norvc", "li a0, 4", "ret", ".option pop");
+    }
+
+    #[unsafe(naked)]
+    unsafe extern "C" fn ret5() -> i32 {
+      #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+      naked_asm!("mov eax, 5", "ret");
+      #[cfg(target_arch = "aarch64")]
+      naked_asm!("mov w0, #5", "ret");
+      #[cfg(target_arch = "riscv64")]
+      naked_asm!(".option push", ".option norvc", "li a0, 5", "ret", ".option pop");
+    }
+
+    let (hook1, hook2) = (detour(ret4, ret1)?, detour(ret5, ret2)?);
+    let mut transaction = Transaction::new();
+    transaction.enable(&hook1).enable(&hook2);
+
+    // The second patch fails, after which both are reverted
+    assert!(commit_failing(transaction, 1).is_err());
+    assert!(!hook1.is_enabled() && !hook2.is_enabled());
+    // SAFETY: The targets have no preconditions.
+    assert_eq!(unsafe { (ret4(), ret5()) }, (4, 5));
+    Ok(())
+  }
+
+  #[test]
+  fn reverts_chains_on_failure() -> Result<()> {
+    #[unsafe(naked)]
+    unsafe extern "C" fn ret6() -> i32 {
+      #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+      naked_asm!("mov eax, 6", "ret");
+      #[cfg(target_arch = "aarch64")]
+      naked_asm!("mov w0, #6", "ret");
+      #[cfg(target_arch = "riscv64")]
+      naked_asm!(".option push", ".option norvc", "li a0, 6", "ret", ".option pop");
+    }
+
+    let hooks = [detour(ret6, ret1)?, detour(ret6, ret2)?, detour(ret6, ret3)?];
+    let mut transaction = Transaction::new();
+    transaction.enable(&hooks[0]).enable(&hooks[1]).enable(&hooks[2]);
+    // SAFETY: No other thread is executing `ret6`.
+    unsafe { transaction.commit(Threads::None)? };
+
+    // Each detour's original function is the one enabled before it
+    // SAFETY: `ret6` has no preconditions.
+    let state = || (unsafe { ret6() }, hooks.each_ref().map(call));
+    assert_eq!(state(), (3, [6, 1, 2]));
+
+    // Unlinking the middle detour succeeds, then redirecting the target fails
+    let mut transaction = Transaction::new();
+    transaction.disable(&hooks[1]).disable(&hooks[2]);
+    assert!(commit_failing(transaction, 0).is_err());
+    assert!(hooks.iter().all(|hook| hook.is_enabled()));
+    assert_eq!(state(), (3, [6, 1, 2]));
+
+    // Disabled detours call the original function
+    let mut transaction = Transaction::new();
+    transaction.disable(&hooks[1]);
+    // SAFETY: See above.
+    unsafe { transaction.commit(Threads::None)? };
+    assert_eq!(state(), (3, [6, 6, 1]));
+    Ok(())
+  }
+
+  #[test]
+  fn reverts_chains_despite_failing_reverts() -> Result<()> {
+    #[unsafe(naked)]
+    unsafe extern "C" fn ret7() -> i32 {
+      #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+      naked_asm!("mov eax, 7", "ret");
+      #[cfg(target_arch = "aarch64")]
+      naked_asm!("mov w0, #7", "ret");
+      #[cfg(target_arch = "riscv64")]
+      naked_asm!(".option push", ".option norvc", "li a0, 7", "ret", ".option pop");
+    }
+
+    #[unsafe(naked)]
+    unsafe extern "C" fn ret8() -> i32 {
+      #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+      naked_asm!("mov eax, 8", "ret");
+      #[cfg(target_arch = "aarch64")]
+      naked_asm!("mov w0, #8", "ret");
+      #[cfg(target_arch = "riscv64")]
+      naked_asm!(".option push", ".option norvc", "li a0, 8", "ret", ".option pop");
+    }
+
+    let (first, second, other) = (detour(ret7, ret1)?, detour(ret7, ret2)?, detour(ret8, ret3)?);
+    let mut transaction = Transaction::new();
+    transaction.enable(&first).enable(&second);
+    // SAFETY: No other thread is executing the targets.
+    unsafe { transaction.commit(Threads::None)? };
+
+    // Patches: disabling `second` & `first` (succeed), enabling `other`
+    // (fails), and reverting `first` (fails) & `second` (succeeds)
+    let mut transaction = Transaction::new();
+    transaction.disable(&second).disable(&first).enable(&other);
+    FAIL_BEFORE_WRITE.set(0b01100);
+    // SAFETY: See above.
+    let result = unsafe { transaction.commit(Threads::None) };
+    FAIL_BEFORE_WRITE.set(0);
+    assert!(result.is_err());
+
+    // Only `second` is enabled again, and it calls the original function
+    assert_eq!(hooks_enabled(&[&first, &second, &other]), [false, true, false]);
+    // SAFETY: The targets have no preconditions.
+    assert_eq!(unsafe { (ret7(), ret8()) }, (2, 8));
+    assert_eq!(call(&second), 7);
+    Ok(())
+  }
+
+  #[test]
+  fn retains_detours_failing_to_drop() -> Result<()> {
+    #[unsafe(naked)]
+    unsafe extern "C" fn ret9() -> i32 {
+      #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+      naked_asm!("mov eax, 9", "ret");
+      #[cfg(target_arch = "aarch64")]
+      naked_asm!("mov w0, #9", "ret");
+      #[cfg(target_arch = "riscv64")]
+      naked_asm!(".option push", ".option norvc", "li a0, 9", "ret", ".option pop");
+    }
+
+    let (first, second) = (detour(ret9, ret1)?, detour(ret9, ret2)?);
+    let mut transaction = Transaction::new();
+    transaction.enable(&first).enable(&second);
+    // SAFETY: No other thread is executing `ret9`.
+    unsafe { transaction.commit(Threads::None)? };
+
+    // Restoring the target fails, so `second` remains chained (and leaked)
+    // SAFETY: The trampoline shares the signature of `FnRet`.
+    let original: FnRet = unsafe { core::mem::transmute(second.trampoline()) };
+    FAIL_BEFORE_WRITE.set(1);
+    drop(second);
+    FAIL_BEFORE_WRITE.set(0);
+    // SAFETY: The targets have no preconditions.
+    assert_eq!(unsafe { (ret9(), original()) }, (2, 1));
+
+    // Unlinking `first` updates the leaked link
+    // SAFETY: See above.
+    unsafe { first.disable()? };
+    // SAFETY: See above.
+    assert_eq!(unsafe { (ret9(), original()) }, (2, 9));
+    Ok(())
+  }
+
+  fn hooks_enabled<const N: usize>(hooks: &[&RawDetour; N]) -> [bool; N] {
+    hooks.map(|hook| hook.is_enabled())
+  }
 }

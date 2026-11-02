@@ -61,39 +61,6 @@ fn applies_operations_in_order() -> Result<()> {
 }
 
 #[test]
-fn reverts_all_changes_on_failure() -> Result<()> {
-  #[inline(never)]
-  extern "C" fn ret4() -> i32 {
-    std::hint::black_box(4)
-  }
-
-  #[inline(never)]
-  extern "C" fn ret5() -> i32 {
-    std::hint::black_box(5)
-  }
-
-  // SAFETY: The functions share the same signature.
-  let (hook1, hook2, hook3) = unsafe {
-    (
-      TypedDetour::<FnRet>::new(ret4, ret10)?,
-      TypedDetour::<FnRet>::new(ret5, ret10)?,
-      TypedDetour::<FnRet>::new(ret5, ret4)?,
-    )
-  };
-
-  // Both detours of `ret5` expect its original code, so the second fails
-  let mut transaction = Transaction::new();
-  transaction.enable(&hook1).enable(&hook2).enable(&hook3);
-  // SAFETY: No other thread is executing the targets.
-  let result = unsafe { transaction.commit(Threads::None) };
-  assert_eq!(result, Err(Error::TargetModified));
-
-  assert!(!hook1.is_enabled() && !hook2.is_enabled() && !hook3.is_enabled());
-  assert_eq!((ret4(), ret5()), (4, 5));
-  Ok(())
-}
-
-#[test]
 fn requires_initialized_detours() -> Result<()> {
   #[inline(never)]
   extern "C" fn ret6() -> i32 {

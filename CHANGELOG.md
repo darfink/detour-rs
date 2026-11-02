@@ -2,6 +2,39 @@
 
 ## [Unreleased]
 
+### Added
+
+- RISC-V 64 support on Linux (`riscv64gc`, glibc & musl), including
+  compressed instructions, relays for detours beyond ±2 GiB, and thread
+  suspension. Tested in CI under QEMU.
+- `Detour::is_enabled`, so detours grouped as `&dyn Detour` can be
+  inspected.
+
+### Changed
+
+- Detours of the same target are chained, and can be enabled and disabled in
+  any order (previously, they had to be disabled in reverse order). The
+  target calls the most recently enabled detour, whose original function is
+  the detour enabled before it. Detours created whilst another detour of the
+  same target is enabled now share its original code, and
+  `Error::TargetModified` is only returned if a third party modified it.
+- The trampoline of a detour is a jump to its original function, which may
+  change as other detours of the same target are enabled or disabled.
+
+### Fixed
+
+- AArch64 targets relocating `FEAT_PAuth_LR` instructions (e.g. `PACIASPPC`,
+  which signs the return address using its own address) are rejected with
+  `Error::UnsupportedInstruction`, instead of being relocated verbatim.
+- Suspending a thread listed more than once in `Threads::Only` timed out on
+  Linux & Android.
+- A static detour could be enabled and called by another thread whilst it was
+  being initialized, before its closure was set (aborting the process).
+- If code was patched, but its memory protection could not be restored, the
+  detour was considered unchanged. It was neither reverted by a transaction,
+  nor disabled when dropped, so its trampoline could be released whilst still
+  in use.
+
 ## [0.10.0] - 2026-09-30
 
 Thread-safe transactions with EIP relocation, and support for reference

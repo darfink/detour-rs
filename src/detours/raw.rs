@@ -99,8 +99,9 @@ impl RawDetour {
     self.0.is_enabled()
   }
 
-  /// Returns a pointer to the trampoline, which invokes the original target
-  /// function regardless of whether the detour is enabled.
+  /// Returns a pointer to the trampoline, which invokes the original function
+  /// (see [chaining](crate#detours-of-the-same-target)), regardless of whether
+  /// the detour is enabled.
   ///
   /// The pointer is valid for as long as the detour exists.
   pub fn trampoline(&self) -> *const () {

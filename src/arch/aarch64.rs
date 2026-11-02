@@ -16,10 +16,14 @@
 //! Functions beginning with a landing pad (`BTI`, `PACIASP`, `PACIBSP`) are
 //! patched after it, so indirect calls remain valid on BTI-guarded pages.
 
-use super::Parts;
+use super::Redirect;
+#[cfg(target_arch = "aarch64")]
+use super::Site;
 use crate::error::{Error, Result};
 use crate::memory::{self, CodeBlock};
 use alloc::vec::Vec;
+#[cfg(target_arch = "aarch64")]
+use core::ptr;
 
 /// The maximum distance of generated code from its target.
 ///
@@ -37,16 +41,25 @@ std::thread_local! {
   pub(crate) static FORCE_FAR: core::cell::Cell<bool> = const { core::cell::Cell::new(false) };
 }
 
-/// Creates a detour of `target` to `detour`.
+/// How a target is patched.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct Layout {
+  /// Whether the target is patched with an absolute jump (see [`build_far`]).
+  far: bool,
+  /// An instruction preceding the jump to the detour (see [`build`]).
+  prefix: Option<u32>,
+}
+
+/// Prepares the site of `target`, and redirects it to `detour`.
 ///
 /// # Safety
 ///
 /// `target` must point to executable code.
-pub(crate) unsafe fn build(target: *const (), detour: *const ()) -> Result<Parts> {
+#[cfg(target_arch = "aarch64")]
+pub(crate) unsafe fn build(target: *const (), detour: *const ()) -> Result<(Site, Redirect)> {
   let target = target as usize;
-  let detour = detour as usize;
 
-  if target % 4 != 0 || detour % 4 != 0 || memory::readable_len(target, 4) < 4 {
+  if target % 4 != 0 || detour as usize % 4 != 0 || memory::readable_len(target, 4) < 4 {
     return Err(Error::InvalidInstruction);
   }
 
@@ -55,7 +68,7 @@ pub(crate) unsafe fn build(target: *const (), detour: *const ()) -> Result<Parts
 
   // Landing pads are kept intact; `PAC*SP` signs the link register, which
   // must be authenticated before the detour is entered.
-  let (patch_offset, relay_prefix) = match first {
+  let (patch_offset, prefix) = match first {
     encode::BTI | encode::BTI_C | encode::BTI_J | encode::BTI_JC => (4, None),
     encode::PACIASP => (4, Some(encode::AUTIASP)),
     encode::PACIBSP => (4, Some(encode::AUTIBSP)),
@@ -66,35 +79,47 @@ pub(crate) unsafe fn build(target: *const (), detour: *const ()) -> Result<Parts
   }
 
   #[cfg(test)]
-  if FORCE_FAR.get() {
+  let force_far = FORCE_FAR.get();
+  #[cfg(not(test))]
+  let force_far = false;
+
+  if !force_far {
     // SAFETY: Forwarded from the caller.
-    return unsafe { build_far(target, detour, patch_offset, relay_prefix) };
+    let site = unsafe { build_near(target, patch_offset, prefix) };
+    let result = site.and_then(|site| Ok((redirect(site.patch_address, site.layout, detour)?, site)));
+    match result {
+      Ok((redirect, site)) => return Ok((site, redirect)),
+      Err(Error::NoNearbyMemory) => {},
+      Err(error) => return Err(error),
+    }
   }
 
   // SAFETY: Forwarded from the caller.
-  match unsafe { build_near(target, detour, patch_offset, relay_prefix) } {
-    // SAFETY: Forwarded from the caller.
-    Err(Error::NoNearbyMemory) => unsafe { build_far(target, detour, patch_offset, relay_prefix) },
-    result => result,
-  }
+  let site = unsafe { build_far(target, patch_offset, prefix)? };
+  let redirect = redirect(site.patch_address, site.layout, detour)?;
+  Ok((site, redirect))
 }
 
-/// Patches the target with a direct branch, to the detour or a nearby relay.
-///
-/// # Safety
-///
-/// See [`build`].
-unsafe fn build_near(
-  target: usize,
-  detour: usize,
-  patch_offset: usize,
-  relay_prefix: Option<u32>,
-) -> Result<Parts> {
-  let patch_address = target + patch_offset;
-  let relay = if relay_prefix.is_some() || encode::b(patch_address, detour).is_none() {
+/// Redirects the site patched at `patch_address` to `detour`.
+pub(crate) fn redirect(patch_address: *mut u8, layout: Layout, detour: *const ()) -> Result<Redirect> {
+  let (patch_address, detour) = (patch_address as usize, detour as usize);
+
+  if layout.far {
+    let mut patch = encode::Emitter::new(patch_address);
+    if let Some(prefix) = layout.prefix {
+      patch.push(prefix);
+    }
+    patch.absolute_jump(detour);
+    return Ok(Redirect {
+      patched: patch.into_bytes(),
+      relay: None,
+    });
+  }
+
+  let relay = if layout.prefix.is_some() || encode::b(patch_address, detour).is_none() {
     let mut relay = memory::allocate_near(patch_address, MAX_DISTANCE, 24)?;
     let mut emitter = encode::Emitter::new(relay.address());
-    if let Some(prefix) = relay_prefix {
+    if let Some(prefix) = layout.prefix {
       emitter.push(prefix);
     }
     emitter.jump(detour);
@@ -108,18 +133,46 @@ unsafe fn build_near(
 
   let destination = relay.as_ref().map_or(detour, CodeBlock::address);
   let branch = encode::b(patch_address, destination).ok_or(Error::NoNearbyMemory)?;
+  Ok(Redirect {
+    patched: branch.to_le_bytes().to_vec(),
+    relay,
+  })
+}
+
+/// Returns code jumping to the address stored at `pointer`.
+///
+/// It is the entry point of a function, so X16 may be clobbered.
+pub(crate) fn link(pointer: *const usize) -> Vec<u8> {
+  let mut emitter = encode::Emitter::new(0);
+  emitter.indirect_jump(pointer as u64);
+  emitter.into_bytes()
+}
+
+/// Prepares a site patched with a direct branch, to the detour or a nearby
+/// relay.
+///
+/// # Safety
+///
+/// See [`build`].
+#[cfg(target_arch = "aarch64")]
+unsafe fn build_near(target: usize, patch_offset: usize, prefix: Option<u32>) -> Result<Site> {
+  let patch_address = target + patch_offset;
 
   // Relocate every instruction up to, and including, the patched one
   let count = patch_offset / 4 + 1;
+  // SAFETY: The instructions have been verified to be readable.
+  let code = unsafe { core::slice::from_raw_parts(target as *const u32, count) };
+  if code.iter().any(|&instruction| encode::uses_pc_modifier(instruction)) {
+    return Err(Error::UnsupportedInstruction);
+  }
+
   let mut trampoline =
     memory::allocate_near(target, MAX_DISTANCE, (count + 1) * MAX_RELOCATED_LEN)?;
   let mut emitter = encode::Emitter::new(trampoline.address());
   let mut relocated = Vec::with_capacity(count);
-  for index in 0..count {
-    let pc = target + index * 4;
+  for (index, &instruction) in code.iter().enumerate() {
     relocated.push(((index * 4) as u32, emitter.offset()));
-    // SAFETY: The instructions have been verified to be readable.
-    emitter.relocate(unsafe { (pc as *const u32).read() }, pc);
+    emitter.relocate(instruction, target + index * 4);
   }
   emitter.jump(patch_address + 4);
 
@@ -129,37 +182,28 @@ unsafe fn build_near(
   // SAFETY: The instruction has been verified to be readable.
   let original = unsafe { (patch_address as *const [u8; 4]).read() }.to_vec();
 
-  Ok(Parts {
+  Ok(Site {
     patch_address: patch_address as *mut u8,
     original,
-    patched: branch.to_le_bytes().to_vec(),
     trampoline,
     relocated,
-    relay,
+    layout: Layout { far: false, prefix },
   })
 }
 
-/// Patches the target with an absolute jump to the detour, and relocates the
-/// replaced instructions to a trampoline allocated anywhere.
+/// Prepares a site patched with an absolute jump to the detour, whose replaced
+/// instructions are relocated to a trampoline allocated anywhere.
 ///
 /// # Safety
 ///
 /// See [`build`].
-unsafe fn build_far(
-  target: usize,
-  detour: usize,
-  patch_offset: usize,
-  relay_prefix: Option<u32>,
-) -> Result<Parts> {
+#[cfg(target_arch = "aarch64")]
+unsafe fn build_far(target: usize, patch_offset: usize, prefix: Option<u32>) -> Result<Site> {
   let patch_address = target + patch_offset;
-
-  let mut patch = encode::Emitter::new(patch_address);
-  if let Some(prefix) = relay_prefix {
-    patch.push(prefix);
-  }
-  patch.absolute_jump(detour);
-  let patched = patch.into_bytes();
-  let patch_end = patch_address + patched.len();
+  let layout = Layout { far: true, prefix };
+  // The patch is the same size for all detours
+  let patch_len = redirect(patch_address as *mut u8, layout, ptr::null())?.patched.len();
+  let patch_end = patch_address + patch_len;
 
   // Inspect the function beyond the patched instructions, for branches into them
   const SCAN_LEN: usize = 1024;
@@ -180,6 +224,9 @@ unsafe fn build_far(
   // the absolute jump clobbers X16. It holds no value upon function entry, but
   // the replaced instructions must not assign it.
   if code[..patched_count].iter().any(|&instruction| encode::may_use_x16(instruction)) {
+    return Err(Error::UnsupportedInstruction);
+  }
+  if code[..patched_count].iter().any(|&instruction| encode::uses_pc_modifier(instruction)) {
     return Err(Error::UnsupportedInstruction);
   }
 
@@ -206,15 +253,14 @@ unsafe fn build_far(
   unsafe { trampoline.write(&emitter.into_bytes())? };
 
   // SAFETY: The range has been verified to be readable.
-  let original = unsafe { core::slice::from_raw_parts(patch_address as *const u8, patched.len()) };
+  let original = unsafe { core::slice::from_raw_parts(patch_address as *const u8, patch_len) };
 
-  Ok(Parts {
+  Ok(Site {
     patch_address: patch_address as *mut u8,
     original: original.to_vec(),
-    patched,
     trampoline,
     relocated,
-    relay: None,
+    layout,
   })
 }
 
@@ -263,6 +309,23 @@ pub(crate) mod encode {
     let is_branch_register = instruction & 0xFE00_0000 == 0xD600_0000;
     let is_link = (instruction >> 21) & 0xF == 0b0001;
     is_branch_immediate || (is_branch_register && !is_link)
+  }
+
+  /// Returns whether `instruction` uses its own address as a pointer
+  /// authentication modifier (`FEAT_PAuth_LR`, e.g. `PACIASPPC`), which
+  /// differs once relocated.
+  pub fn uses_pc_modifier(instruction: u32) -> bool {
+    // Each pair of A & B key variants differs in a single bit
+    const ENCODINGS: [(u32, u32); 6] = [
+      (0xFFC0_0000, 0xF380_0000), // AUTIASPPC & AUTIBSPPC
+      (0xFFDF_F81F, 0xDAC1_901E), // AUTIASPPCR & AUTIBSPPCR
+      (0xFFDF_FBFF, 0xDAC1_A3FE), // PACIASPPC & PACIBSPPC
+      (0xFFDF_FBFF, 0xDAC1_83FE), // PACNBIASPPC & PACNBIBSPPC
+      (0xFFC0_001F, 0x5500_001F), // RETAASPPC & RETABSPPC
+      (0xFFFF_FBE0, 0xD65F_0BE0), // RETAASPPCR & RETABSPPCR (but not RETAA)
+    ];
+    let is_retaa = instruction & 0xFFFF_FBFF == 0xD65F_0BFF;
+    ENCODINGS.iter().any(|&(mask, value)| instruction & mask == value) && !is_retaa
   }
 
   /// Returns whether `instruction` may reference X16 (conservatively, by
@@ -373,6 +436,16 @@ pub(crate) mod encode {
       self.push(ldr_literal(X16, 8));
       self.push(br(X16));
       self.literal(destination as u64);
+    }
+
+    /// Branches to the address stored at `pointer`.
+    pub fn indirect_jump(&mut self, pointer: u64) {
+      // LDR X16, #16; LDR X16, [X16]; BR X16; UDF; .quad pointer
+      self.push(ldr_literal(X16, 16));
+      self.push(0xF940_0000 | (X16 << 5) | X16);
+      self.push(br(X16));
+      self.push(0);
+      self.literal(pointer);
     }
 
     /// Branches to `destination`.
@@ -659,6 +732,14 @@ mod tests {
   }
 }
 
+#[cfg(test)]
+#[path = "aarch64_oracle.rs"]
+mod oracle;
+
+#[cfg(all(test, target_arch = "aarch64", unix))]
+#[path = "aarch64_differential.rs"]
+mod differential;
+
 /// Tests of the absolute patch (used when no memory is available nearby).
 #[cfg(all(test, target_arch = "aarch64"))]
 mod far_tests {
@@ -736,6 +817,20 @@ mod far_tests {
     }
 
     assert!(matches!(far_detour(branch_into_patch), Err(Error::UnsupportedInstruction)));
+  }
+
+  #[test]
+  fn rejects_pc_modifiers() {
+    #[unsafe(naked)]
+    unsafe extern "C" fn sign_with_pc() -> i32 {
+      // paciasppc; ...; retaasppc (never executed)
+      naked_asm!(".inst 0xdac1a3fe", "mov w0, #1", "nop", "nop", "nop", ".inst 0x5500001f")
+    }
+
+    assert!(matches!(far_detour(sign_with_pc), Err(Error::UnsupportedInstruction)));
+    // SAFETY: The function is never executed.
+    let result = unsafe { RawDetour::new(sign_with_pc as *const (), ret10 as *const ()) };
+    assert!(matches!(result, Err(Error::UnsupportedInstruction)));
   }
 
   #[test]

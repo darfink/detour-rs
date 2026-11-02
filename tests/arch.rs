@@ -516,3 +516,205 @@ mod aarch64 {
     unsafe { detour_test_arg(ret_arg, &[(3, 3), (4, 4)]) }
   }
 }
+
+#[cfg(target_arch = "riscv64")]
+mod riscv64 {
+  use super::*;
+  use detour::Error;
+  use std::arch::naked_asm;
+
+  type CRetArg = unsafe extern "C" fn(i64) -> i32;
+
+  /// Detours `target`, and asserts its results for `inputs`.
+  unsafe fn detour_test_arg(target: CRetArg, cases: &[(i64, i32)]) -> Result<()> {
+    extern "C" fn detour(_: i64) -> i32 {
+      10
+    }
+
+    // SAFETY: Both functions share the same signature.
+    let hook = unsafe { RawDetour::new(target as *const (), detour as *const ())? };
+    // SAFETY: The fixtures are valid functions, and not executed concurrently.
+    unsafe {
+      hook.enable()?;
+      let original: CRetArg = mem::transmute(hook.trampoline());
+      for &(input, output) in cases {
+        assert_eq!(target(input), 10);
+        assert_eq!(original(input), output);
+      }
+      hook.disable()?;
+      for &(input, output) in cases {
+        assert_eq!(target(input), output);
+      }
+    }
+    Ok(())
+  }
+
+  /// Creates a detour of `target`, which is never enabled.
+  fn create(target: CRet) -> Result<RawDetour> {
+    // SAFETY: The detour is never enabled.
+    unsafe { RawDetour::new(target as *const (), ret10 as *const ()) }
+  }
+
+  #[test]
+  fn compressed_prolog() -> Result<()> {
+    #[unsafe(naked)]
+    unsafe extern "C" fn ret4() -> i32 {
+      naked_asm!(
+        "c.li a0, 1",
+        "c.addi a0, 1",
+        "c.addi a0, 1",
+        "c.addi a0, 1",
+        "c.jr ra"
+      )
+    }
+
+    // SAFETY: The fixture is a valid function.
+    unsafe { detour_test(ret4, 4) }
+  }
+
+  #[test]
+  fn address_calculation() -> Result<()> {
+    #[unsafe(naked)]
+    unsafe extern "C" fn auipc_ret42() -> i32 {
+      naked_asm!(
+        ".option push",
+        ".option norvc",
+        "1: auipc a0, %pcrel_hi(2f)",
+        "lw a0, %pcrel_lo(1b)(a0)",
+        "ret",
+        ".balign 4",
+        "2: .word 42",
+        ".option pop",
+      )
+    }
+
+    // SAFETY: The fixture is a valid function.
+    unsafe { detour_test(auipc_ret42, 42) }
+  }
+
+  #[test]
+  fn conditional_branch() -> Result<()> {
+    #[unsafe(naked)]
+    unsafe extern "C" fn branch(_: i64) -> i32 {
+      naked_asm!(
+        ".option push",
+        ".option norvc",
+        "beqz a0, 2f",
+        "li a0, 1",
+        "ret",
+        "2: li a0, 2",
+        "ret",
+        ".option pop",
+      )
+    }
+
+    // SAFETY: The fixture is a valid function.
+    unsafe { detour_test_arg(branch, &[(0, 2), (5, 1)]) }
+  }
+
+  #[test]
+  fn compressed_conditional_branch() -> Result<()> {
+    #[unsafe(naked)]
+    unsafe extern "C" fn branch(_: i64) -> i32 {
+      naked_asm!(
+        "c.bnez a0, 2f",
+        "c.li a0, 1",
+        "c.jr ra",
+        "c.nop",
+        "2: c.li a0, 2",
+        "c.jr ra"
+      )
+    }
+
+    // SAFETY: The fixture is a valid function.
+    unsafe { detour_test_arg(branch, &[(0, 1), (5, 2)]) }
+  }
+
+  #[test]
+  fn call() -> Result<()> {
+    #[unsafe(naked)]
+    unsafe extern "C" fn call_ret42() -> i32 {
+      naked_asm!(
+        ".option push",
+        ".option norvc",
+        "mv t0, ra",
+        "jal ra, 2f",
+        "mv ra, t0",
+        "ret",
+        "2: li a0, 42",
+        "ret",
+        ".option pop",
+      )
+    }
+
+    // SAFETY: The fixture is a valid function.
+    unsafe { detour_test(call_ret42, 42) }
+  }
+
+  #[test]
+  fn padding_after() -> Result<()> {
+    #[unsafe(naked)]
+    unsafe extern "C" fn ret3() -> i32 {
+      naked_asm!(
+        "c.li a0, 3",
+        "c.jr ra",
+        ".option push",
+        ".option norvc",
+        "nop",
+        ".option pop"
+      )
+    }
+
+    // SAFETY: The fixture is a valid function.
+    unsafe { detour_test(ret3, 3) }
+  }
+
+  #[test]
+  fn rejects_small_functions() {
+    #[unsafe(naked)]
+    unsafe extern "C" fn tiny() -> i32 {
+      naked_asm!("c.li a0, 3", "c.jr ra", "c.li a0, 4", "c.jr ra")
+    }
+
+    assert!(matches!(create(tiny), Err(Error::PatchAreaTooSmall)));
+  }
+
+  #[test]
+  fn rejects_branches_into_patch() {
+    #[unsafe(naked)]
+    unsafe extern "C" fn count() -> i32 {
+      naked_asm!(
+        ".option push",
+        ".option norvc",
+        "li a0, 0",
+        "2: addi a0, a0, 1",
+        "li a1, 3",
+        "blt a0, a1, 2b",
+        "ret",
+        ".option pop",
+      )
+    }
+
+    assert!(matches!(create(count), Err(Error::UnsupportedInstruction)));
+  }
+
+  #[test]
+  fn rejects_scratch_register_usage() {
+    #[unsafe(naked)]
+    unsafe extern "C" fn uses_t1() -> i32 {
+      naked_asm!(
+        ".option push",
+        ".option norvc",
+        "li t1, 1",
+        "mv a0, t1",
+        "ret",
+        ".option pop"
+      )
+    }
+
+    assert!(matches!(
+      create(uses_t1),
+      Err(Error::UnsupportedInstruction)
+    ));
+  }
+}

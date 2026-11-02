@@ -4,22 +4,25 @@
 pub(crate) use self::alloc::{CodeBlock, allocate_near};
 
 use crate::error::{Error, Result};
+use crate::hook::Registry;
 use crate::sync::Mutex;
+use core::ops::DerefMut;
 
 mod alloc;
 #[cfg(target_vendor = "apple")]
 mod apple;
 
-/// Serializes all code modifications performed by this crate.
+/// Serializes all code modifications performed by this crate, and guards the
+/// registry of detoured targets.
 ///
 /// Creating, enabling, and disabling detours all read or write code that other
 /// detours may also touch (e.g. two detours sharing a target, or relocated
 /// code residing in a shared page).
-static PATCH_LOCK: Mutex<()> = Mutex::new(());
+static PATCH_LOCK: Mutex<Registry> = Mutex::new(Registry::new());
 
 /// Acquires the global patch lock, which is held until the guard is dropped.
 #[must_use]
-pub(crate) fn patch_lock() -> impl Sized {
+pub(crate) fn patch_lock() -> impl DerefMut<Target = Registry> {
   PATCH_LOCK.lock()
 }
 
@@ -138,7 +141,9 @@ impl Protections {
 /// Overwrites existing (typically read-only) code at `address` with `bytes`.
 ///
 /// The memory protection is restored to `protections` afterwards, and the
-/// instruction cache is invalidated for the modified range. This does not
+/// instruction cache is invalidated for the modified range. The code may have
+/// been written even if an error is returned (e.g. if the protection could
+/// not be restored). This does not
 /// allocate, so it may be used whilst other threads are suspended.
 ///
 /// # Safety
@@ -150,6 +155,14 @@ pub(crate) unsafe fn patch_code(
   bytes: &[u8],
   protections: &Protections,
 ) -> Result<()> {
+  #[cfg(test)]
+  {
+    let failing = FAIL_BEFORE_WRITE.replace(FAIL_BEFORE_WRITE.get() >> 1);
+    if failing & 1 != 0 {
+      return Err(Error::Memory(crate::error::OsError::other("simulated failure")));
+    }
+  }
+
   // SAFETY: The requested protection is a superset of the existing one.
   let result = match unsafe {
     region::protect(address, bytes.len(), region::Protection::READ_WRITE_EXECUTE)
@@ -174,8 +187,26 @@ pub(crate) unsafe fn patch_code(
 
   if result.is_ok() {
     flush_instruction_cache(address, bytes.len());
+    #[cfg(test)]
+    match FAIL_AFTER_WRITE.get() {
+      Some(0) => return Err(Error::Memory(crate::error::OsError::other("simulated failure"))),
+      Some(count) => FAIL_AFTER_WRITE.set(Some(count - 1)),
+      None => {},
+    }
   }
   result
+}
+
+#[cfg(test)]
+std::thread_local! {
+  /// Fails code patches (for the current thread) after the code is written,
+  /// as if the protection could not be restored, once the given number of
+  /// patches has succeeded.
+  pub(crate) static FAIL_AFTER_WRITE: core::cell::Cell<Option<usize>> = const { core::cell::Cell::new(None) };
+
+  /// Fails code patches (for the current thread) before the code is written:
+  /// bit `n` fails the `n`-th subsequent patch.
+  pub(crate) static FAIL_BEFORE_WRITE: core::cell::Cell<u64> = const { core::cell::Cell::new(0) };
 }
 
 /// Ensures that modified code is visible to instruction fetches.
@@ -206,6 +237,18 @@ pub(crate) fn flush_instruction_cache(address: *const u8, len: usize) {
   unsafe {
     aarch64_clear_cache(address as usize, len)
   };
+
+  #[cfg(all(target_arch = "riscv64", target_os = "linux"))]
+  {
+    // `FENCE.I` only synchronizes the current hart; the system call (which
+    // `libc` does not define) synchronizes all of them.
+    const SYS_RISCV_FLUSH_ICACHE: libc::c_long = 259;
+    // SAFETY: Flushing an arbitrary range of the current process is benign.
+    unsafe {
+      core::arch::asm!("fence.i", options(nostack));
+      libc::syscall(SYS_RISCV_FLUSH_ICACHE, address, address.wrapping_add(len), 0);
+    }
+  }
 
   // x86 and x86-64 keep instruction caches coherent with data writes.
   let _ = (address, len);

@@ -150,6 +150,8 @@ mod tests {
     naked_asm!("2:", "pause", "jmp 2b");
     #[cfg(target_arch = "aarch64")]
     naked_asm!("2:", "yield", "b 2b");
+    #[cfg(target_arch = "riscv64")]
+    naked_asm!("2:", "nop", "j 2b");
   }
 
   /// Returns `42`.
@@ -159,10 +161,14 @@ mod tests {
     naked_asm!("mov eax, 42", "ret");
     #[cfg(target_arch = "aarch64")]
     naked_asm!("mov w0, #42", "ret");
+    #[cfg(target_arch = "riscv64")]
+    naked_asm!(".option push", ".option norvc", "li a0, 42", "ret", ".option pop");
   }
 
   #[test]
   fn moves_suspended_threads() -> Result<()> {
+    // Sessions share global state (e.g. on Linux), so tests are serialized
+    let _lock = crate::memory::patch_lock();
     let worker = std::thread::spawn(|| forever());
     let threads = [Thread::from(&worker)];
     let spin = forever as *const () as usize..forever as *const () as usize + 8;
@@ -183,6 +189,33 @@ mod tests {
     }
 
     assert_eq!(worker.join().unwrap(), 42);
+    Ok(())
+  }
+
+  #[test]
+  fn suspends_duplicate_threads() -> Result<()> {
+    // See `moves_suspended_threads`
+    let _lock = crate::memory::patch_lock();
+    use core::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
+
+    let done = Arc::new(AtomicBool::new(false));
+    let worker = std::thread::spawn({
+      let done = done.clone();
+      move || {
+        while !done.load(Ordering::Relaxed) {
+          core::hint::spin_loop();
+        }
+      }
+    });
+
+    let thread = Thread::from(&worker);
+    let suspended = Suspended::new(Threads::Only(&[thread, thread]))?;
+    drop(suspended);
+
+    // The worker is resumed, regardless of how often it was listed
+    done.store(true, Ordering::Relaxed);
+    worker.join().unwrap();
     Ok(())
   }
 }

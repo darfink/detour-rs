@@ -160,15 +160,19 @@ unsafe fn build_near(target: usize, patch_offset: usize, prefix: Option<u32>) ->
 
   // Relocate every instruction up to, and including, the patched one
   let count = patch_offset / 4 + 1;
+  // SAFETY: The instructions have been verified to be readable.
+  let code = unsafe { core::slice::from_raw_parts(target as *const u32, count) };
+  if code.iter().any(|&instruction| encode::uses_pc_modifier(instruction)) {
+    return Err(Error::UnsupportedInstruction);
+  }
+
   let mut trampoline =
     memory::allocate_near(target, MAX_DISTANCE, (count + 1) * MAX_RELOCATED_LEN)?;
   let mut emitter = encode::Emitter::new(trampoline.address());
   let mut relocated = Vec::with_capacity(count);
-  for index in 0..count {
-    let pc = target + index * 4;
+  for (index, &instruction) in code.iter().enumerate() {
     relocated.push(((index * 4) as u32, emitter.offset()));
-    // SAFETY: The instructions have been verified to be readable.
-    emitter.relocate(unsafe { (pc as *const u32).read() }, pc);
+    emitter.relocate(instruction, target + index * 4);
   }
   emitter.jump(patch_address + 4);
 
@@ -220,6 +224,9 @@ unsafe fn build_far(target: usize, patch_offset: usize, prefix: Option<u32>) -> 
   // the absolute jump clobbers X16. It holds no value upon function entry, but
   // the replaced instructions must not assign it.
   if code[..patched_count].iter().any(|&instruction| encode::may_use_x16(instruction)) {
+    return Err(Error::UnsupportedInstruction);
+  }
+  if code[..patched_count].iter().any(|&instruction| encode::uses_pc_modifier(instruction)) {
     return Err(Error::UnsupportedInstruction);
   }
 
@@ -302,6 +309,23 @@ pub(crate) mod encode {
     let is_branch_register = instruction & 0xFE00_0000 == 0xD600_0000;
     let is_link = (instruction >> 21) & 0xF == 0b0001;
     is_branch_immediate || (is_branch_register && !is_link)
+  }
+
+  /// Returns whether `instruction` uses its own address as a pointer
+  /// authentication modifier (`FEAT_PAuth_LR`, e.g. `PACIASPPC`), which
+  /// differs once relocated.
+  pub fn uses_pc_modifier(instruction: u32) -> bool {
+    // Each pair of A & B key variants differs in a single bit
+    const ENCODINGS: [(u32, u32); 6] = [
+      (0xFFC0_0000, 0xF380_0000), // AUTIASPPC & AUTIBSPPC
+      (0xFFDF_F81F, 0xDAC1_901E), // AUTIASPPCR & AUTIBSPPCR
+      (0xFFDF_FBFF, 0xDAC1_A3FE), // PACIASPPC & PACIBSPPC
+      (0xFFDF_FBFF, 0xDAC1_83FE), // PACNBIASPPC & PACNBIBSPPC
+      (0xFFC0_001F, 0x5500_001F), // RETAASPPC & RETABSPPC
+      (0xFFFF_FBE0, 0xD65F_0BE0), // RETAASPPCR & RETABSPPCR (but not RETAA)
+    ];
+    let is_retaa = instruction & 0xFFFF_FBFF == 0xD65F_0BFF;
+    ENCODINGS.iter().any(|&(mask, value)| instruction & mask == value) && !is_retaa
   }
 
   /// Returns whether `instruction` may reference X16 (conservatively, by
@@ -793,6 +817,20 @@ mod far_tests {
     }
 
     assert!(matches!(far_detour(branch_into_patch), Err(Error::UnsupportedInstruction)));
+  }
+
+  #[test]
+  fn rejects_pc_modifiers() {
+    #[unsafe(naked)]
+    unsafe extern "C" fn sign_with_pc() -> i32 {
+      // paciasppc; ...; retaasppc (never executed)
+      naked_asm!(".inst 0xdac1a3fe", "mov w0, #1", "nop", "nop", "nop", ".inst 0x5500001f")
+    }
+
+    assert!(matches!(far_detour(sign_with_pc), Err(Error::UnsupportedInstruction)));
+    // SAFETY: The function is never executed.
+    let result = unsafe { RawDetour::new(sign_with_pc as *const (), ret10 as *const ()) };
+    assert!(matches!(result, Err(Error::UnsupportedInstruction)));
   }
 
   #[test]

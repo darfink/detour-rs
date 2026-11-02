@@ -20,6 +20,9 @@
 
 ### Fixed
 
+- AArch64 targets relocating `FEAT_PAuth_LR` instructions (e.g. `PACIASPPC`,
+  which signs the return address using its own address) are rejected with
+  `Error::UnsupportedInstruction`, instead of being relocated verbatim.
 - Suspending a thread listed more than once in `Threads::Only` timed out on
   Linux & Android.
 - A static detour could be enabled and called by another thread whilst it was

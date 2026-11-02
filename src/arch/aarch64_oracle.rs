@@ -15,10 +15,11 @@ use yaxpeax_arm::armv8::a64::{InstDecoder, Operand};
 const PC: usize = 0x1_0000_0000;
 const FAR: usize = 0x7_0000_0000;
 
-/// PC-relative instructions the relocator is known not to handle.
+/// PC-relative instructions the relocator does not handle.
 ///
 /// `FEAT_PAuth_LR` instructions use the address of a preceding `PAC*SPPC` as a
-/// modifier, which differs once relocated.
+/// modifier, which differs once relocated. Targets relocating them are
+/// rejected instead (see `encode::uses_pc_modifier`).
 const KNOWN_GAPS: &[&str] = &["autiasppc", "autibsppc", "retaasppc", "retabsppc"];
 
 /// The outcome of classifying a single instruction.
@@ -126,10 +127,44 @@ fn rewrites_pc_relative_instructions() {
 }
 
 #[test]
-#[ignore = "relocator gap: FEAT_PAuth_LR instructions (e.g. `retaasppc`, 0x5500_001F) are copied verbatim"]
-fn rewrites_pauth_lr_instructions() {
-  let (copied, _) = mismatches();
-  assert!(copied.is_empty(), "PC-relative instructions copied verbatim: {copied:#x?}");
+fn detects_pc_modifiers() {
+  use super::encode::uses_pc_modifier;
+
+  // Every encoding of each `FEAT_PAuth_LR` instruction (and nothing else) is
+  // detected; `(mask, value)` as found by decoding all 2^32 words (with
+  // `Rm = 31` of `RETA*SPPCR` being `RETA*`)
+  const PATTERNS: [(u32, u32); 12] = [
+    (0xFFE0_0000, 0xF380_0000), // autiasppc
+    (0xFFE0_0000, 0xF3A0_0000), // autibsppc
+    (0xFFDF_FC1F, 0xDAC1_901E), // autiasppcr
+    (0xFFDF_FC1F, 0xDAC1_941E), // autibsppcr
+    (0xFFDF_FFFF, 0xDAC1_A3FE), // paciasppc
+    (0xFFDF_FFFF, 0xDAC1_A7FE), // pacibsppc
+    (0xFFDF_FFFF, 0xDAC1_83FE), // pacnbiasppc
+    (0xFFDF_FFFF, 0xDAC1_87FE), // pacnbibsppc
+    (0xFFE0_001F, 0x5500_001F), // retaasppc
+    (0xFFE0_001F, 0x5520_001F), // retabsppc
+    (0xFFFF_FFE0, 0xD65F_0BE0), // retaasppcr
+    (0xFFFF_FFE0, 0xD65F_0FE0), // retabsppcr
+  ];
+
+  let decoder = InstDecoder::default();
+  let mut rng = Rng(0x5070_C0DE);
+  let targeted = PATTERNS
+    .iter()
+    .flat_map(|&(mask, value)| (0..0x400).map(move |_| (mask, value)))
+    .map(|(mask, value)| value | (rng.next() as u32 & !mask));
+
+  for word in words().chain(targeted) {
+    let Some((mnemonic, _)) = decode(&decoder, word) else {
+      continue;
+    };
+    assert_eq!(
+      uses_pc_modifier(word),
+      mnemonic.contains("sppc"),
+      "{word:#010x} ({mnemonic})"
+    );
+  }
 }
 
 #[test]

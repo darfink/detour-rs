@@ -42,6 +42,11 @@ mach2 = { version = ">=0.4.2, <0.8", default-features = false }
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61.0", features = ["Win32_Foundation", "Win32_System_Diagnostics_Debug", "Win32_System_Diagnostics_ToolHelp", "Win32_System_Kernel", "Win32_System_Threading"] }
 
+[dev-dependencies]
+# A reference decoder, to check the AArch64 relocator's classification.
+yaxpeax-arch = { version = "0.3.2", default-features = false }
+yaxpeax-arm = { version = "0.5.0", default-features = false, features = ["std"] }
+
 [target.'cfg(unix)'.dev-dependencies]
 libc = "0.2.172"
 region = "4.0.1"

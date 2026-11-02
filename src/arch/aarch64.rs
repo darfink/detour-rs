@@ -708,6 +708,14 @@ mod tests {
   }
 }
 
+#[cfg(test)]
+#[path = "aarch64_oracle.rs"]
+mod oracle;
+
+#[cfg(all(test, target_arch = "aarch64", unix))]
+#[path = "aarch64_differential.rs"]
+mod differential;
+
 /// Tests of the absolute patch (used when no memory is available nearby).
 #[cfg(all(test, target_arch = "aarch64"))]
 mod far_tests {

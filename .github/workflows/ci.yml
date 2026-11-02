@@ -116,6 +116,19 @@ jobs:
           done
       - run: cargo doc --no-deps
 
+  semver:
+    name: Semver (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # The public API differs between platforms (e.g. `Thread` constructors)
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v5
+      # Compares the public API against the latest release on crates.io
+      - uses: obi1kenobi/cargo-semver-checks-action@v2
+
   msrv:
     name: MSRV
     runs-on: ubuntu-latest

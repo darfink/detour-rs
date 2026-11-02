@@ -63,17 +63,21 @@ impl<F: Copy, C: ?Sized> StaticDetour<F, C> {
     let hook = unsafe { Hook::new(to_ptr(target), to_ptr(self.ffi))? };
     let hook = Box::into_raw(Box::new(hook));
 
-    // Another thread may have raced to initialize the detour
-    let result =
-      self
-        .hook
-        .compare_exchange(ptr::null_mut(), hook, Ordering::AcqRel, Ordering::Acquire);
-    if result.is_err() {
+    // Initializers are serialized by the lock, so the closure can be set
+    // before the hook is published: the FFI function never observes an
+    // initialized hook without a closure.
+    let mut retired = self.retired.lock();
+    if self.hook().is_some() {
+      drop(retired);
       // SAFETY: The hook was never shared.
       drop(unsafe { Box::from_raw(hook) });
       return Err(Error::AlreadyInitialized);
     }
-    self.__set_detour(closure);
+
+    let released = self.replace_detour(&mut retired, closure);
+    self.hook.store(hook, Ordering::Release);
+    drop(retired);
+    drop(released);
     Ok(())
   }
 
@@ -134,26 +138,27 @@ impl<F: Copy, C: ?Sized> StaticDetour<F, C> {
   /// so if `active_calls` is observed as zero after a closure was swapped out,
   /// every call that may have loaded it has completed.
   pub fn __set_detour(&self, closure: Box<C>) {
-    let previous = self.closure.swap(Box::into_raw(Box::new(closure)), Ordering::SeqCst);
-
-    let released = {
-      let mut retired = self.retired.lock();
-      if !previous.is_null() {
-        // SAFETY: The pointer originates from `Box::into_raw`, and was
-        // exclusively obtained by the swap.
-        retired.push(unsafe { Box::from_raw(previous) });
-      }
-
-      if self.active_calls.load(Ordering::SeqCst) == 0 {
-        mem::take(&mut *retired)
-      } else {
-        Vec::new()
-      }
-    };
-
+    let released = self.replace_detour(&mut self.retired.lock(), closure);
     // Released outside of the lock, in case a closure's destructor calls the
     // detoured function.
     drop(released);
+  }
+
+  /// Replaces the detour closure (see [`StaticDetour::__set_detour`]),
+  /// returning the retired closures that may be released.
+  fn replace_detour(&self, retired: &mut Vec<Box<Box<C>>>, closure: Box<C>) -> Vec<Box<Box<C>>> {
+    let previous = self.closure.swap(Box::into_raw(Box::new(closure)), Ordering::SeqCst);
+    if !previous.is_null() {
+      // SAFETY: The pointer originates from `Box::into_raw`, and was
+      // exclusively obtained by the swap.
+      retired.push(unsafe { Box::from_raw(previous) });
+    }
+
+    if self.active_calls.load(Ordering::SeqCst) == 0 {
+      mem::take(retired)
+    } else {
+      Vec::new()
+    }
   }
 
   /// Invokes `call` with the active detour closure.
@@ -346,5 +351,53 @@ mod tests {
     // All closures but the active one are released once no call is active
     detour.__set_detour(tracked(0, &released));
     assert_eq!(released.load(Ordering::SeqCst), REPLACEMENTS as usize);
+  }
+
+  #[test]
+  fn concurrent_initialization() -> Result<()> {
+    #[inline(never)]
+    fn target(value: u32) -> u32 {
+      std::hint::black_box(value) + std::hint::black_box(0) * line!()
+    }
+
+    // SAFETY: The hook is never enabled, so the FFI function is never used.
+    let detour = unsafe { StaticDetour::<fn(u32) -> u32, Closure>::__new(original) };
+    let released = Arc::new(AtomicUsize::new(0));
+
+    let done = AtomicBool::new(false);
+
+    let results = thread::scope(|scope| {
+      // A published hook always has a closure
+      scope.spawn(|| {
+        while detour.hook().is_none() {
+          if done.load(Ordering::SeqCst) {
+            return;
+          }
+          std::hint::spin_loop();
+        }
+        assert!(!detour.closure.load(Ordering::SeqCst).is_null());
+      });
+
+      let initializers = (0..4)
+        .map(|value| {
+          let (detour, closure) = (&detour, tracked(value, &released));
+          // SAFETY: The target shares the signature of the FFI function.
+          scope.spawn(move || unsafe { detour.__initialize(target, closure) }.map(|()| value))
+        })
+        .collect::<Vec<_>>();
+      let results =
+        initializers.into_iter().map(|handle| handle.join().unwrap()).collect::<Vec<_>>();
+      // The observer stops even if no initializer succeeded
+      done.store(true, Ordering::SeqCst);
+      results
+    });
+
+    // Exactly one initializer succeeds, and its closure is the detour
+    let winners = results.iter().filter_map(|result| result.as_ref().ok()).collect::<Vec<_>>();
+    assert_eq!(winners.len(), 1);
+    assert!(results.iter().flat_map(|result| result.as_ref().err()).all(|error| *error == Error::AlreadyInitialized));
+    assert_eq!(detour.__with_detour(|closure| closure(0)), *winners[0]);
+    assert_eq!(released.load(Ordering::SeqCst), 3);
+    Ok(())
   }
 }

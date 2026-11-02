@@ -6,6 +6,8 @@
 
 - Suspending a thread listed more than once in `Threads::Only` timed out on
   Linux & Android.
+- A static detour could be enabled and called by another thread whilst it was
+  being initialized, before its closure was set (aborting the process).
 
 ## [0.10.0] - 2026-09-30
 

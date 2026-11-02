@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Added
+
+- `Detour::is_enabled`, so detours grouped as `&dyn Detour` can be
+  inspected.
+
 ### Fixed
 
 - Suspending a thread listed more than once in `Threads::Only` timed out on

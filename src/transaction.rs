@@ -9,8 +9,41 @@ use alloc::vec::Vec;
 /// A detour, which can be part of a [`Transaction`].
 ///
 /// This is implemented by all detour types, and cannot be implemented
-/// outside of this crate.
-pub trait Detour: private::Sealed {}
+/// outside of this crate. Different detours can be grouped as `&dyn Detour`:
+///
+/// ```rust
+/// use detour::{Detour, TypedDetour, static_detour};
+///
+/// static_detour! {
+///   static Unused: fn(i32) -> i32;
+/// }
+///
+/// #[inline(never)]
+/// fn add5(val: i32) -> i32 {
+///   val + 5
+/// }
+///
+/// fn add10(val: i32) -> i32 {
+///   val + 10
+/// }
+///
+/// # fn main() -> detour::Result<()> {
+/// let hook = unsafe { TypedDetour::<fn(i32) -> i32>::new(add5, add10)? };
+/// unsafe { hook.enable()? };
+///
+/// let detours: [&dyn Detour; 2] = [&hook, &Unused];
+/// assert_eq!(detours.map(|detour| detour.is_enabled()), [true, false]);
+/// # Ok(())
+/// # }
+/// ```
+pub trait Detour: private::Sealed {
+  /// Returns whether the detour is enabled or not.
+  ///
+  /// An uninitialized static detour is not enabled.
+  fn is_enabled(&self) -> bool {
+    self.hook().is_some_and(Hook::is_enabled)
+  }
+}
 
 pub(crate) mod private {
   use crate::hook::Hook;

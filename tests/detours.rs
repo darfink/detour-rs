@@ -705,3 +705,30 @@ fn toggle_whilst_executing() -> Result<()> {
   assert!(results[1] + results[2] > 0);
   Ok(())
 }
+
+#[test]
+fn detours_can_be_grouped() -> Result<()> {
+  use detour::Detour;
+
+  static_detour! {
+    static Grouped: fn(i32) -> i32;
+  }
+
+  #[inline(never)]
+  fn add5(value: i32) -> i32 {
+    std::hint::black_box(value) + 5 + unique!()
+  }
+
+  // SAFETY: The functions share the same signature.
+  let typed = unsafe { TypedDetour::<fn(i32) -> i32>::new(add5, |value| value)? };
+  // SAFETY: No other thread is executing `add5`.
+  unsafe { typed.enable()? };
+
+  // The inherent methods remain typed with the trait in scope
+  let handle = &Grouped;
+  let _: Option<fn(i32) -> i32> = handle.trampoline();
+
+  let detours: [&dyn Detour; 2] = [&Grouped, &typed];
+  assert_eq!(detours.map(|detour| detour.is_enabled()), [false, true]);
+  Ok(())
+}

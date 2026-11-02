@@ -85,7 +85,37 @@ fn clear_cache(address: usize, len: usize) {
     unsafe { sys_icache_invalidate(address as *mut _, len) };
   }
 
-  #[cfg(all(target_arch = "aarch64", not(target_vendor = "apple")))]
+  // `__clear_cache` is unavailable when statically linking musl
+  #[cfg(all(
+    target_arch = "aarch64",
+    any(target_os = "linux", target_os = "android")
+  ))]
+  {
+    use std::arch::asm;
+
+    let ctr: u64;
+    // SAFETY: CTR_EL0 is readable from user space.
+    unsafe { asm!("mrs {}, ctr_el0", out(reg) ctr, options(nomem, nostack)) };
+    let (data_line, instruction_line) = (4 << ((ctr >> 16) & 0xF), 4 << (ctr & 0xF));
+
+    for line in (address & !(data_line - 1)..address + len).step_by(data_line) {
+      // SAFETY: Cleaning a cache line of a mapped range has no side effects.
+      unsafe { asm!("dc cvau, {}", in(reg) line, options(nostack)) };
+    }
+    // SAFETY: Barrier.
+    unsafe { asm!("dsb ish", options(nostack)) };
+    for line in (address & !(instruction_line - 1)..address + len).step_by(instruction_line) {
+      // SAFETY: Invalidating a cache line of a mapped range has no side effects.
+      unsafe { asm!("ic ivau, {}", in(reg) line, options(nostack)) };
+    }
+    // SAFETY: Barriers.
+    unsafe { asm!("dsb ish", "isb", options(nostack)) };
+  }
+
+  #[cfg(all(
+    target_arch = "aarch64",
+    not(any(target_vendor = "apple", target_os = "linux", target_os = "android"))
+  ))]
   {
     unsafe extern "C" {
       fn __clear_cache(start: *mut core::ffi::c_char, end: *mut core::ffi::c_char);

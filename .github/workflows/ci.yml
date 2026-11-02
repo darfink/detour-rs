@@ -22,6 +22,9 @@ jobs:
           - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu }
           - { os: ubuntu-latest, target: i686-unknown-linux-gnu, packages: gcc-multilib }
           - { os: ubuntu-24.04-arm, target: aarch64-unknown-linux-gnu }
+          # Statically linked, so the `cdylib` examples cannot be built
+          - { os: ubuntu-latest, target: x86_64-unknown-linux-musl, musl: true }
+          - { os: ubuntu-24.04-arm, target: aarch64-unknown-linux-musl, musl: true }
           - { os: windows-latest, target: x86_64-pc-windows-msvc }
           - { os: windows-latest, target: i686-pc-windows-msvc }
           - { os: windows-latest, target: x86_64-pc-windows-gnu }
@@ -40,10 +43,11 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.target }}
-      - run: cargo test --target ${{ matrix.target }} ${{ matrix.test-args }}
-      - run: cargo test --target ${{ matrix.target }} --release ${{ matrix.test-args }}
-      - run: cargo test --target ${{ matrix.target }} --no-default-features --features no_std ${{ matrix.test-args }}
+      - run: cargo test --target ${{ matrix.target }} ${{ matrix.musl && '--lib --tests' || '' }} ${{ matrix.test-args }}
+      - run: cargo test --target ${{ matrix.target }} ${{ matrix.musl && '--lib --tests' || '' }} --release ${{ matrix.test-args }}
+      - run: cargo test --target ${{ matrix.target }} ${{ matrix.musl && '--lib --tests' || '' }} --no-default-features --features no_std ${{ matrix.test-args }}
       - name: Run the early hook example
+        if: ${{ !matrix.musl }}
         shell: bash
         run: |
           cargo build --target ${{ matrix.target }} --example early_hook --example early_target --example launch_suspended
@@ -88,7 +92,6 @@ jobs:
       matrix:
         target:
           - x86_64-unknown-freebsd
-          - x86_64-unknown-linux-musl
           - aarch64-linux-android
     steps:
       - uses: actions/checkout@v5

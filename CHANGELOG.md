@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Suspending a thread listed more than once in `Threads::Only` timed out on
+  Linux & Android.
+
 ## [0.10.0] - 2026-09-30
 
 Thread-safe transactions with EIP relocation, and support for reference

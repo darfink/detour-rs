@@ -374,6 +374,14 @@ impl Session {
     self.slots[..self.count].iter().any(|slot| slot.tid.load(Ordering::Relaxed) == tid)
   }
 
+  fn contains_pthread(&self, thread: libc::pthread_t) -> bool {
+    self.slots[..self.count].iter().any(|slot| {
+      let requested = slot.pthread.load(Ordering::Relaxed) as libc::pthread_t;
+      // SAFETY: Comparing thread identifiers has no preconditions.
+      unsafe { libc::pthread_equal(requested, thread) != 0 }
+    })
+  }
+
   fn is_full(&self) -> bool {
     self.count == self.slots.len()
   }
@@ -586,7 +594,7 @@ pub(super) fn suspend_all() -> Result<Session> {
   }
 }
 
-/// Suspends the given threads, ignoring the current thread.
+/// Suspends the given threads, ignoring the current thread and duplicates.
 pub(super) fn suspend(threads: &[Thread]) -> Result<Session> {
   if threads.is_empty() {
     return Ok(Session::default());
@@ -596,10 +604,12 @@ pub(super) fn suspend(threads: &[Thread]) -> Result<Session> {
   // SAFETY: `pthread_self` has no preconditions.
   let current = unsafe { libc::pthread_self() };
   let mut session = Session::new(threads.len());
-  for thread in threads {
+  for thread in threads.iter().map(|&thread| pthread(thread)) {
+    // A thread blocks the signal whilst suspended, so a duplicate request
+    // would never be handled.
     // SAFETY: Comparing thread identifiers has no preconditions.
-    if unsafe { libc::pthread_equal(pthread(*thread), current) } == 0 {
-      session.request(0, Some(pthread(*thread)))?;
+    if unsafe { libc::pthread_equal(thread, current) } == 0 && !session.contains_pthread(thread) {
+      session.request(0, Some(thread))?;
     }
   }
   session.wait(0..session.count)?;

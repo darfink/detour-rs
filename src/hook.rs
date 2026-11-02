@@ -80,7 +80,7 @@ pub(crate) enum Change {
   Patch,
   /// The original code is restored (the last detour is disabled).
   Restore,
-  /// The target is redirected to another detour; threads are unaffected.
+  /// The target is redirected to another detour.
   Redirect,
   /// Only links are updated.
   Relink,
@@ -371,15 +371,15 @@ impl Hook {
   }
 
   /// Returns where a suspended thread at `pc` must resume, once the target's
-  /// code is patched or restored (see [`Change`]), or `None` if it is
-  /// unaffected.
+  /// code is changed (see [`Change`]), or `None` if it is unaffected.
   ///
   /// - Patching: a thread executing the instructions that are overwritten is
   ///   moved to their equivalent in the trampoline.
-  /// - Restoring: a thread in the midst of the patch (having executed part of
-  ///   it, e.g. the short jump of a hot patch) is moved to the start of the
-  ///   target. The trampoline remains valid, so threads executing it are
-  ///   unaffected.
+  /// - Restoring or redirecting: a thread in the midst of the patch (having
+  ///   executed part of it, e.g. the short jump of a hot patch, or the
+  ///   `AUIPC` on RISC-V) is moved to the start of the target, since the
+  ///   executed part may not match the new code. The trampoline remains
+  ///   valid, so threads executing it are unaffected.
   pub(crate) fn relocate(&self, pc: usize, change: Change) -> Result<Option<usize>> {
     let patch = self.patch_range();
     if !patch.contains(&pc) {
@@ -400,14 +400,13 @@ impl Hook {
           .map(|&(_, relocated)| Some(self.trampoline + relocated as usize))
           .ok_or(Error::ThreadNotRelocatable)
       },
-      // The thread has yet to execute the patch; the original is restored
-      Change::Restore if pc == patch.start.max(self.target) => Ok(None),
-      // Any executed part of the patch (e.g. `AUTIASP`) is redone by the
-      // target's prolog (e.g. `PACIASP`)
-      Change::Restore => Ok(Some(self.target)),
-      // Patches of the same target have the same layout, so a thread in the
-      // midst of one continues with the other
-      Change::Redirect | Change::Relink => Ok(None),
+      // The thread has yet to execute the patch, which is replaced as a whole
+      Change::Restore | Change::Redirect if pc == patch.start.max(self.target) => Ok(None),
+      // Any executed part of the patch has no effect but on scratch registers
+      // (e.g. T1 on RISC-V), or is redone by the target's prolog (e.g.
+      // `AUTIASP` by `PACIASP`)
+      Change::Restore | Change::Redirect => Ok(Some(self.target)),
+      Change::Relink => Ok(None),
     }
   }
 }
@@ -527,8 +526,10 @@ mod tests {
     assert_eq!(hook.relocate(target + 2, Change::Patch), Ok(None));
 
     // A thread having executed the short jump restarts at the target
-    assert_eq!(hook.relocate(target - 5, Change::Restore), Ok(Some(target)));
-    assert_eq!(hook.relocate(target, Change::Restore), Ok(None));
+    for change in [Change::Restore, Change::Redirect] {
+      assert_eq!(hook.relocate(target - 5, change), Ok(Some(target)));
+      assert_eq!(hook.relocate(target, change), Ok(None));
+    }
     Ok(())
   }
 
@@ -568,9 +569,13 @@ mod tests {
     assert_eq!(hook.relocate(target + 4, Change::Patch), Ok(Some(trampoline + 4)));
     assert_eq!(hook.relocate(target + 8, Change::Patch), Ok(None));
 
-    // A thread in the midst of the patch restarts at the target
-    assert_eq!(hook.relocate(target, Change::Restore), Ok(None));
-    assert_eq!(hook.relocate(target + 4, Change::Restore), Ok(Some(target)));
+    // A thread in the midst of the patch restarts at the target, since it
+    // computed T1 for the replaced patch
+    for change in [Change::Restore, Change::Redirect] {
+      assert_eq!(hook.relocate(target, change), Ok(None));
+      assert_eq!(hook.relocate(target + 4, change), Ok(Some(target)));
+    }
+    assert_eq!(hook.relocate(target + 4, Change::Relink), Ok(None));
     Ok(())
   }
 
@@ -602,8 +607,10 @@ mod tests {
     assert_eq!(hook.relocate(target + 16, Change::Patch), Ok(None));
 
     // A thread in the midst of the absolute jump restarts at the target
-    assert_eq!(hook.relocate(target, Change::Restore), Ok(None));
-    assert_eq!(hook.relocate(target + 4, Change::Restore), Ok(Some(target)));
+    for change in [Change::Restore, Change::Redirect] {
+      assert_eq!(hook.relocate(target, change), Ok(None));
+      assert_eq!(hook.relocate(target + 4, change), Ok(Some(target)));
+    }
     Ok(())
   }
 

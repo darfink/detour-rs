@@ -4,6 +4,9 @@
 
 ### Added
 
+- RISC-V 64 support on Linux (`riscv64gc`, glibc & musl), including
+  compressed instructions, relays for detours beyond ±2 GiB, and thread
+  suspension. Tested in CI under QEMU.
 - `Detour::is_enabled`, so detours grouped as `&dyn Detour` can be
   inspected.
 

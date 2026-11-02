@@ -150,6 +150,8 @@ mod tests {
     naked_asm!("2:", "pause", "jmp 2b");
     #[cfg(target_arch = "aarch64")]
     naked_asm!("2:", "yield", "b 2b");
+    #[cfg(target_arch = "riscv64")]
+    naked_asm!("2:", "nop", "j 2b");
   }
 
   /// Returns `42`.
@@ -159,6 +161,8 @@ mod tests {
     naked_asm!("mov eax, 42", "ret");
     #[cfg(target_arch = "aarch64")]
     naked_asm!("mov w0, #42", "ret");
+    #[cfg(target_arch = "riscv64")]
+    naked_asm!(".option push", ".option norvc", "li a0, 42", "ret", ".option pop");
   }
 
   #[test]

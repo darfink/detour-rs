@@ -13,6 +13,8 @@ use alloc::vec::Vec;
 
 #[cfg(target_arch = "aarch64")]
 mod aarch64;
+#[cfg(target_arch = "riscv64")]
+mod riscv64;
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 mod x86;
 
@@ -20,6 +22,8 @@ mod x86;
 pub(crate) use self::aarch64::{Layout, build, link, redirect};
 #[cfg(all(test, target_arch = "aarch64"))]
 pub(crate) use self::aarch64::FORCE_FAR;
+#[cfg(target_arch = "riscv64")]
+pub(crate) use self::riscv64::{Layout, build, link, redirect};
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 pub(crate) use self::x86::{Layout, build, link, redirect};
 
@@ -28,6 +32,12 @@ pub(crate) use self::x86::{Layout, build, link, redirect};
 #[path = "aarch64.rs"]
 #[allow(dead_code)]
 mod aarch64_encoder;
+
+// Likewise, the RISC-V encoder (only the encoder; the rest requires the target)
+#[cfg(all(test, not(target_arch = "riscv64"), target_pointer_width = "64"))]
+#[path = "riscv64.rs"]
+#[allow(dead_code)]
+mod riscv64_encoder;
 
 /// The code of a target, shared by all of its detours.
 pub(crate) struct Site {

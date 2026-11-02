@@ -2,7 +2,7 @@
 name = "detour"
 version = "0.10.0"
 authors = ["Elliott Linder <elliott.darfink@gmail.com>"]
-description = "A cross-platform function detouring (inline hooking) library for x86, x86-64 and AArch64"
+description = "A cross-platform function detouring (inline hooking) library for x86, x86-64, AArch64 and RISC-V"
 documentation = "https://docs.rs/detour"
 homepage = "https://github.com/darfink/detour-rs"
 repository = "https://github.com/darfink/detour-rs"
@@ -26,7 +26,7 @@ no_std = ["iced-x86/no_std"]
 
 [dependencies]
 
-[target.'cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64"))'.dependencies]
+[target.'cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64", target_arch = "riscv64"))'.dependencies]
 region = { version = "4.0.1", default-features = false }
 
 [target.'cfg(any(target_arch = "x86", target_arch = "x86_64"))'.dependencies]
@@ -82,4 +82,4 @@ rust_2018_idioms = { level = "warn", priority = -1 }
 undocumented_unsafe_blocks = "warn"
 
 [package.metadata.docs.rs]
-targets = ["x86_64-unknown-linux-gnu", "i686-unknown-linux-gnu", "aarch64-unknown-linux-gnu", "x86_64-pc-windows-msvc", "aarch64-apple-darwin"]
+targets = ["x86_64-unknown-linux-gnu", "i686-unknown-linux-gnu", "aarch64-unknown-linux-gnu", "riscv64gc-unknown-linux-gnu", "x86_64-pc-windows-msvc", "aarch64-apple-darwin"]

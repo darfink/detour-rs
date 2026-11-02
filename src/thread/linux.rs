@@ -35,6 +35,11 @@ fn pthread(thread: Thread) -> libc::pthread_t {
   thread.0 as libc::pthread_t
 }
 
+/// The index of the program counter in the general registers of a context
+/// (not defined by `libc` for musl).
+#[cfg(target_arch = "riscv64")]
+const REG_PC: usize = 0;
+
 /// The maximum time to wait for a thread to handle the suspend signal.
 const TIMEOUT_NS: i64 = 2_000_000_000;
 
@@ -236,6 +241,8 @@ impl Suspended {
     return context.gregs[libc::REG_EIP as usize] as u32 as usize;
     #[cfg(target_arch = "aarch64")]
     return context.pc as usize;
+    #[cfg(target_arch = "riscv64")]
+    return context.__gregs[REG_PC] as usize;
   }
 
   /// Sets the program counter, restored once the thread is resumed.
@@ -254,6 +261,10 @@ impl Suspended {
     #[cfg(target_arch = "aarch64")]
     {
       context.pc = pc as _;
+    }
+    #[cfg(target_arch = "riscv64")]
+    {
+      context.__gregs[REG_PC] = pc as _;
     }
   }
 

@@ -551,6 +551,29 @@ mod tests {
     Ok(())
   }
 
+  #[cfg(target_arch = "riscv64")]
+  #[test]
+  fn relocates_program_counters() -> Result<()> {
+    #[unsafe(naked)]
+    unsafe extern "C" fn ret5() -> i32 {
+      naked_asm!(".option push", ".option norvc", "li a0, 5", "ret", ".option pop")
+    }
+
+    let detour = detour(ret5)?;
+    let hook = detour.hook().unwrap();
+    let (target, trampoline) = (ret5 as *const () as usize, hook.trampoline);
+
+    // Both instructions are replaced, each relocated to a single instruction
+    assert_eq!(hook.relocate(target, Change::Patch), Ok(Some(trampoline)));
+    assert_eq!(hook.relocate(target + 4, Change::Patch), Ok(Some(trampoline + 4)));
+    assert_eq!(hook.relocate(target + 8, Change::Patch), Ok(None));
+
+    // A thread in the midst of the patch restarts at the target
+    assert_eq!(hook.relocate(target, Change::Restore), Ok(None));
+    assert_eq!(hook.relocate(target + 4, Change::Restore), Ok(Some(target)));
+    Ok(())
+  }
+
   #[cfg(target_arch = "aarch64")]
   #[test]
   fn absolute_patch_relocates_program_counters() -> Result<()> {
@@ -591,6 +614,8 @@ mod tests {
     naked_asm!("mov eax, 5", "ret");
     #[cfg(target_arch = "aarch64")]
     naked_asm!("mov w0, #5", "ret");
+    #[cfg(target_arch = "riscv64")]
+    naked_asm!(".option push", ".option norvc", "li a0, 5", "ret", ".option pop");
   }
 
   /// See [`ret5`] (each test detours its own target).
@@ -600,6 +625,8 @@ mod tests {
     naked_asm!("mov eax, 6", "ret");
     #[cfg(target_arch = "aarch64")]
     naked_asm!("mov w0, #6", "ret");
+    #[cfg(target_arch = "riscv64")]
+    naked_asm!(".option push", ".option norvc", "li a0, 6", "ret", ".option pop");
   }
 
   #[test]

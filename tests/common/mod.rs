@@ -6,6 +6,8 @@
 const RET10: &[u8] = &[0xB8, 0x0A, 0x00, 0x00, 0x00, 0xC3]; // mov eax, 10; ret
 #[cfg(target_arch = "aarch64")]
 const RET10: &[u8] = &[0x40, 0x01, 0x80, 0x52, 0xC0, 0x03, 0x5F, 0xD6]; // mov w0, #10; ret
+#[cfg(target_arch = "riscv64")]
+const RET10: &[u8] = &[0x13, 0x05, 0xA0, 0x00, 0x67, 0x80, 0x00, 0x00]; // li a0, 10; ret
 
 /// Creates a function returning `10`, located at least `distance` bytes after
 /// `near` (i.e. beyond the reach of a relative branch).
@@ -122,6 +124,13 @@ fn clear_cache(address: usize, len: usize) {
     }
     // SAFETY: The range is mapped.
     unsafe { __clear_cache(address as *mut _, (address + len) as *mut _) };
+  }
+
+  #[cfg(target_arch = "riscv64")]
+  {
+    const SYS_RISCV_FLUSH_ICACHE: libc::c_long = 259;
+    // SAFETY: Flushing an arbitrary range of the current process is benign.
+    unsafe { libc::syscall(SYS_RISCV_FLUSH_ICACHE, address, address + len, 0) };
   }
 
   let _ = (address, len);

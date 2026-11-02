@@ -16,7 +16,7 @@ through a trampoline.
 
 - Works on **stable Rust** (1.85+), with optional `#![no_std]` support.
 - Supports `x86`, `x86-64` & `AArch64` on Windows, Linux & macOS (including
-  Apple silicon).
+  Apple silicon), and RISC-V 64 on Linux.
 - Relocates branches and RIP/PC-relative instructions, supports hot-patching
   and NOP-padded functions, and reaches distant detours through relays.
 - Type-safe detours for any signature (including references), with closures
@@ -270,6 +270,13 @@ $ target\debug\examples\launch_suspended.exe target\debug\examples\early_hook.dl
 | `x86`        | ✓       | ✓     |       | Hot-patching, padding detection |
 | `x86-64`     | ✓       | ✓     | ✓     | Relays for detours beyond ±2 GiB |
 | `AArch64`    | ✓       | ✓     | ✓     | Relays for detours beyond ±128 MiB, BTI & PAC aware |
+| `RISC-V 64`  |         | ✓     |       | Relays for detours beyond ±2 GiB, compressed instructions |
+
+On RISC-V, the patch (`AUIPC` & `JALR`, 8 bytes) clobbers `t1`, which holds
+no value upon function entry (PLT stubs clobber it as well), and spans
+several instructions, so it is not written atomically. The control-flow
+integrity extensions (`Zicfilp` & `Zicfiss`) are not supported. RISC-V is
+tested in CI under QEMU.
 
 Android is supported, including thread suspension. Other Unix-like systems
 (e.g. FreeBSD) are expected to work, but without thread suspension, and are
@@ -361,8 +368,8 @@ instruction is replaced instead.
 
 Instructions are relocated with [`iced-x86`][iced] on x86, which rewrites
 relative branches and RIP-relative operands so they still reach the same
-addresses. On AArch64, a built-in relocator handles all PC-relative
-instructions. The offsets of the relocated instructions are recorded, which
+addresses. On AArch64 and RISC-V, a built-in relocator handles all
+PC-relative instructions. The offsets of the relocated instructions are recorded, which
 is what allows EIP relocation.
 
 ## Upgrading from 0.9

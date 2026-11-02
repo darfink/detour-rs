@@ -61,6 +61,24 @@ jobs:
           grep -q "intercepted the process ID query" <<< "$output"
           grep -q "process id:" <<< "$output"
 
+  riscv64:
+    name: Test (riscv64gc-unknown-linux-gnu, QEMU)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-qemu-action@v3
+        with:
+          platforms: riscv64
+      # There are no RISC-V runners, so the tests run emulated (slowly)
+      - name: Test
+        run: |
+          docker run --rm --platform linux/riscv64 -v "$PWD":/src -w /src rust:latest sh -c '
+            cargo test &&
+            cargo test --no-default-features --features no_std &&
+            cargo build --example early_hook --example early_target &&
+            LD_PRELOAD=target/debug/examples/libearly_hook.so target/debug/examples/early_target |
+              grep -q "intercepted the process ID query"'
+
   no-std:
     name: no_std executable (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -93,6 +111,7 @@ jobs:
         target:
           - x86_64-unknown-freebsd
           - aarch64-linux-android
+          - riscv64gc-unknown-linux-musl
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
@@ -109,11 +128,11 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
-          targets: x86_64-pc-windows-msvc, aarch64-apple-darwin, aarch64-unknown-linux-gnu, i686-unknown-linux-gnu
+          targets: x86_64-pc-windows-msvc, aarch64-apple-darwin, aarch64-unknown-linux-gnu, i686-unknown-linux-gnu, riscv64gc-unknown-linux-gnu
       - run: cargo check --target x86_64-pc-windows-msvc --lib --no-default-features --features no_std
       - run: cargo fmt --check
       - run: |
-          for target in x86_64-unknown-linux-gnu x86_64-pc-windows-msvc aarch64-apple-darwin aarch64-unknown-linux-gnu i686-unknown-linux-gnu; do
+          for target in x86_64-unknown-linux-gnu x86_64-pc-windows-msvc aarch64-apple-darwin aarch64-unknown-linux-gnu i686-unknown-linux-gnu riscv64gc-unknown-linux-gnu; do
             cargo clippy --target "$target" --all-targets
             cargo clippy --target "$target" --lib --no-default-features --features no_std
           done

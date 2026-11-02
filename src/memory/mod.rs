@@ -238,6 +238,18 @@ pub(crate) fn flush_instruction_cache(address: *const u8, len: usize) {
     aarch64_clear_cache(address as usize, len)
   };
 
+  #[cfg(all(target_arch = "riscv64", target_os = "linux"))]
+  {
+    // `FENCE.I` only synchronizes the current hart; the system call (which
+    // `libc` does not define) synchronizes all of them.
+    const SYS_RISCV_FLUSH_ICACHE: libc::c_long = 259;
+    // SAFETY: Flushing an arbitrary range of the current process is benign.
+    unsafe {
+      core::arch::asm!("fence.i", options(nostack));
+      libc::syscall(SYS_RISCV_FLUSH_ICACHE, address, address.wrapping_add(len), 0);
+    }
+  }
+
   // x86 and x86-64 keep instruction caches coherent with data writes.
   let _ = (address, len);
 }

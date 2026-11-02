@@ -290,6 +290,8 @@ mod tests {
       naked_asm!("mov eax, 4", "ret");
       #[cfg(target_arch = "aarch64")]
       naked_asm!("mov w0, #4", "ret");
+      #[cfg(target_arch = "riscv64")]
+      naked_asm!(".option push", ".option norvc", "li a0, 4", "ret", ".option pop");
     }
 
     #[unsafe(naked)]
@@ -298,6 +300,8 @@ mod tests {
       naked_asm!("mov eax, 5", "ret");
       #[cfg(target_arch = "aarch64")]
       naked_asm!("mov w0, #5", "ret");
+      #[cfg(target_arch = "riscv64")]
+      naked_asm!(".option push", ".option norvc", "li a0, 5", "ret", ".option pop");
     }
 
     let (hook1, hook2) = (detour(ret4, ret1)?, detour(ret5, ret2)?);
@@ -320,6 +324,8 @@ mod tests {
       naked_asm!("mov eax, 6", "ret");
       #[cfg(target_arch = "aarch64")]
       naked_asm!("mov w0, #6", "ret");
+      #[cfg(target_arch = "riscv64")]
+      naked_asm!(".option push", ".option norvc", "li a0, 6", "ret", ".option pop");
     }
 
     let hooks = [detour(ret6, ret1)?, detour(ret6, ret2)?, detour(ret6, ret3)?];
@@ -357,6 +363,8 @@ mod tests {
       naked_asm!("mov eax, 7", "ret");
       #[cfg(target_arch = "aarch64")]
       naked_asm!("mov w0, #7", "ret");
+      #[cfg(target_arch = "riscv64")]
+      naked_asm!(".option push", ".option norvc", "li a0, 7", "ret", ".option pop");
     }
 
     #[unsafe(naked)]
@@ -365,6 +373,8 @@ mod tests {
       naked_asm!("mov eax, 8", "ret");
       #[cfg(target_arch = "aarch64")]
       naked_asm!("mov w0, #8", "ret");
+      #[cfg(target_arch = "riscv64")]
+      naked_asm!(".option push", ".option norvc", "li a0, 8", "ret", ".option pop");
     }
 
     let (first, second, other) = (detour(ret7, ret1)?, detour(ret7, ret2)?, detour(ret8, ret3)?);
@@ -399,6 +409,8 @@ mod tests {
       naked_asm!("mov eax, 9", "ret");
       #[cfg(target_arch = "aarch64")]
       naked_asm!("mov w0, #9", "ret");
+      #[cfg(target_arch = "riscv64")]
+      naked_asm!(".option push", ".option norvc", "li a0, 9", "ret", ".option pop");
     }
 
     let (first, second) = (detour(ret9, ret1)?, detour(ret9, ret2)?);

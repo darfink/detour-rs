@@ -4,7 +4,12 @@
 macro_rules! supported {
   ($($item:item)*) => {
     $(
-      #[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64"))]
+      #[cfg(any(
+        target_arch = "x86",
+        target_arch = "x86_64",
+        target_arch = "aarch64",
+        all(target_arch = "riscv64", target_os = "linux")
+      ))]
       $item
     )*
   };

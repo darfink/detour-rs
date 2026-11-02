@@ -95,17 +95,23 @@
 //!
 //! Relocation handles relative branches (including branches within the
 //! replaced instructions), RIP-relative operands (x86-64) and all PC-relative
-//! instructions (AArch64). If the detour is out of reach of a relative jump
-//! (beyond ±2 GiB on x86-64, or ±128 MiB on AArch64), the jump leads to a
-//! *relay*, an absolute jump allocated near the target. Functions too small
-//! for the jump are supported if they are followed by padding, or preceded by
-//! a hot-patching area. On AArch64, BTI and PAC landing pads are preserved.
+//! instructions (AArch64 & RISC-V). If the detour is out of reach of a
+//! relative jump (beyond ±2 GiB on x86-64 & RISC-V, or ±128 MiB on AArch64),
+//! the jump leads to a *relay*, an absolute jump allocated near the target.
+//! Functions too small for the jump are supported if they are followed by
+//! padding, or preceded by a hot-patching area. On AArch64, BTI and PAC
+//! landing pads are preserved.
 //!
 //! # Platforms
 //!
-//! - Architectures: `x86`, `x86-64` & `AArch64`.
+//! - Architectures: `x86`, `x86-64`, `AArch64` & RISC-V 64 (Linux only).
 //! - Operating systems: Windows, Linux, Android & macOS. Other Unix-like
 //!   systems (e.g. FreeBSD) are expected to work, without thread suspension.
+//!
+//! On RISC-V, the patch (`AUIPC` & `JALR`) clobbers `t1`, which holds no
+//! value upon function entry, and spans several instructions, so it is not
+//! written atomically. The control-flow integrity extensions (`Zicfilp` &
+//! `Zicfiss`) are not supported.
 //!
 //! On macOS, code signing prevents making `__TEXT` writable, so code is
 //! patched by remapping the affected pages. Executable memory is allocated
@@ -160,11 +166,19 @@ compile_error!(
    `iced-x86` requires one of them"
 );
 
-#[cfg(not(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")))]
+#[cfg(not(any(
+  target_arch = "x86",
+  target_arch = "x86_64",
+  target_arch = "aarch64",
+  target_arch = "riscv64"
+)))]
 compile_error!(
-  "detour only supports x86, x86-64 and AArch64 targets; inline detours are not possible on \
-   architectures without addressable, writable code (e.g. WebAssembly)"
+  "detour only supports x86, x86-64, AArch64 and RISC-V 64 targets; inline detours are not \
+   possible on architectures without addressable, writable code (e.g. WebAssembly)"
 );
+
+#[cfg(all(target_arch = "riscv64", not(target_os = "linux")))]
+compile_error!("detour only supports RISC-V 64 on Linux");
 
 #[macro_use]
 mod macros;

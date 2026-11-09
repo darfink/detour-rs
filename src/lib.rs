@@ -144,7 +144,7 @@
 //! feature:
 //!
 //! ```toml
-//! detour = { version = "0.10", default-features = false, features = ["no_std"] }
+//! detour = { version = "0.11", default-features = false, features = ["no_std"] }
 //! ```
 //!
 //! `iced-x86` does not allow both, so on x86 `no_std` cannot be combined

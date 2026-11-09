@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-09
+
+RISC-V 64 support, and chained detours of the same target.
+
 ### Added
 
 - RISC-V 64 support on Linux (`riscv64gc`, glibc & musl), including
@@ -158,6 +162,7 @@ A comprehensive overhaul of the library.
 - Dependencies: `cfg-if`, `generic-array`, `lazy_static`, `libudis86-sys`,
   `mmap-fixed`, `slice-pool`, `matches` & `winapi`.
 
-[unreleased]: https://github.com/darfink/detour-rs/compare/v0.10.0...HEAD
+[unreleased]: https://github.com/darfink/detour-rs/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/darfink/detour-rs/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/darfink/detour-rs/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/darfink/detour-rs/compare/v0.8.0...v0.9.0

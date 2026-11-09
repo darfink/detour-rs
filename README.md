@@ -31,7 +31,7 @@ through a trampoline.
 
 ```toml
 [dependencies]
-detour = "0.10.0"
+detour = "0.11.0"
 ```
 
 ## Quick start
@@ -297,7 +297,7 @@ x86, enable the `no_std` feature instead (it has no effect on AArch64):
 
 ```toml
 [dependencies]
-detour = { version = "0.10.0", default-features = false, features = ["no_std"] }
+detour = { version = "0.11.0", default-features = false, features = ["no_std"] }
 ```
 
 `iced-x86` requires exactly one of its `std` and `no_std` features, so on x86

@@ -178,3 +178,28 @@ fn rewrites_only_pc_relative_instructions() {
     .collect();
   assert!(valid.is_empty(), "non-PC-relative instructions rewritten: {valid:#x?}");
 }
+
+/// Every instruction `yaxpeax-arm` decodes with X16 (or W16) as an operand
+/// must be detected, since the absolute patch clobbers it.
+#[test]
+fn detects_x16_usage() {
+  let decoder = InstDecoder::default();
+  let mut missed = Report::new();
+
+  for word in words() {
+    let bytes = word.to_le_bytes();
+    let Ok(instruction) = decoder.decode(&mut U8Reader::new(&bytes)) else {
+      continue;
+    };
+    let text = format!("{instruction}");
+    let uses_x16 = text
+      .split(|c: char| !c.is_ascii_alphanumeric())
+      .any(|token| token == "x16" || token == "w16");
+    if uses_x16 && !super::encode::may_use_x16(word) {
+      let mnemonic = text.split_whitespace().next().unwrap_or_default().into();
+      missed.entry(mnemonic).or_insert((word, 0)).1 += 1;
+    }
+  }
+
+  assert!(missed.is_empty(), "uses of X16 not detected: {missed:#x?}");
+}

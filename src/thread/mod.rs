@@ -18,6 +18,9 @@ mod imp;
 #[path = "unsupported.rs"]
 mod imp;
 
+#[cfg(any(target_os = "linux", target_os = "android", target_vendor = "apple", windows))]
+pub(crate) mod local;
+
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub use self::imp::set_suspend_signal;
 

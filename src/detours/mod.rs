@@ -1,6 +1,7 @@
 //! The detour types.
 
 mod raw;
+mod reentrancy;
 pub(crate) mod statik;
 mod typed;
 

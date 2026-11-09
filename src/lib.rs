@@ -198,7 +198,7 @@ supported! {
   /// Implementation details of the macros; not part of the public API.
   #[doc(hidden)]
   pub mod __private {
-    pub use crate::detours::statik::{StaticDetour, StaticHandle};
+    pub use crate::detours::statik::{Callee, StaticDetour, StaticHandle};
     pub use crate::traits::private::Sealed;
     pub use alloc::boxed::Box;
   }

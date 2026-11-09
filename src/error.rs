@@ -32,11 +32,13 @@ pub enum Error {
   /// A suspended thread is executing code that cannot be relocated, i.e. an
   /// instruction that was rewritten when it was copied to the trampoline.
   ThreadNotRelocatable,
-  /// Threads cannot be suspended on this platform.
+  /// Threads cannot be suspended, nor tracked by non-reentrant static
+  /// detours, on this platform.
   ThreadsUnsupported,
   /// A memory operation failed.
   Memory(OsError),
-  /// Suspending, inspecting, or resuming a thread failed.
+  /// Suspending, inspecting, or resuming a thread failed, or no thread-local
+  /// slot could be created (see `set_reentrant` of static detours).
   Thread(OsError),
 }
 
@@ -64,7 +66,7 @@ impl fmt::Display for Error {
       Error::ThreadNotRelocatable => {
         f.write_str("a suspended thread is executing code that cannot be relocated")
       },
-      Error::ThreadsUnsupported => f.write_str("threads cannot be suspended on this platform"),
+      Error::ThreadsUnsupported => f.write_str("thread operations are not supported on this platform"),
       Error::Memory(_) => f.write_str("memory operation failed"),
       Error::Thread(_) => f.write_str("thread operation failed"),
     }
@@ -108,13 +110,13 @@ impl OsError {
   }
 
   /// Returns an error of the given `errno` code.
-  #[cfg(any(target_os = "linux", target_os = "android"))]
+  #[cfg(any(target_os = "linux", target_os = "android", target_vendor = "apple"))]
   pub(crate) const fn from_errno(code: i32) -> Self {
     OsError(Kind::Os(code))
   }
 
   /// Returns an error described by `message`.
-  #[cfg(any(target_os = "linux", target_os = "android", test))]
+  #[cfg(any(any(target_os = "linux", target_os = "android", target_vendor = "apple", windows), test))]
   pub(crate) const fn other(message: &'static str) -> Self {
     OsError(Kind::Other(message))
   }

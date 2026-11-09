@@ -104,9 +104,14 @@ macro_rules! static_detour {
         #[inline]
         fn __state(self) -> &'static $crate::__private::StaticDetour<Self::Function, Self::Closure> {
           #[inline(never)]
+          #[allow(unused_unsafe)]
           $($unsafety)? $($abi)* fn __ffi_detour<$($lt),*>($($argument_name: $argument),*) -> $output {
-            <$name as $crate::__private::StaticHandle>::__state($name)
-              .__with_detour(move |__detour| __detour($($argument_name),*))
+            <$name as $crate::__private::StaticHandle>::__state($name).__call(move |__callee| match __callee {
+              $crate::__private::Callee::Detour(__detour) => __detour($($argument_name),*),
+              // SAFETY: The original function is called with the arguments of
+              // the target, which is executing.
+              $crate::__private::Callee::Original(__original) => unsafe { __original($($argument_name),*) },
+            })
           }
 
           // SAFETY: `Function` is a function pointer, and `__ffi_detour`
@@ -169,6 +174,29 @@ macro_rules! static_detour {
         ) {
           <Self as $crate::__private::StaticHandle>::__state(self)
             .__set_detour($crate::__private::Box::new(closure));
+        }
+
+        /// Sets whether the detour is reentrant (the default).
+        ///
+        /// If not, calls of the target made by a thread already executing
+        /// the closure (e.g. a detour of `malloc` that formats a message) call
+        /// the original function instead, as `call` does, rather than
+        /// recursing into the closure.
+        ///
+        /// The executing closures are tracked in a thread-local slot of the
+        /// operating system (`pthread_getspecific` or `TlsGetValue`), which
+        /// never allocates, also whilst threads exit. Only slots stored
+        /// within each thread qualify, so this fails if none is available:
+        /// on glibc, if keys 0 to 31 are all in use; on Windows, if TLS
+        /// indices 0 to 63 are all in use. On platforms other than Linux,
+        /// Android, Apple platforms & Windows, it fails with
+        /// [`Error::ThreadsUnsupported`]($crate::Error::ThreadsUnsupported).
+        ///
+        /// Calls that entered the closure before the detour was made
+        /// non-reentrant are not tracked, so set it before enabling the
+        /// detour.
+        pub fn set_reentrant(self, reentrant: bool) -> $crate::Result<()> {
+          <Self as $crate::__private::StaticHandle>::__state(self).__set_reentrant(reentrant)
         }
 
         /// Enables the detour.

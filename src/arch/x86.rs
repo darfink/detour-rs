@@ -369,3 +369,7 @@ fn absolute_jump(destination: usize) -> Vec<u8> {
   code.extend_from_slice(&(destination as u64).to_le_bytes());
   code
 }
+
+#[cfg(all(test, unix))]
+#[path = "x86_differential.rs"]
+mod differential;

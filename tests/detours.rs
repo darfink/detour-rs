@@ -597,6 +597,71 @@ mod statik {
     Ok(())
   }
 
+  static_detour! {
+    static DetourNested: fn(u64) -> u64;
+  }
+
+  #[test]
+  fn non_reentrant_detours() -> Result<()> {
+    #[inline(never)]
+    fn nested(value: u64) -> u64 {
+      // The target may unwind, so its callers expect the detour to as well
+      assert_ne!(std::hint::black_box(value), u64::MAX);
+      value + unique!() as u64
+    }
+
+    // The closure calls the target itself, e.g. as a detour of `malloc`
+    // would by allocating
+    // SAFETY: No other thread is executing `nested`.
+    unsafe {
+      DetourNested
+        .initialize(nested, |value| {
+          if value == 0 {
+            0
+          } else {
+            nested(value - 1) + 100
+          }
+        })?
+        .enable()?;
+    }
+    assert_eq!(nested(3), 300);
+
+    // Nested calls on the same thread call the original function
+    DetourNested.set_reentrant(false)?;
+    assert_eq!(nested(3), 102);
+    assert_eq!(nested(0), 0);
+
+    // Other threads still call the closure
+    DetourNested.set_detour(|value| match value {
+      0 => 0,
+      3 => std::thread::spawn(|| nested(2)).join().unwrap() + nested(value - 1) * 1000,
+      _ => nested(value - 1) + 100,
+    });
+    assert_eq!(nested(3), 2101);
+
+    // The closure is invoked again once it returns, also by unwinding
+    DetourNested.set_detour(|value| {
+      if value == 1 {
+        panic!()
+      } else {
+        nested(value) + 100
+      }
+    });
+    assert!(std::panic::catch_unwind(|| nested(1)).is_err());
+    assert_eq!(nested(4), 104);
+
+    DetourNested.set_reentrant(true)?;
+    DetourNested.set_detour(|value| {
+      if value == 0 {
+        0
+      } else {
+        nested(value - 1) + 100
+      }
+    });
+    assert_eq!(nested(3), 300);
+    Ok(())
+  }
+
   // Generated names do not shadow those of the signature
   #[allow(non_camel_case_types, dead_code)]
   struct Closure;

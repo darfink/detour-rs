@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Added
+
+- `set_reentrant` for static detours. A non-reentrant detour forwards calls
+  of the target made from within its closure, on the same thread, to the
+  original function (e.g. a detour of `malloc` that allocates). Supported on
+  Linux, Android, Apple platforms & Windows, also without `std`; elsewhere,
+  it fails with `Error::ThreadsUnsupported`.
+
 ## [0.11.1] - 2026-11-09
 
 ### Fixed

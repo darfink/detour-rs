@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- AArch64 targets patched with an absolute jump (e.g. functions in the dyld
+  shared cache, such as `getpid` on macOS 26) were rejected with
+  `Error::UnsupportedInstruction` if an immediate resembled `X16` (e.g.
+  `ADRP X9, ..`). Register fields are now identified per encoding.
+
 ## [0.11.0] - 2026-11-09
 
 RISC-V 64 support, and chained detours of the same target.

@@ -328,10 +328,37 @@ pub(crate) mod encode {
     ENCODINGS.iter().any(|&(mask, value)| instruction & mask == value) && !is_retaa
   }
 
-  /// Returns whether `instruction` may reference X16 (conservatively, by
-  /// inspecting every register field).
+  /// Returns whether `instruction` may reference X16.
+  ///
+  /// The register fields of common encodings with immediates are known, since
+  /// an immediate may resemble X16 (e.g. `ADRP X9, ..` in macOS's `getpid`).
+  /// Other instructions are inspected conservatively, by every field that may
+  /// hold a register.
   pub fn may_use_x16(instruction: u32) -> bool {
-    [0, 5, 10, 16].iter().any(|shift| (instruction >> shift) & 0x1F == X16)
+    const RD: u32 = 0;
+    const RN: u32 = 5;
+    const RM: u32 = 16;
+    // (mask, value, register fields)
+    const ENCODINGS: [(u32, u32, &[u32]); 12] = [
+      (0x1F00_0000, 0x1000_0000, &[RD]),         // ADR & ADRP
+      (0x1F00_0000, 0x1100_0000, &[RD, RN]),     // Add/subtract (immediate)
+      (0x1F80_0000, 0x1200_0000, &[RD, RN]),     // Logical (immediate)
+      (0x1F80_0000, 0x1280_0000, &[RD]),         // Move wide (immediate)
+      (0x1F80_0000, 0x1300_0000, &[RD, RN]),     // Bitfield
+      (0x1F80_0000, 0x1380_0000, &[RD, RN, RM]), // Extract
+      (0x7C00_0000, 0x1400_0000, &[]),           // B & BL
+      (0xFF00_0010, 0x5400_0000, &[]),           // B.cond
+      (0x7E00_0000, 0x3400_0000, &[RD]),         // CBZ & CBNZ
+      (0x7E00_0000, 0x3600_0000, &[RD]),         // TBZ & TBNZ
+      (0x3B00_0000, 0x1800_0000, &[RD]),         // Load (literal)
+      (0x3B00_0000, 0x3900_0000, &[RD, RN]),     // Load/store (unsigned immediate)
+    ];
+
+    let fields = ENCODINGS
+      .iter()
+      .find(|&&(mask, value, _)| instruction & mask == value)
+      .map_or(&[0, 5, 10, 16][..], |&(_, _, fields)| fields);
+    fields.iter().any(|shift| (instruction >> shift) & 0x1F == X16)
   }
 
   /// Returns the destination of a PC-relative branch at `pc`, if any.
@@ -610,6 +637,23 @@ mod tests {
     assert!(may_use_x16(0xF940_0210)); // ldr x16, [x16]
     assert!(may_use_x16(0x8B10_0020)); // add x0, x1, x16
     assert!(!may_use_x16(0x8B02_0020)); // add x0, x1, x2
+
+    // Immediates resembling X16 (the prolog of `getpid` on macOS 26)
+    assert!(!may_use_x16(0xB036_5609)); // adrp x9, ..
+    assert!(!may_use_x16(0x9108_6129)); // add x9, x9, #0x218
+    assert!(!may_use_x16(0xB940_0120)); // ldr w0, [x9]
+    assert!(!may_use_x16(0x7100_001F)); // cmp w0, #0
+    assert!(!may_use_x16(0x5400_004D)); // b.le #+0x8
+    assert!(!may_use_x16(0x3680_0040)); // tbz w0, #16, #+0x8
+    assert!(!may_use_x16(0x9100_4020)); // add x0, x1, #0x10
+    // Registers within those encodings
+    assert!(may_use_x16(0x9000_0010)); // adrp x16, ..
+    assert!(may_use_x16(0x9100_0200)); // add x0, x16, #0
+    assert!(may_use_x16(0xF940_0200)); // ldr x0, [x16]
+    assert!(may_use_x16(0x5800_0050)); // ldr x16, #+0x8
+    assert!(may_use_x16(0xB400_0050)); // cbz x16, #+0x8
+    assert!(may_use_x16(0x93C2_0200)); // extr x0, x16, x2, #0
+    assert!(may_use_x16(0x93D0_0020)); // extr x0, x1, x16, #0
   }
 
   #[test]
@@ -841,6 +885,27 @@ mod far_tests {
     }
 
     assert!(matches!(far_detour(uses_x16), Err(Error::UnsupportedInstruction)));
+  }
+
+  #[test]
+  fn accepts_immediates_resembling_x16() -> Result<()> {
+    #[unsafe(naked)]
+    unsafe extern "C" fn cached_pid() -> i32 {
+      // The prolog of `getpid` on macOS 26 (never executed): adrp x9, ..;
+      // add x9, x9, #0x218; ldr w0, [x9]; cmp w0, #0; b.le; ret
+      naked_asm!(
+        ".inst 0xb0365609",
+        ".inst 0x91086129",
+        ".inst 0xb9400120",
+        ".inst 0x7100001f",
+        ".inst 0x5400004d",
+        "ret",
+        "mov w0, #-1",
+        "ret"
+      )
+    }
+
+    far_detour(cached_pid).map(drop)
   }
 
   /// The case this patch exists for: a function in the dyld shared cache.

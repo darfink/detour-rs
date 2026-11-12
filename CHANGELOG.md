@@ -9,6 +9,9 @@
   original function (e.g. a detour of `malloc` that allocates). Supported on
   Linux, Android, Apple platforms & Windows, also without `std`; elsewhere,
   it fails with `Error::ThreadsUnsupported`.
+- The `custom_abi` example: a detour of a function with a non-standard
+  calling convention, through an `extern "custom"` shim (Rust 1.100+, behind
+  the example-only `custom-abi` feature).
 
 ## [0.11.1] - 2026-11-09
 

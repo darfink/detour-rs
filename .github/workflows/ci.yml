@@ -46,6 +46,8 @@ jobs:
       - run: cargo test --target ${{ matrix.target }} ${{ matrix.musl && '--lib --tests' || '' }} ${{ matrix.test-args }}
       - run: cargo test --target ${{ matrix.target }} ${{ matrix.musl && '--lib --tests' || '' }} --release ${{ matrix.test-args }}
       - run: cargo test --target ${{ matrix.target }} ${{ matrix.musl && '--lib --tests' || '' }} --no-default-features --features no_std ${{ matrix.test-args }}
+      - name: Run the custom ABI example
+        run: cargo run --target ${{ matrix.target }} --example custom_abi --features custom-abi
       - name: Run the early hook example
         if: ${{ !matrix.musl }}
         shell: bash
@@ -134,7 +136,7 @@ jobs:
       - run: cargo fmt --check
       - run: |
           for target in x86_64-unknown-linux-gnu x86_64-pc-windows-msvc aarch64-apple-darwin aarch64-unknown-linux-gnu i686-unknown-linux-gnu riscv64gc-unknown-linux-gnu; do
-            cargo clippy --target "$target" --all-targets
+            cargo clippy --target "$target" --all-targets --features custom-abi
             cargo clippy --target "$target" --lib --no-default-features --features no_std
           done
       - run: cargo doc --no-deps

@@ -249,6 +249,11 @@ patch may span several instructions (e.g. an absolute jump).
   library is loaded, before the program's `main` runs, so no invocation is
   missed. [`launch_suspended`](./examples/launch_suspended.rs) loads it on
   Windows.
+- [`custom_abi`](./examples/custom_abi.rs): detours a function with a
+  non-standard calling convention (arguments in arbitrary registers), using
+  an `extern "custom"` shim that adapts it to a standard one (x86-64 &
+  AArch64). Requires Rust 1.100: `cargo run --example custom_abi --features
+  custom-abi`.
 
 ```sh
 $ cargo build --example early_hook --example early_target --example launch_suspended

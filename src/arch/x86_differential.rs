@@ -69,7 +69,7 @@ const CX: usize = 1;
 const SP: usize = 4;
 
 /// The arithmetic flags (CF, PF, AF, ZF, SF & OF), which are randomized and
-/// compared.
+/// compared (see [`compared_flags`]).
 const ARITHMETIC_FLAGS: usize = 0x8D5;
 /// The reserved bit of `FLAGS`, which is always set.
 const RESERVED_FLAGS: usize = 0x2;
@@ -155,6 +155,9 @@ unsafe extern "C" fn exit() {
     "endbr64",
     "pushfq",
     "pop qword ptr [rax + 128]",
+    // Clear the copy of the flags left on the stack under test, since they are
+    // compared (and masked) separately
+    "mov qword ptr [rsp - 8], 0",
     "mov [rax + 8], rcx",
     "mov [rax + 16], rdx",
     "mov [rax + 24], rbx",
@@ -221,6 +224,9 @@ unsafe extern "C" fn exit() {
     "endbr32",
     "pushfd",
     "pop dword ptr [eax + 32]",
+    // Clear the copy of the flags left on the stack under test, since they are
+    // compared (and masked) separately
+    "mov dword ptr [esp - 4], 0",
     "mov [eax + 4], ecx",
     "mov [eax + 8], edx",
     "mov [eax + 12], ebx",
@@ -684,6 +690,38 @@ impl Machine {
   }
 }
 
+/// Returns the flags compared: the arithmetic flags, except AF when translated
+/// by Rosetta 2, which does not reliably preserve it (it may change across
+/// instructions not affecting it, e.g. `JMP`).
+fn compared_flags() -> usize {
+  #[cfg(all(target_arch = "x86_64", target_vendor = "apple"))]
+  {
+    /// The auxiliary carry flag.
+    const AUXILIARY_CARRY_FLAG: usize = 0x10;
+
+    static TRANSLATED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    let translated = *TRANSLATED.get_or_init(|| {
+      let mut value: libc::c_int = 0;
+      let mut size = size_of::<libc::c_int>();
+      // SAFETY: The output buffer is valid and its size is passed along.
+      let result = unsafe {
+        libc::sysctlbyname(
+          c"sysctl.proc_translated".as_ptr(),
+          (&raw mut value).cast(),
+          &mut size,
+          core::ptr::null_mut(),
+          0,
+        )
+      };
+      result == 0 && value == 1
+    });
+    if translated {
+      return ARITHMETIC_FLAGS & !AUXILIARY_CARRY_FLAG;
+    }
+  }
+  ARITHMETIC_FLAGS
+}
+
 /// Returns the differences between the state after the original (`expected`)
 /// and the relocated code (`actual`), ignoring the stack word at `ignored`
 /// (an x86-64 call's return address, which refers to the trampoline).
@@ -697,7 +735,7 @@ fn differences(expected: &State, actual: &State, ignored: Option<usize>) -> Vec<
       differences.push(format!("r{index}: {expected:#x} != {actual:#x}"));
     }
   }
-  let flags = |state: &State| state.context.flags & ARITHMETIC_FLAGS;
+  let flags = |state: &State| state.context.flags & compared_flags();
   if flags(expected) != flags(actual) {
     differences.push(format!("flags: {:#x} != {:#x}", flags(expected), flags(actual)));
   }

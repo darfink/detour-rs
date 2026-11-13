@@ -15,6 +15,8 @@
 //!   references are named with [`signature!`] first.
 //! - [`RawDetour`]: an untyped detour of raw pointers, e.g. for functions whose
 //!   signature is only known at runtime.
+//! - [`ContextDetour`]: a detour of any instruction (e.g. within a function), whose
+//!   closure is given the registers, which it may inspect and modify.
 //!
 //! ```rust
 //! use detour::static_detour;

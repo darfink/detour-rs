@@ -447,7 +447,9 @@ mod probe {
       "call 3f",
       "3:",
       "pop eax",
-      "add eax, 2f - 3b",
+      // add eax, 2f - 3b (a label difference is parsed as a memory operand)
+      ".byte 0x05",
+      ".long 2f - 3b",
       "mov [esi + 176], eax",
       "mov [esi + 180], esp",
       "movdqu xmm0, [edi + 48]",

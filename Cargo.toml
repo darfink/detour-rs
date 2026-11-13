@@ -23,6 +23,9 @@ std = ["region/std", "iced-x86/std"]
 # `std` is disabled, since `iced-x86` requires exactly one of its `std` and
 # `no_std` features. Otherwise, disabling `std` suffices.
 no_std = ["iced-x86/no_std"]
+# Builds the `custom_abi` & `mid_function` examples, which require Rust 1.100
+# (for `extern "custom"`). It has no effect on the library.
+custom-abi = []
 
 [dependencies]
 
@@ -74,6 +77,14 @@ crate-type = ["cdylib"]
 [[example]]
 name = "early_hook"
 crate-type = ["cdylib"]
+
+[[example]]
+name = "custom_abi"
+required-features = ["custom-abi"]
+
+[[example]]
+name = "mid_function"
+required-features = ["custom-abi"]
 
 [lints.rust]
 unsafe_op_in_unsafe_fn = "deny"

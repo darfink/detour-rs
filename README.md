@@ -146,6 +146,25 @@ fn main() -> detour::Result<()> {
 `RawDetour` accepts any pointer, e.g. for functions whose signature is only
 known at runtime.
 
+### Custom calling conventions & mid-function detours
+
+`RawDetour` can also detour code that no Rust function pointer type can
+describe. Its detour is then a naked `unsafe extern "custom" fn()` (Rust
+1.100+) written in assembly. Rust code can't call such a function, and the
+compiler enforces that:
+
+- **Custom calling conventions** ([`custom_abi`](./examples/custom_abi.rs)):
+  the target takes its arguments in arbitrary registers (e.g. hand-written
+  assembly, or `__usercall` functions compiled with whole-program
+  optimizations). The shim moves them where a Rust function expects them,
+  calls it, and returns the result the same way.
+- **Mid-function detours** ([`mid_function`](./examples/mid_function.rs)):
+  the target is an instruction within a function, so no calling convention
+  applies. The shim saves all registers & flags, lets a Rust handler inspect
+  and modify them, restores them, and jumps to the trampoline, which runs
+  the overwritten instructions and resumes the function. The overwritten
+  instructions must not be the target of other branches.
+
 ## Detours of the same target
 
 Several detours of the same target are chained. The target calls the most
@@ -249,11 +268,13 @@ patch may span several instructions (e.g. an absolute jump).
   library is loaded, before the program's `main` runs, so no invocation is
   missed. [`launch_suspended`](./examples/launch_suspended.rs) loads it on
   Windows.
-- [`custom_abi`](./examples/custom_abi.rs): detours a function with a
-  non-standard calling convention (arguments in arbitrary registers), using
-  an `extern "custom"` shim that adapts it to a standard one (x86-64 &
-  AArch64). Requires Rust 1.100: `cargo run --example custom_abi --features
-  custom-abi`.
+- [`custom_abi`](./examples/custom_abi.rs) &
+  [`mid_function`](./examples/mid_function.rs): detour a function with a
+  non-standard calling convention, and an instruction in the middle of a
+  function, using `extern "custom"` shims (x86-64 & AArch64; see
+  [above](#custom-calling-conventions--mid-function-detours)). They require
+  Rust 1.100 and the `custom-abi` feature, e.g. `cargo run --example
+  mid_function --features custom-abi`.
 
 ```sh
 $ cargo build --example early_hook --example early_target --example launch_suspended

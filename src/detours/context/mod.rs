@@ -1,4 +1,5 @@
-//! Detours of any instruction, invoking a closure with the registers.
+//! Detours of any instruction (e.g. mid-function detours), invoking a closure
+//! with the registers.
 
 use crate::error::Result;
 use crate::hook::Hook;
@@ -56,7 +57,10 @@ struct Shim {
 /// This is implemented by a generated *shim*, which is jumped to instead of
 /// the instruction. It saves the state, calls the closure, restores the
 /// state, and continues at the trampoline (the relocated instructions,
-/// followed by a jump back).
+/// followed by a jump back). The stack pointer need not be aligned at the
+/// target: the shim aligns the stack for the closure (and its context), and
+/// skips the red zone of the target (on x86-64, and AArch64 on Apple
+/// platforms).
 ///
 /// The closure must not panic: since it is called from generated code, a
 /// panic aborts the process. It is shared between threads, which may call it
@@ -86,7 +90,7 @@ struct Shim {
 /// ```rust
 /// # #[cfg(target_arch = "x86_64")]
 /// # fn main() -> detour::Result<()> {
-/// use detour::MidDetour;
+/// use detour::ContextDetour;
 ///
 /// #[unsafe(naked)]
 /// extern "sysv64" fn double_sum(a: u64, b: u64) -> u64 {
@@ -95,7 +99,7 @@ struct Shim {
 ///
 /// // Detours the `add` instruction (3 bytes into the function)
 /// let target = (double_sum as *const () as usize + 3) as *const ();
-/// let detour = unsafe { MidDetour::new(target, |context| context.rsi = 100)? };
+/// let detour = unsafe { ContextDetour::new(target, |context| context.rsi = 100)? };
 ///
 /// assert_eq!(double_sum(2, 3), 10);
 /// unsafe { detour.enable()? };
@@ -105,14 +109,15 @@ struct Shim {
 /// # #[cfg(not(target_arch = "x86_64"))]
 /// # fn main() {}
 /// ```
-pub struct MidDetour {
+#[doc(alias = "MidHook", alias = "MidDetour", alias = "mid-function")]
+pub struct ContextDetour {
   // Dropped first, since it refers to the shim (which refers to the handler)
   hook: ManuallyDrop<Hook>,
   shim: ManuallyDrop<CodeBlock>,
   closure: ManuallyDrop<Box<Closure>>,
 }
 
-impl MidDetour {
+impl ContextDetour {
   /// Creates a new, disabled detour of the instruction at `target`, calling
   /// `handler` whenever it is reached.
   ///
@@ -126,7 +131,7 @@ impl MidDetour {
   ///
   /// Modifying the registers in `handler` must be valid for the code at
   /// `target`, which must not hold live values in state that is not
-  /// preserved (see [`MidDetour`]).
+  /// preserved (see [`ContextDetour`]).
   pub unsafe fn new<F>(target: *const (), handler: F) -> Result<Self>
   where
     F: Fn(&mut Context) + Send + Sync + 'static,
@@ -161,7 +166,7 @@ impl MidDetour {
     let hook = unsafe { Hook::new(target, block.as_ptr().cast())? };
     write(&mut block, &shim(base, hook.trampoline() as usize))?;
 
-    Ok(MidDetour {
+    Ok(ContextDetour {
       hook: ManuallyDrop::new(hook),
       shim: ManuallyDrop::new(block),
       closure: ManuallyDrop::new(closure),
@@ -184,7 +189,7 @@ impl MidDetour {
   ///
   /// # Safety
   ///
-  /// See [`MidDetour::enable`].
+  /// See [`ContextDetour::enable`].
   pub unsafe fn disable(&self) -> Result<()> {
     // SAFETY: Forwarded from the caller.
     unsafe { self.hook.disable() }
@@ -196,7 +201,7 @@ impl MidDetour {
   }
 }
 
-impl Drop for MidDetour {
+impl Drop for ContextDetour {
   fn drop(&mut self) {
     // SAFETY: Restoring the original code is always valid.
     let disabled = unsafe { self.hook.disable() }.is_ok();
@@ -217,22 +222,22 @@ impl Drop for MidDetour {
   }
 }
 
-impl fmt::Debug for MidDetour {
+impl fmt::Debug for ContextDetour {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    f.debug_struct("MidDetour")
+    f.debug_struct("ContextDetour")
       .field("hook", &*self.hook)
       .field("shim", &*self.shim)
       .finish_non_exhaustive()
   }
 }
 
-impl crate::transaction::private::Sealed for MidDetour {
+impl crate::transaction::private::Sealed for ContextDetour {
   fn hook(&self) -> Option<&Hook> {
     Some(&self.hook)
   }
 }
 
-impl crate::Detour for MidDetour {}
+impl crate::Detour for ContextDetour {}
 
 /// Invokes the closure with the context saved by the shim.
 ///

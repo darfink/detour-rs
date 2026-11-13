@@ -1,11 +1,15 @@
 //! The shim of mid-function detours on x86 & x86-64.
 //!
-//! The shim pushes the flags and the general-purpose registers (forming the
-//! [`Context`]), clears the direction flag, saves the extended state (XSAVE,
+//! The shim saves the flags and the accumulator at the target's stack pointer
+//! (which need not be aligned), aligns the stack, and pushes the original
+//! stack pointer and the general-purpose registers & flags above it (forming
+//! the [`Context`], which is therefore aligned). It then clears the direction
+//! flag, saves the extended state (XSAVE,
 //! or FXSAVE if unsupported) on a 64-byte aligned stack, initializes the x87
 //! state (emptying its register stack, which calls require), and calls
-//! [`dispatch`]. It then restores everything in reverse, and jumps to the
-//! trampoline.
+//! [`dispatch`]. It then restores the extended state, the registers (moved
+//! from the context) and the flags, pops the original stack pointer, and jumps
+//! to the trampoline.
 //!
 //! On x86-64, the red zone (128 bytes below the stack pointer, which leaf
 //! functions may use on System V) is skipped first. The extended state of AMX
@@ -15,12 +19,12 @@
 use super::{Closure, Shim};
 use alloc::vec::Vec;
 
-/// The general-purpose registers & flags at the target of a [`MidDetour`].
+/// The general-purpose registers & flags at the target of a [`ContextDetour`].
 ///
 /// Changes of the registers & flags are applied when execution continues,
 /// except for the stack pointer, which is read-only.
 ///
-/// [`MidDetour`]: super::MidDetour
+/// [`ContextDetour`]: super::ContextDetour
 #[cfg(target_arch = "x86_64")]
 #[repr(C)]
 #[non_exhaustive]
@@ -69,12 +73,12 @@ impl Context {
   }
 }
 
-/// The general-purpose registers & flags at the target of a [`MidDetour`].
+/// The general-purpose registers & flags at the target of a [`ContextDetour`].
 ///
 /// Changes of the registers & flags are applied when execution continues,
 /// except for the stack pointer, which is read-only.
 ///
-/// [`MidDetour`]: super::MidDetour
+/// [`ContextDetour`]: super::ContextDetour
 #[cfg(target_arch = "x86")]
 #[repr(C)]
 #[non_exhaustive]
@@ -217,17 +221,21 @@ pub(super) fn shim(shim: &Shim) -> Vec<u8> {
 #[cfg(target_arch = "x86_64")]
 fn generate(shim: &Shim, state: ExtendedState) -> Vec<u8> {
   let mut code = Emitter(Vec::new());
-  // lea rsp, [rsp - 128]; pushfq
-  code.bytes(&[0x48, 0x8D, 0x64, 0x24, 0x80, 0x9C]);
+  // Save the flags & RAX below the red zone, at the (possibly misaligned) stack
+  // pointer of the target: lea rsp, [rsp - 128]; pushfq; push rax;
+  // lea rax, [rsp + 144] (the original RSP); and rsp, -16
+  code.bytes(&[0x48, 0x8D, 0x64, 0x24, 0x80, 0x9C, 0x50]);
+  code.bytes(&[0x48, 0x8D, 0x84, 0x24, 0x90, 0x00, 0x00, 0x00, 0x48, 0x83, 0xE4, 0xF0]);
+  // Push the original RSP (popped last), and the context above it:
+  // push rax; push qword ptr [rax - 136] (the flags)
+  code.bytes(&[0x50, 0xFF, 0xB0, 0x78, 0xFF, 0xFF, 0xFF]);
   // push r15 .. r8
   for register in (0..8).rev() {
     code.bytes(&[0x41, 0x50 + register]);
   }
-  // push rdi, rsi, rbp, rsp, rbx, rdx, rcx, rax
-  code.bytes(&[0x57, 0x56, 0x55, 0x54, 0x53, 0x52, 0x51, 0x50]);
-  // The pushed RSP excludes the red zone & the 12 registers pushed before it:
-  // add qword ptr [rsp + 32], 224
-  code.bytes(&[0x48, 0x81, 0x44, 0x24, 0x20, 0xE0, 0x00, 0x00, 0x00]);
+  // push rdi, rsi, rbp, rax (the original RSP), rbx, rdx, rcx;
+  // push qword ptr [rax - 144] (RAX)
+  code.bytes(&[0x57, 0x56, 0x55, 0x50, 0x53, 0x52, 0x51, 0xFF, 0xB0, 0x70, 0xFF, 0xFF, 0xFF]);
   // cld; mov rbx, rsp; and rsp, -64; sub rsp, size
   code.bytes(&[0xFC, 0x48, 0x89, 0xE3, 0x48, 0x83, 0xE4, 0xC0, 0x48, 0x81, 0xEC]);
   code.bytes(&state.size().to_le_bytes());
@@ -246,7 +254,7 @@ fn generate(shim: &Shim, state: ExtendedState) -> Vec<u8> {
   }
   // Empty the x87 register stack (saved above), as calls require: fninit
   code.bytes(&[0xDB, 0xE3]);
-  // mov rdi, rbx; mov rsi, handler; mov rax, dispatch; call rax
+  // mov rdi, rbx; mov rsi, closure; mov rax, dispatch; call rax
   code.bytes(&[0x48, 0x89, 0xDF, 0x48, 0xBE]);
   code.bytes(&(shim.handler as u64).to_le_bytes());
   code.bytes(&[0x48, 0xB8]);
@@ -259,16 +267,20 @@ fn generate(shim: &Shim, state: ExtendedState) -> Vec<u8> {
       code.bytes(&[0x48, 0x0F, 0xAE, 0x2C, 0x24]); // xrstor64 [rsp]
     },
   }
-  // mov rsp, rbx; pop rax, rcx, rdx, rbx; lea rsp, [rsp + 8] (skipping RSP);
-  // pop rbp, rsi, rdi
-  code.bytes(&[0x48, 0x89, 0xDC, 0x58, 0x59, 0x5A, 0x5B, 0x48, 0x8D, 0x64, 0x24, 0x08]);
-  code.bytes(&[0x5D, 0x5E, 0x5F]);
-  // pop r8 .. r15
-  for register in 0..8 {
-    code.bytes(&[0x41, 0x58 + register]);
+  // mov rsp, rbx; then restore the registers from the context, all at or above
+  // the stack pointer (except RSP): mov <register>, [rsp + 8 * number]
+  code.bytes(&[0x48, 0x89, 0xDC, 0x48, 0x8B, 0x04, 0x24]);
+  for (prefix, register) in [(0x48, 1), (0x48, 2), (0x48, 5), (0x48, 6), (0x48, 7)]
+    .into_iter()
+    .chain((8..16).map(|register| (0x4C, register)))
+  {
+    let modrm = 0x44 | (register & 7) << 3;
+    code.bytes(&[prefix, 0x8B, modrm, 0x24, 8 * register]);
   }
-  // popfq; lea rsp, [rsp + 128]; jmp [rip]; .quad trampoline
-  code.bytes(&[0x9D, 0x48, 0x8D, 0xA4, 0x24, 0x80, 0x00, 0x00, 0x00, 0xFF, 0x25, 0, 0, 0, 0]);
+  code.bytes(&[0x48, 0x8B, 0x5C, 0x24, 0x18]); // mov rbx, [rsp + 24]
+  // lea rsp, [rsp + 128]; popfq; pop rsp (the original RSP);
+  // jmp [rip]; .quad trampoline
+  code.bytes(&[0x48, 0x8D, 0xA4, 0x24, 0x80, 0x00, 0x00, 0x00, 0x9D, 0x5C, 0xFF, 0x25, 0, 0, 0, 0]);
   code.bytes(&(shim.trampoline as u64).to_le_bytes());
   code.0
 }
@@ -276,11 +288,14 @@ fn generate(shim: &Shim, state: ExtendedState) -> Vec<u8> {
 #[cfg(target_arch = "x86")]
 fn generate(shim: &Shim, state: ExtendedState) -> Vec<u8> {
   let mut code = Emitter(Vec::new());
-  // pushfd; push edi, esi, ebp, esp, ebx, edx, ecx, eax
-  code.bytes(&[0x9C, 0x57, 0x56, 0x55, 0x54, 0x53, 0x52, 0x51, 0x50]);
-  // The pushed ESP excludes the 4 registers pushed before it:
-  // add dword ptr [esp + 16], 16
-  code.bytes(&[0x83, 0x44, 0x24, 0x10, 0x10]);
+  // Save the flags & EAX at the (possibly misaligned) stack pointer of the
+  // target: pushfd; push eax; lea eax, [esp + 8] (the original ESP);
+  // and esp, -16
+  code.bytes(&[0x9C, 0x50, 0x8D, 0x44, 0x24, 0x08, 0x83, 0xE4, 0xF0]);
+  // Push the original ESP (popped last), and the context above it: push eax;
+  // push dword ptr [eax - 4] (the flags); push edi, esi, ebp, eax (the
+  // original ESP), ebx, edx, ecx; push dword ptr [eax - 8] (EAX)
+  code.bytes(&[0x50, 0xFF, 0x70, 0xFC, 0x57, 0x56, 0x55, 0x50, 0x53, 0x52, 0x51, 0xFF, 0x70, 0xF8]);
   // cld; mov ebx, esp; and esp, -64; sub esp, size
   code.bytes(&[0xFC, 0x89, 0xE3, 0x83, 0xE4, 0xC0, 0x81, 0xEC]);
   code.bytes(&state.size().to_le_bytes());
@@ -300,7 +315,7 @@ fn generate(shim: &Shim, state: ExtendedState) -> Vec<u8> {
   // Empty the x87 register stack (saved above), as calls require: fninit
   code.bytes(&[0xDB, 0xE3]);
   // Keeps the stack 16-byte aligned at the call:
-  // sub esp, 8; push handler; push ebx; mov eax, dispatch; call eax; add esp, 16
+  // sub esp, 8; push closure; push ebx; mov eax, dispatch; call eax; add esp, 16
   code.bytes(&[0x83, 0xEC, 0x08, 0x68]);
   code.bytes(&(shim.handler as u32).to_le_bytes());
   code.bytes(&[0x53, 0xB8]);
@@ -313,10 +328,16 @@ fn generate(shim: &Shim, state: ExtendedState) -> Vec<u8> {
       code.bytes(&[0x0F, 0xAE, 0x2C, 0x24]); // xrstor [esp]
     },
   }
-  // mov esp, ebx; pop eax, ecx, edx, ebx; lea esp, [esp + 4] (skipping ESP);
-  // pop ebp, esi, edi; popfd
-  code.bytes(&[0x89, 0xDC, 0x58, 0x59, 0x5A, 0x5B, 0x8D, 0x64, 0x24, 0x04, 0x5D, 0x5E, 0x5F, 0x9D]);
+  // mov esp, ebx; then restore the registers from the context, all at or above
+  // the stack pointer (except ESP): mov eax, [esp]; mov <register>, [esp + 4 *
+  // number] (ECX, EDX, EBP, ESI, EDI & EBX)
+  code.bytes(&[0x89, 0xDC, 0x8B, 0x04, 0x24]);
+  for register in [1, 2, 5, 6, 7, 3] {
+    code.bytes(&[0x8B, 0x44 | register << 3, 0x24, 4 * register]);
+  }
+  // lea esp, [esp + 32]; popfd; pop esp (the original ESP);
   // jmp [literal]; .long trampoline
+  code.bytes(&[0x8D, 0x64, 0x24, 0x20, 0x9D, 0x5C]);
   let literal = shim.base + code.0.len() + 6;
   code.bytes(&[0xFF, 0x25]);
   code.bytes(&(literal as u32).to_le_bytes());

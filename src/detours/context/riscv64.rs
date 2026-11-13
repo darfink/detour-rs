@@ -19,14 +19,14 @@ use super::{Closure, Shim};
 use alloc::vec;
 use alloc::vec::Vec;
 
-/// The general-purpose registers at the target of a [`MidDetour`].
+/// The general-purpose registers at the target of a [`ContextDetour`].
 ///
 /// Changes of the registers are applied when execution continues, except for
 /// X0 (the zero register), X2 (the stack pointer, which is read-only) and X6
 /// (T1, the scratch register, which holds no value at the target and reads
 /// as zero).
 ///
-/// [`MidDetour`]: super::MidDetour
+/// [`ContextDetour`]: super::ContextDetour
 #[repr(C)]
 #[non_exhaustive]
 #[derive(Clone, Debug, PartialEq, Eq)]

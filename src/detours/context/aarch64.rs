@@ -1,7 +1,9 @@
 //! The shim of mid-function detours on AArch64.
 //!
 //! The shim skips the red zone (128 bytes below the stack pointer, which leaf
-//! functions may use on Apple platforms), and allocates a frame holding:
+//! functions may use on Apple platforms), and allocates a 16-byte aligned
+//! frame (the stack pointer need not be aligned at the target, unless it is
+//! used to access memory), holding:
 //!
 //! | Offset | Contents                                  |
 //! |--------|-------------------------------------------|
@@ -19,13 +21,13 @@ use super::{Closure, Shim};
 use alloc::vec;
 use alloc::vec::Vec;
 
-/// The general-purpose registers & flags at the target of a [`MidDetour`].
+/// The general-purpose registers & flags at the target of a [`ContextDetour`].
 ///
 /// Changes of the registers & flags are applied when execution continues,
 /// except for the stack pointer (which is read-only) and X16 (the scratch
 /// register, which holds no value at the target).
 ///
-/// [`MidDetour`]: super::MidDetour
+/// [`ContextDetour`]: super::ContextDetour
 #[repr(C)]
 #[non_exhaustive]
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -83,9 +85,15 @@ fn add_sp(rd: u32, imm: u32) -> u32 {
   0x9100_0000 | imm << 10 | SP << 5 | rd
 }
 
-/// `SUB SP, SP, #imm`
-fn sub_sp(imm: u32) -> u32 {
-  0xD100_0000 | imm << 10 | SP << 5 | SP
+/// `ADD Xd, Xn, #imm` (or `SUB`).
+fn add(subtract: bool, rd: u32, rn: u32, imm: u32) -> u32 {
+  let opcode = if subtract { 0xD100_0000 } else { 0x9100_0000 };
+  opcode | imm << 10 | rn << 5 | rd
+}
+
+/// `AND SP, Xn, #-16`
+fn align_sp(rn: u32) -> u32 {
+  0x927C_EC00 | rn << 5 | SP
 }
 
 /// `LDR Xt, <pc + offset>`
@@ -103,13 +111,18 @@ const MSR_FPCR: u32 = 0xD51B_4400;
 
 /// Generates the shim.
 pub(super) fn shim(shim: &Shim) -> Vec<u8> {
-  let mut code = Vec::new();
-  code.push(sub_sp(RED_ZONE + FRAME));
+  // MOV X16, SP; SUB X16, X16, #size; AND SP, X16, #-16 (the frame); then
+  // ADD X16, X16, #size (the stack pointer at the target)
+  let mut code = vec![
+    add_sp(X16, 0),
+    add(true, X16, X16, RED_ZONE + FRAME),
+    align_sp(X16),
+    add(false, X16, X16, RED_ZONE + FRAME),
+  ];
   for register in (0..30).step_by(2) {
     code.push(pair(false, register, register + 1, register * 8));
   }
   // The stack pointer at the target, along with X30
-  code.push(add_sp(X16, RED_ZONE + FRAME));
   code.push(pair(false, 30, X16, 240));
   code.push(MRS_NZCV | X16);
   code.push(MRS_FPSR | X17);
@@ -146,7 +159,9 @@ pub(super) fn shim(shim: &Shim) -> Vec<u8> {
       code.push(pair(true, register, register + 1, register * 8));
     }
   }
-  code.push(add_sp(SP, RED_ZONE + FRAME));
+  // LDR X16, [SP, #248]; MOV SP, X16 (the stack pointer at the target)
+  code.push(single(true, X16, 248));
+  code.push(add(false, SP, X16, 0));
   // LDR X16, <trampoline>; BR X16
   loads.push((code.len(), X16, 2));
   code.push(0);

@@ -4,7 +4,7 @@
 
 ### Added
 
-- `MidDetour`: a detour of any instruction, not only the entry of a function
+- `ContextDetour`: a detour of any instruction, not only the entry of a function
   (a mid-function detour). Its closure is called with the general-purpose
   registers & flags (a `Context`), which it may modify, whilst all other
   state is preserved (including the vector registers; on x86, the state saved

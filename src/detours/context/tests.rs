@@ -7,7 +7,7 @@
 //!
 //! The tests share the probe, so they are serialized by [`PROBE`].
 
-use super::{Context, MidDetour};
+use super::{Context, ContextDetour};
 use crate::error::Result;
 use core::hint::black_box;
 use core::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
@@ -203,6 +203,21 @@ mod probe {
   pub fn sp(context: &super::Context) -> u64 {
     context.rsp()
   }
+
+  /// Executes a hook point with a stack pointer misaligned by 3 bytes, which
+  /// is stored to `sp`; returns the address of the hook point.
+  #[unsafe(naked)]
+  pub unsafe extern "sysv64" fn misaligned(sp: *mut usize) -> usize {
+    naked_asm!(
+      "sub rsp, 3",
+      "mov [rdi], rsp",
+      "2:",
+      ".byte 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90",
+      "add rsp, 3",
+      "lea rax, [rip + 2b]",
+      "ret",
+    );
+  }
 }
 
 #[cfg(target_arch = "aarch64")]
@@ -390,6 +405,26 @@ mod probe {
   pub fn sp(context: &super::Context) -> u64 {
     context.sp()
   }
+
+  /// Executes a hook point with a stack pointer misaligned by 8 bytes (which
+  /// is valid whilst it is not used to access memory), which is stored to
+  /// `sp`; returns the address of the hook point.
+  #[unsafe(naked)]
+  pub unsafe extern "C" fn misaligned(sp: *mut usize) -> usize {
+    naked_asm!(
+      "sub sp, sp, #8",
+      "mov x9, sp",
+      "str x9, [x0]",
+      "2:",
+      "nop",
+      "nop",
+      "nop",
+      "nop",
+      "add sp, sp, #8",
+      "adr x0, 2b",
+      "ret",
+    );
+  }
 }
 
 #[cfg(target_arch = "x86")]
@@ -529,6 +564,27 @@ mod probe {
 
   pub fn sp(context: &super::Context) -> u32 {
     context.esp()
+  }
+
+  /// Executes a hook point with a stack pointer misaligned by 3 bytes, which
+  /// is stored to `sp`; returns the address of the hook point.
+  #[unsafe(naked)]
+  pub unsafe extern "C" fn misaligned(sp: *mut usize) -> usize {
+    naked_asm!(
+      "mov eax, [esp + 4]",
+      "sub esp, 3",
+      "mov [eax], esp",
+      "2:",
+      ".byte 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90",
+      "add esp, 3",
+      "call 3f",
+      "3:",
+      "pop eax",
+      // add eax, 2b - 3b (a label difference is parsed as a memory operand)
+      ".byte 0x05",
+      ".long 2b - 3b",
+      "ret",
+    );
   }
 }
 
@@ -806,6 +862,27 @@ mod probe {
   pub fn sp(context: &super::Context) -> u64 {
     context.sp()
   }
+
+  /// Executes a hook point with a stack pointer misaligned by 3 bytes, which
+  /// is stored to `sp`; returns the address of the hook point.
+  #[unsafe(naked)]
+  pub unsafe extern "C" fn misaligned(sp: *mut usize) -> usize {
+    naked_asm!(
+      "addi sp, sp, -3",
+      "sd sp, 0(a0)",
+      ".option push",
+      ".option norvc",
+      "2:",
+      "nop",
+      "nop",
+      "nop",
+      "nop",
+      ".option pop",
+      "addi sp, sp, 3",
+      "lla a0, 2b",
+      "ret",
+    );
+  }
 }
 
 use probe::State;
@@ -841,7 +918,7 @@ fn preserves_state() -> Result<()> {
 
   // SAFETY: The hook point consists of `NOP`s, which no code branches into.
   let detour = unsafe {
-    MidDetour::new(hook_point(), |context| {
+    ContextDetour::new(hook_point(), |context| {
       black_box(clobber(context));
       CALLS.fetch_add(1, Ordering::SeqCst);
     })?
@@ -870,7 +947,7 @@ fn preserves_state_with_fxsave() -> Result<()> {
 
   FORCE_FXSAVE.store(true, Ordering::SeqCst);
   // SAFETY: See `preserves_state`.
-  let detour = unsafe { MidDetour::new(hook_point(), |context| _ = black_box(clobber(context))) };
+  let detour = unsafe { ContextDetour::new(hook_point(), |context| _ = black_box(clobber(context))) };
   FORCE_FXSAVE.store(false, Ordering::SeqCst);
   let detour = detour?;
   // SAFETY: No other thread executes the probe.
@@ -972,7 +1049,7 @@ fn preserves_avx_state() -> Result<()> {
     }
   };
   // SAFETY: See `preserves_state`.
-  let detour = unsafe { MidDetour::new(point as *const (), handler)? };
+  let detour = unsafe { ContextDetour::new(point as *const (), handler)? };
   // SAFETY: No other thread executes the probe.
   unsafe { detour.enable()? };
   output = [0; 32];
@@ -1018,7 +1095,7 @@ fn applies_modifications() -> Result<()> {
     }
   };
   // SAFETY: See `preserves_state`.
-  let detour = unsafe { MidDetour::new(hook_point(), handler)? };
+  let detour = unsafe { ContextDetour::new(hook_point(), handler)? };
   // SAFETY: No other thread executes the probe.
   unsafe { detour.enable()? };
   let actual = run(&input);
@@ -1034,18 +1111,50 @@ fn applies_modifications() -> Result<()> {
   Ok(())
 }
 
+/// Tests a hook point at which the stack pointer is misaligned: the closure
+/// must be called with an aligned stack and context, and the stack pointer
+/// must be restored.
+// The stack pointer is 32-bit on x86
+#[allow(clippy::unnecessary_cast)]
+#[test]
+fn handles_misaligned_stack() -> Result<()> {
+  static SEEN: Mutex<Option<(u64, bool)>> = Mutex::new(None);
+  let _probe = PROBE.lock().unwrap_or_else(|error| error.into_inner());
+  let mut sp = 0;
+  // SAFETY: The probe restores the stack pointer.
+  let point = unsafe { probe::misaligned(&mut sp) };
+
+  let handler = |context: &mut Context| {
+    let aligned = (&raw const *context as usize).is_multiple_of(core::mem::align_of::<Context>());
+    // Calls code that may require an aligned stack (e.g. for vector spills)
+    black_box(clobber(context));
+    *SEEN.lock().unwrap() = Some((probe::sp(context) as u64, aligned));
+  };
+  // SAFETY: See `preserves_state`.
+  let detour = unsafe { ContextDetour::new(point as *const (), handler)? };
+  // SAFETY: No other thread executes the probe.
+  unsafe { detour.enable()? };
+  sp = 0;
+  // SAFETY: See above.
+  unsafe { probe::misaligned(&mut sp) };
+
+  assert_ne!(sp % 16, 0);
+  assert_eq!(*SEEN.lock().unwrap(), Some((sp as u64, true)));
+  Ok(())
+}
+
 /// Tests that a closure may drop its own detour (whose generated code it
 /// returns to).
 #[test]
 fn closure_drops_its_detour() -> Result<()> {
-  static DETOUR: Mutex<Option<MidDetour>> = Mutex::new(None);
+  static DETOUR: Mutex<Option<ContextDetour>> = Mutex::new(None);
   let _probe = PROBE.lock().unwrap_or_else(|error| error.into_inner());
   let input = State::new(0xD809);
   let expected = run(&input);
 
   // SAFETY: See `preserves_state`.
   let detour = unsafe {
-    MidDetour::new(hook_point(), |context| {
+    ContextDetour::new(hook_point(), |context| {
       black_box(clobber(context));
       drop(DETOUR.lock().unwrap().take());
     })?
@@ -1110,7 +1219,7 @@ fn preserves_x87_state() -> Result<()> {
     *ONE.lock().unwrap() = one;
   };
   // SAFETY: See `preserves_state`.
-  let detour = unsafe { MidDetour::new(point as *const (), handler)? };
+  let detour = unsafe { ContextDetour::new(point as *const (), handler)? };
   // SAFETY: No other thread executes the probe.
   unsafe { detour.enable()? };
   let mut actual = [0.0; 8];
@@ -1132,8 +1241,8 @@ fn chains_with_other_detours() -> Result<()> {
   // SAFETY: See `preserves_state`.
   let (first, second) = unsafe {
     (
-      MidDetour::new(point, |_| ORDER.lock().unwrap().push(1))?,
-      MidDetour::new(point, |_| ORDER.lock().unwrap().push(2))?,
+      ContextDetour::new(point, |_| ORDER.lock().unwrap().push(1))?,
+      ContextDetour::new(point, |_| ORDER.lock().unwrap().push(2))?,
     )
   };
   let mut transaction = crate::Transaction::new();
@@ -1149,7 +1258,7 @@ fn chains_with_other_detours() -> Result<()> {
 }
 
 /// Runs the probe with `detours` disabled.
-fn run_without<const N: usize>(input: &State, detours: [&MidDetour; N]) -> Result<State> {
+fn run_without<const N: usize>(input: &State, detours: [&ContextDetour; N]) -> Result<State> {
   for detour in detours {
     // SAFETY: No other thread executes the probe.
     unsafe { detour.disable()? };

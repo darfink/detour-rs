@@ -87,7 +87,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 | [`static_detour!`][static] | Function or closure | Enforced | Statically |
 | [`TypedDetour`][typed] | Function | Enforced | At runtime |
 | [`RawDetour`][raw] | Function | None (raw pointers) | At runtime |
-| [`MidDetour`][mid] | Closure, given the registers | None (any instruction) | At runtime |
+| [`ContextDetour`][context] | Closure, given the registers | None (any instruction) | At runtime |
 
 `TypedDetour` requires no macro, and is suitable when the detour is a plain
 function:
@@ -149,19 +149,19 @@ known at runtime.
 
 ### Mid-function detours
 
-`MidDetour` detours any instruction, not only the entry of a function. Its
+`ContextDetour` detours any instruction, not only the entry of a function. Its
 closure is called with the general-purpose registers & flags (a
 `Context`), which it may inspect and modify, before the function resumes.
 All other state is preserved, including the vector registers:
 
 ```rust,ignore
-use detour::MidDetour;
+use detour::ContextDetour;
 
 // An instruction within a function, e.g. found with a disassembler
 let target = (module_base + 0x1F3A) as *const ();
 
 let detour = unsafe {
-  MidDetour::new(target, |context| {
+  ContextDetour::new(target, |context| {
     // x86-64: the element just loaded, about to be added to a sum
     context.rcx = context.rcx.min(100);
   })?
@@ -171,9 +171,9 @@ unsafe { detour.enable()? };
 
 A generated shim saves the state, calls the closure, restores the state, and
 continues at the trampoline (the relocated instructions, followed by a jump
-back). `MidDetour` is supported on x86, x86-64, AArch64 & RISC-V 64.
+back). `ContextDetour` is supported on x86, x86-64, AArch64 & RISC-V 64.
 
-Any instruction can be detoured (with `MidDetour` or `RawDetour`), provided
+Any instruction can be detoured (with `ContextDetour` or `RawDetour`), provided
 that:
 
 - No other code branches into the overwritten instructions (other than to
@@ -197,7 +197,7 @@ compiler enforces that:
   optimizations). The shim moves them where a Rust function expects them,
   calls it, and returns the result the same way.
 - **Hand-written mid-function shims**
-  ([`mid_function`](./examples/mid_function.rs)): what `MidDetour` does,
+  ([`mid_function`](./examples/mid_function.rs)): what `ContextDetour` does,
   written in assembly, e.g. to customize which state is saved.
 
 ## Detours of the same target
@@ -469,7 +469,7 @@ derivative code of his work.
 [signature]: https://docs.rs/detour/latest/detour/macro.signature.html
 [typed]: https://docs.rs/detour/latest/detour/struct.TypedDetour.html
 [raw]: https://docs.rs/detour/latest/detour/struct.RawDetour.html
-[mid]: https://docs.rs/detour/latest/detour/struct.MidDetour.html
+[context]: https://docs.rs/detour/latest/detour/struct.ContextDetour.html
 [transaction]: https://docs.rs/detour/latest/detour/struct.Transaction.html
 [iced]: https://github.com/icedland/iced
 [minhook-author]: https://github.com/Jascha-N

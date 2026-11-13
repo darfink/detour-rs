@@ -1,11 +1,11 @@
 //! The detour types.
 
-mod mid;
+mod context;
 mod raw;
 mod reentrancy;
 pub(crate) mod statik;
 mod typed;
 
-pub use self::mid::{Context, MidDetour};
+pub use self::context::{Context, ContextDetour};
 pub use self::raw::RawDetour;
 pub use self::typed::{Original, TypedDetour};

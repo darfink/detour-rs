@@ -2,7 +2,7 @@
 //! `extern "custom"` shim (Rust 1.100+) that saves the registers, lets a Rust
 //! handler inspect & modify them, restores them, and resumes the function.
 //!
-//! This is what [`detour::MidDetour`] does, with a shim generated at runtime;
+//! This is what [`detour::ContextDetour`] does, with a shim generated at runtime;
 //! use it instead, unless the shim must be customized (e.g. which state is
 //! saved). This example writes the shim by hand, in assembly.
 //!

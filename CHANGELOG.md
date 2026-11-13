@@ -4,6 +4,11 @@
 
 ### Added
 
+- `MidDetour`: a detour of any instruction, not only the entry of a function
+  (a mid-function detour). Its closure is called with the general-purpose
+  registers & flags (a `Context`), which it may modify, whilst all other
+  state is preserved (including the vector registers; on x86, the state saved
+  by `XSAVE`, if supported). Supported on x86, x86-64, AArch64 & RISC-V 64.
 - `set_reentrant` for static detours. A non-reentrant detour forwards calls
   of the target made from within its closure, on the same thread, to the
   original function (e.g. a detour of `malloc` that allocates). Supported on

@@ -87,6 +87,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 | [`static_detour!`][static] | Function or closure | Enforced | Statically |
 | [`TypedDetour`][typed] | Function | Enforced | At runtime |
 | [`RawDetour`][raw] | Function | None (raw pointers) | At runtime |
+| [`MidDetour`][mid] | Closure, given the registers | None (any instruction) | At runtime |
 
 `TypedDetour` requires no macro, and is suitable when the detour is a plain
 function:
@@ -146,7 +147,44 @@ fn main() -> detour::Result<()> {
 `RawDetour` accepts any pointer, e.g. for functions whose signature is only
 known at runtime.
 
-### Custom calling conventions & mid-function detours
+### Mid-function detours
+
+`MidDetour` detours any instruction, not only the entry of a function. Its
+closure is called with the general-purpose registers & flags (a
+`Context`), which it may inspect and modify, before the function resumes.
+All other state is preserved, including the vector registers:
+
+```rust,ignore
+use detour::MidDetour;
+
+// An instruction within a function, e.g. found with a disassembler
+let target = (module_base + 0x1F3A) as *const ();
+
+let detour = unsafe {
+  MidDetour::new(target, |context| {
+    // x86-64: the element just loaded, about to be added to a sum
+    context.rcx = context.rcx.min(100);
+  })?
+};
+unsafe { detour.enable()? };
+```
+
+A generated shim saves the state, calls the closure, restores the state, and
+continues at the trampoline (the relocated instructions, followed by a jump
+back). `MidDetour` is supported on x86, x86-64, AArch64 & RISC-V 64.
+
+Any instruction can be detoured (with `MidDetour` or `RawDetour`), provided
+that:
+
+- No other code branches into the overwritten instructions (other than to
+  the target itself). At least 5 bytes are overwritten on x86, 4 (or 16) on
+  AArch64, and 8 on RISC-V.
+- The scratch register of the architecture holds no live value at the
+  target: X16 on AArch64, and T1 on RISC-V. It may be clobbered on the way
+  to the detour, and from the trampoline back to the function. This holds at
+  the entry of every function. No register is clobbered on x86.
+
+### Custom calling conventions
 
 `RawDetour` can also detour code that no Rust function pointer type can
 describe. Its detour is then a naked `unsafe extern "custom" fn()` (Rust
@@ -158,21 +196,9 @@ compiler enforces that:
   assembly, or `__usercall` functions compiled with whole-program
   optimizations). The shim moves them where a Rust function expects them,
   calls it, and returns the result the same way.
-- **Mid-function detours** ([`mid_function`](./examples/mid_function.rs)):
-  the target is an instruction within a function, so no calling convention
-  applies. The shim saves all registers & flags, lets a Rust handler inspect
-  and modify them, restores them, and jumps to the trampoline, which runs
-  the overwritten instructions and resumes the function.
-
-Any instruction can be detoured, provided that:
-
-- No other code branches into the overwritten instructions (other than to
-  the target itself). At least 5 bytes are overwritten on x86, 4 (or 16) on
-  AArch64, and 8 on RISC-V.
-- The scratch register of the architecture holds no live value at the
-  target: X16 on AArch64, and T1 on RISC-V. It may be clobbered on the way
-  to the detour, and from the trampoline back to the function. This holds at
-  the entry of every function. No register is clobbered on x86.
+- **Hand-written mid-function shims**
+  ([`mid_function`](./examples/mid_function.rs)): what `MidDetour` does,
+  written in assembly, e.g. to customize which state is saved.
 
 ## Detours of the same target
 
@@ -281,7 +307,7 @@ patch may span several instructions (e.g. an absolute jump).
   [`mid_function`](./examples/mid_function.rs): detour a function with a
   non-standard calling convention, and an instruction in the middle of a
   function, using `extern "custom"` shims (x86-64 & AArch64; see
-  [above](#custom-calling-conventions--mid-function-detours)). They require
+  [above](#custom-calling-conventions)). They require
   Rust 1.100 and the `custom-abi` feature, e.g. `cargo run --example
   mid_function --features custom-abi`.
 
@@ -443,6 +469,7 @@ derivative code of his work.
 [signature]: https://docs.rs/detour/latest/detour/macro.signature.html
 [typed]: https://docs.rs/detour/latest/detour/struct.TypedDetour.html
 [raw]: https://docs.rs/detour/latest/detour/struct.RawDetour.html
+[mid]: https://docs.rs/detour/latest/detour/struct.MidDetour.html
 [transaction]: https://docs.rs/detour/latest/detour/struct.Transaction.html
 [iced]: https://github.com/icedland/iced
 [minhook-author]: https://github.com/Jascha-N

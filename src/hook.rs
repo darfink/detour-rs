@@ -124,8 +124,7 @@ impl Hook {
   ///
   /// # Safety
   ///
-  /// `target` must point to a function, and `detour` to a function compatible
-  /// with the target's calling convention and signature.
+  /// See [`RawDetour::new`](crate::RawDetour::new).
   pub unsafe fn new(target: *const (), detour: *const ()) -> Result<Self> {
     if target == detour {
       return Err(Error::SameAddress);

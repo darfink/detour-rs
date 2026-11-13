@@ -63,10 +63,30 @@ impl RawDetour {
   /// function might for example get inlined in which case it is impossible to
   /// hook at runtime.
   ///
+  /// `target` need not be the entry of a function: it may be any instruction,
+  /// e.g. for a mid-function detour (see the [`mid_function`] example). The
+  /// detour is then jumped to with the state of the function at `target`, and
+  /// must preserve it before continuing at the trampoline.
+  ///
+  /// [`mid_function`]: https://github.com/darfink/detour-rs/blob/master/examples/mid_function.rs
+  ///
   /// # Safety
   ///
-  /// `target` and `detour` must point to functions with compatible signatures
-  /// and calling conventions.
+  /// `target` must point to the start of an instruction, and `detour` must be
+  /// compatible with the state at `target`. If `target` is a function, the
+  /// detour must be a function with a compatible signature and calling
+  /// convention.
+  ///
+  /// The instructions overwritten by the jump to the detour (at least 5 bytes
+  /// on x86, 4 or 16 bytes on AArch64, and 8 bytes on RISC-V) are moved to the
+  /// trampoline. No other code may branch into them, other than to `target`
+  /// itself.
+  ///
+  /// The scratch register of the architecture (X16 on AArch64, T1 on RISC-V)
+  /// may be clobbered on the way to the detour, and from the trampoline back
+  /// to the code following the overwritten instructions. It must therefore
+  /// hold no live value at `target`, which is the case at the entry of a
+  /// function. No other registers (nor flags) are modified.
   pub unsafe fn new(target: *const (), detour: *const ()) -> Result<Self> {
     // SAFETY: Forwarded from the caller.
     unsafe { Hook::new(target, detour) }.map(RawDetour)

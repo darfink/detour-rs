@@ -14,6 +14,20 @@
   function, through `extern "custom"` shims (Rust 1.100+, behind the
   example-only `custom-abi` feature).
 
+### Fixed
+
+- On x86-64, calling a detour's original function (its trampoline)
+  clobbered R11. This was harmless when detouring the entry of a function,
+  but not for a mid-function detour. The trampoline now jumps through a
+  RIP-relative operand instead.
+
+### Changed
+
+- `RawDetour::new` documents its contract for any instruction, not only the
+  entry of a function: no other code may branch into the overwritten
+  instructions, and the scratch register (X16 on AArch64, T1 on RISC-V) may
+  be clobbered. On x86, no register is clobbered.
+
 ## [0.11.1] - 2026-11-09
 
 ### Fixed

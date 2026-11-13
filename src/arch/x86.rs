@@ -122,27 +122,44 @@ pub(crate) fn redirect(patch_address: *mut u8, layout: Layout, detour: *const ()
   Ok(Redirect { patched, relay })
 }
 
-/// Returns code jumping to the address stored at `pointer`.
+/// Returns a stub jumping to the address stored at `pointer`.
 ///
-/// It is the entry point of a function, so a scratch register that holds no
-/// argument (`r11`) may be clobbered. It begins with a landing pad, since it
-/// is called indirectly (a `nop` unless indirect branch tracking is enforced).
-pub(crate) fn link(pointer: *const usize) -> Vec<u8> {
+/// No register is clobbered, since the target need not be the entry of a
+/// function (see [`RawDetour::new`]). On x86-64, the stub is therefore
+/// allocated within reach of `pointer`, which it jumps through using a
+/// RIP-relative operand. Otherwise, it is allocated near `origin`.
+///
+/// It begins with a landing pad, since it is called indirectly (a `nop` unless
+/// indirect branch tracking is enforced).
+///
+/// # Safety
+///
+/// The caller must hold the global patch lock.
+///
+/// [`RawDetour::new`]: crate::RawDetour::new
+pub(crate) unsafe fn link(pointer: *const usize, origin: usize) -> Result<CodeBlock> {
   #[cfg(target_arch = "x86_64")]
-  {
-    // endbr64; mov r11, imm64; jmp qword ptr [r11]
-    let mut code = vec![0xF3, 0x0F, 0x1E, 0xFA, 0x49, 0xBB];
-    code.extend_from_slice(&(pointer as u64).to_le_bytes());
-    code.extend_from_slice(&[0x41, 0xFF, 0x23]);
-    code
-  }
+  let (code, mut stub) = {
+    // endbr64; jmp qword ptr [rip + disp32]
+    const LEN: usize = 10;
+    let _ = origin;
+    let stub = memory::allocate_near(pointer as usize, MAX_DISTANCE, LEN)?;
+    let displacement = rel32(stub.address() + LEN, pointer as usize).ok_or(Error::NoNearbyMemory)?;
+    let mut code = vec![0xF3, 0x0F, 0x1E, 0xFA, 0xFF, 0x25];
+    code.extend_from_slice(&displacement.to_le_bytes());
+    (code, stub)
+  };
   #[cfg(target_arch = "x86")]
-  {
+  let (code, mut stub) = {
     // endbr32; jmp dword ptr [abs32]
     let mut code = vec![0xF3, 0x0F, 0x1E, 0xFB, 0xFF, 0x25];
     code.extend_from_slice(&(pointer as u32).to_le_bytes());
-    code
-  }
+    let stub = memory::allocate_near(origin, usize::MAX, code.len())?;
+    (code, stub)
+  };
+  // SAFETY: The stub has just been allocated, and cannot be executing.
+  unsafe { stub.write(&code)? };
+  Ok(stub)
 }
 
 impl Layout {

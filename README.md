@@ -162,8 +162,17 @@ compiler enforces that:
   the target is an instruction within a function, so no calling convention
   applies. The shim saves all registers & flags, lets a Rust handler inspect
   and modify them, restores them, and jumps to the trampoline, which runs
-  the overwritten instructions and resumes the function. The overwritten
-  instructions must not be the target of other branches.
+  the overwritten instructions and resumes the function.
+
+Any instruction can be detoured, provided that:
+
+- No other code branches into the overwritten instructions (other than to
+  the target itself). At least 5 bytes are overwritten on x86, 4 (or 16) on
+  AArch64, and 8 on RISC-V.
+- The scratch register of the architecture holds no live value at the
+  target: X16 on AArch64, and T1 on RISC-V. It may be clobbered on the way
+  to the detour, and from the trampoline back to the function. This holds at
+  the entry of every function. No register is clobbered on x86.
 
 ## Detours of the same target
 

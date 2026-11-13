@@ -124,8 +124,7 @@ impl Hook {
   ///
   /// # Safety
   ///
-  /// `target` must point to a function, and `detour` to a function compatible
-  /// with the target's calling convention and signature.
+  /// See [`RawDetour::new`](crate::RawDetour::new).
   pub unsafe fn new(target: *const (), detour: *const ()) -> Result<Self> {
     if target == detour {
       return Err(Error::SameAddress);
@@ -157,10 +156,8 @@ impl Hook {
       patched: redirect.patched.into_boxed_slice(),
       next: AtomicUsize::new(code.trampoline.address()),
     });
-    let stub_code = arch::link(link.next.as_ptr());
-    let mut stub = memory::allocate_near(target as usize, usize::MAX, stub_code.len())?;
-    // SAFETY: The stub has just been allocated, and cannot be executing.
-    unsafe { stub.write(&stub_code)? };
+    // SAFETY: The patch lock is held.
+    let stub = unsafe { arch::link(link.next.as_ptr(), target as usize)? };
 
     let hook = Hook {
       target: target as usize,
@@ -468,6 +465,33 @@ mod tests {
   fn detour(target: unsafe extern "C" fn() -> i32) -> Result<RawDetour> {
     // SAFETY: Both functions share the same signature.
     unsafe { RawDetour::new(target as *const (), ret10 as *const ()) }
+  }
+
+  /// The trampoline must not clobber registers, since the target need not be
+  /// the entry of a function (e.g. R11 at the entry of `r11`).
+  #[cfg(target_arch = "x86_64")]
+  #[test]
+  fn trampoline_preserves_registers() -> Result<()> {
+    /// Returns R11.
+    #[unsafe(naked)]
+    unsafe extern "sysv64" fn r11() -> u64 {
+      naked_asm!("mov rax, r11", "nop", "nop", "ret");
+    }
+
+    /// Calls `function` with R11 set to `value`.
+    fn call(function: *const (), value: u64) -> u64 {
+      let result;
+      // SAFETY: `function` returns R11, and clobbers nothing else.
+      unsafe {
+        core::arch::asm!("call {function}", function = in(reg) function, in("r11") value, out("rax") result);
+      }
+      result
+    }
+
+    // SAFETY: The detour is never enabled.
+    let hook = unsafe { RawDetour::new(r11 as *const (), ret10 as *const ())? };
+    assert_eq!(call(hook.trampoline(), 0x1234_5678_9ABC_DEF0), 0x1234_5678_9ABC_DEF0);
+    Ok(())
   }
 
   #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]

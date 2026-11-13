@@ -21,6 +21,7 @@ use super::Redirect;
 use super::Site;
 use crate::error::{Error, Result};
 use crate::memory::{self, CodeBlock};
+#[cfg(target_arch = "aarch64")]
 use alloc::vec::Vec;
 #[cfg(target_arch = "aarch64")]
 use core::ptr;
@@ -139,13 +140,24 @@ pub(crate) fn redirect(patch_address: *mut u8, layout: Layout, detour: *const ()
   })
 }
 
-/// Returns code jumping to the address stored at `pointer`.
+/// Returns a stub jumping to the address stored at `pointer`, allocated near
+/// `origin`.
 ///
-/// It is the entry point of a function, so X16 may be clobbered.
-pub(crate) fn link(pointer: *const usize) -> Vec<u8> {
+/// It clobbers X16, the scratch register (see [`RawDetour::new`]).
+///
+/// # Safety
+///
+/// The caller must hold the global patch lock.
+///
+/// [`RawDetour::new`]: crate::RawDetour::new
+pub(crate) unsafe fn link(pointer: *const usize, origin: usize) -> Result<CodeBlock> {
   let mut emitter = encode::Emitter::new(0);
   emitter.indirect_jump(pointer as u64);
-  emitter.into_bytes()
+  let code = emitter.into_bytes();
+  let mut stub = memory::allocate_near(origin, usize::MAX, code.len())?;
+  // SAFETY: The stub has just been allocated, and cannot be executing.
+  unsafe { stub.write(&code)? };
+  Ok(stub)
 }
 
 /// Prepares a site patched with a direct branch, to the detour or a nearby
